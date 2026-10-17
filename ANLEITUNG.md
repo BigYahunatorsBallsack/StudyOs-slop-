@@ -4,8 +4,8 @@ Diese Anleitung bringt die fertige StudyOS-Web-App auf eine eigene URL und als A
 
 ## Vor dem Start: wichtige Grenzen
 
-- Es gibt derzeit **keine automatische Synchronisierung** zwischen Handy, Laptop oder Browsern.
-- Die App speichert Studien-Daten lokal auf dem jeweiligen Gerät. Exportiere regelmäßig unter **Mehr → Daten → Als Datei herunterladen** eine JSON-Sicherung und bewahre sie zusätzlich an einem zweiten Ort auf.
+- Es gibt **keine automatische Synchronisierung** zwischen Handy, Laptop oder Browsern. Du kannst aber Sicherungen zweier Geräte zusammenführen (siehe unten).
+- Die App speichert Studien-Daten lokal auf dem jeweiligen Gerät. Exportiere regelmäßig unter **Mehr → Daten & Einstellungen → Als Datei herunterladen** eine JSON-Sicherung und bewahre sie zusätzlich an einem zweiten Ort auf.
 - Die Website-Dateien sind bei GitHub Pages öffentlich erreichbar. Das ist unproblematisch, solange du keine persönlichen Daten oder Zugangsdaten in den Website-Dateien speicherst. Deine Einträge gehören nicht in das Repository.
 - Lokale Wiederherstellungspunkte auf dem Gerät sind praktisch, ersetzen aber keine exportierte Sicherungsdatei.
 
@@ -65,9 +65,9 @@ Für Installation und Offline-Betrieb muss die App über HTTPS oder `localhost` 
 
 ## Daten sichern und auf ein anderes Gerät übertragen
 
-1. Auf dem bisherigen Gerät in StudyOS **Mehr → Daten → Als Datei herunterladen** öffnen.
+1. Auf dem bisherigen Gerät in StudyOS **Mehr → Daten & Einstellungen → Als Datei herunterladen** öffnen, am besten mit Passphrase verschlüsselt.
 2. Die JSON-Datei sicher übertragen, zum Beispiel über einen verschlüsselten Cloud-Speicher oder ein Kabel.
-3. StudyOS auf dem neuen Gerät öffnen und unter **Mehr → Daten → Import** die Datei auswählen.
+3. StudyOS auf dem neuen Gerät öffnen und unter **Mehr → Daten & Einstellungen → Import** die Datei auswählen. Bei einer verschlüsselten Sicherung die Passphrase eingeben. Dann **Zusammenführen** wählen (behält, was auf dem Gerät schon vorhanden ist) oder **Daten ersetzen**.
 4. Nach dem Import prüfen, ob Module, Termine, Hausaufgaben, Notizen und Lernfortschritt vorhanden sind.
 
 GitHub Pages hostet nur die App-Dateien. Es synchronisiert deine Einträge nicht. Für automatische Gerätesynchronisierung wäre zusätzlich ein Backend mit Anmeldung und einer zentralen Datenbank nötig; das ist in dieser Version bewusst nicht enthalten.

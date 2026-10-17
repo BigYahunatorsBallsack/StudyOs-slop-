@@ -269,3 +269,81 @@
 .focus-within\:ring-1:focus-within{--tw-ring-offset-shadow:0 0 0 var(--tw-ring-offset-width,0px) var(--tw-ring-offset-color,#020617);--tw-ring-shadow:0 0 0 calc(1px + var(--tw-ring-offset-width,0px)) var(--tw-ring-color,#38bdf8);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}
 .focus\:ring-1:focus{--tw-ring-offset-shadow:0 0 0 var(--tw-ring-offset-width,0px) var(--tw-ring-offset-color,#020617);--tw-ring-shadow:0 0 0 calc(1px + var(--tw-ring-offset-width,0px)) var(--tw-ring-color,#38bdf8);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}
 .focus-visible\:ring-2:focus-visible{--tw-ring-offset-shadow:0 0 0 var(--tw-ring-offset-width,0px) var(--tw-ring-offset-color,#020617);--tw-ring-shadow:0 0 0 calc(2px + var(--tw-ring-offset-width,0px)) var(--tw-ring-color,#38bdf8);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}
+/* === StudyOS 2.0: generiert von tools/theme_css.py === */
+.bg-emerald-500\/15{background-color:rgba(16,185,129,0.15)}
+.bg-rose-500\/20{background-color:rgba(244,63,94,0.2)}
+.border-rose-500\/30{border-color:rgba(244,63,94,0.3)}
+.border-sky-500\/60{border-color:rgba(14,165,233,0.6)}
+.text-emerald-200{color:#a7f3d0}
+.text-rose-100\/90{color:rgba(255,228,230,0.9)}
+.divide-slate-800 > :not([hidden]) ~ :not([hidden]){border-color:#1e293b}
+.gap-\[3px\]{gap:3px}
+.h-\[11px\]{height:11px}
+.w-\[11px\]{width:11px}
+.h-\[13px\]{height:13px}
+.leading-\[11px\]{line-height:11px}
+.leading-\[13px\]{line-height:13px}
+.rounded-\[2px\]{border-radius:2px}
+.text-\[9px\]{font-size:9px}
+.inline-flex{display:inline-flex}
+.items-baseline{align-items:baseline}
+.mr-1{margin-right:.25rem}
+.mt-10{margin-top:2.5rem}
+.pt-4{padding-top:1rem}
+:root{--hm0:#1e293b;--hm1:rgba(56,189,248,.3);--hm2:rgba(56,189,248,.55);--hm3:rgba(56,189,248,.8);--hm4:#38bdf8}
+:root[data-theme="light"]{--hm0:#e2e8f0;--hm1:rgba(2,132,199,.25);--hm2:rgba(2,132,199,.5);--hm3:rgba(2,132,199,.75);--hm4:#0369a1}
+.hm{display:inline-block}.hm0{background:var(--hm0)}.hm1{background:var(--hm1)}.hm2{background:var(--hm2)}.hm3{background:var(--hm3)}.hm4{background:var(--hm4)}.hm-f{background:transparent;outline:1px dashed var(--hm0);outline-offset:-1px}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="light"],:root[data-theme="light"] body{background:#f8fafc;color:#0f172a}
+:root[data-theme="light"] input[type=date],:root[data-theme="light"] input[type=time]{color-scheme:light}
+:root[data-theme="light"] ::selection{background:rgba(2,132,199,.2)}
+:root[data-theme="light"] .md code{background:#e2e8f0}:root[data-theme="light"] .md pre{background:#f1f5f9;border-color:#e2e8f0}:root[data-theme="light"] .md a,:root[data-theme="light"] a{color:#0369a1}:root[data-theme="light"] .md blockquote{border-color:#cbd5e1;color:#475569}
+:root[data-theme="light"] .boot{color:#475569}
+:root[data-theme="light"] .bg-slate-100{background-color:#0f172a}
+:root[data-theme="light"] .bg-slate-200{background-color:#1e293b}
+:root[data-theme="light"] .bg-slate-800{background-color:#e2e8f0}
+:root[data-theme="light"] .bg-slate-800\/40{background-color:rgba(226,232,240,0.4)}
+:root[data-theme="light"] .bg-slate-900{background-color:#ffffff}
+:root[data-theme="light"] .bg-slate-900\/30{background-color:rgba(255,255,255,0.3)}
+:root[data-theme="light"] .bg-slate-900\/40{background-color:rgba(255,255,255,0.4)}
+:root[data-theme="light"] .bg-slate-900\/60{background-color:rgba(255,255,255,0.6)}
+:root[data-theme="light"] .bg-slate-950{background-color:#f8fafc}
+:root[data-theme="light"] .bg-slate-950\/95{background-color:rgba(248,250,252,0.95)}
+:root[data-theme="light"] .border-slate-700{border-color:#cbd5e1}
+:root[data-theme="light"] .border-slate-800{border-color:#e2e8f0}
+:root[data-theme="light"] .placeholder-slate-600{--placeholder-color:#94a3b8}
+:root[data-theme="light"] .ring-offset-slate-900{--tw-ring-offset-color:#f1f5f9}
+:root[data-theme="light"] .text-amber-100{color:#92400e}
+:root[data-theme="light"] .text-amber-100\/90{color:rgba(146,64,14,0.9)}
+:root[data-theme="light"] .text-amber-200{color:#92400e}
+:root[data-theme="light"] .text-amber-300{color:#b45309}
+:root[data-theme="light"] .text-emerald-300{color:#047857}
+:root[data-theme="light"] .text-emerald-400{color:#059669}
+:root[data-theme="light"] .text-rose-100{color:#9f1239}
+:root[data-theme="light"] .text-rose-200{color:#9f1239}
+:root[data-theme="light"] .text-rose-200\/80{color:rgba(159,18,57,0.8)}
+:root[data-theme="light"] .text-rose-300{color:#be123c}
+:root[data-theme="light"] .text-rose-400{color:#e11d48}
+:root[data-theme="light"] .text-sky-100{color:#075985}
+:root[data-theme="light"] .text-sky-200{color:#075985}
+:root[data-theme="light"] .text-sky-300{color:#0369a1}
+:root[data-theme="light"] .text-sky-400{color:#0284c7}
+:root[data-theme="light"] .text-slate-100{color:#0f172a}
+:root[data-theme="light"] .text-slate-200{color:#1e293b}
+:root[data-theme="light"] .text-slate-300{color:#334155}
+:root[data-theme="light"] .text-slate-400{color:#475569}
+:root[data-theme="light"] .text-slate-600{color:#94a3b8}
+:root[data-theme="light"] .text-slate-900{color:#f1f5f9}
+:root[data-theme="light"] .text-slate-950{color:#f8fafc}
+:root[data-theme="light"] .hover\:bg-slate-700:hover{background-color:#cbd5e1}
+:root[data-theme="light"] .hover\:bg-slate-800:hover{background-color:#e2e8f0}
+:root[data-theme="light"] .hover\:bg-slate-800\/50:hover{background-color:rgba(226,232,240,0.5)}
+:root[data-theme="light"] .hover\:bg-slate-800\/60:hover{background-color:rgba(226,232,240,0.6)}
+:root[data-theme="light"] .hover\:text-sky-300:hover{color:#0369a1}
+:root[data-theme="light"] .hover\:text-slate-100:hover{color:#0f172a}
+:root[data-theme="light"] .hover\:text-slate-200:hover{color:#1e293b}
+:root[data-theme="light"] .hover\:text-slate-300:hover{color:#334155}
+:root[data-theme="light"] .hover\:text-slate-400:hover{color:#475569}
+:root[data-theme="light"] .text-emerald-200{color:#065f46}
+:root[data-theme="light"] .text-rose-100\/90{color:rgba(159,18,57,0.9)}
+:root[data-theme="light"] .divide-slate-800 > :not([hidden]) ~ :not([hidden]){border-color:#e2e8f0}
