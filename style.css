@@ -50,7 +50,7 @@
 .flex{display:flex}
 .flex-1{flex:1 1 0%}
 .flex-col{flex-direction:column}
-.flex-wrap{flex-wrap}
+.flex-wrap{flex-wrap:wrap}
 .font-bold{font-weight:700}
 .font-medium{font-weight:500}
 .font-normal{font-weight:400}
@@ -111,7 +111,7 @@
 .pointer-events-none{pointer-events:none}
 .relative{position:relative}
 .resize-y{resize:vertical}
-.ring-offset-slate-900{--tw-ring-offset-color:#0f172a}
+.ring-offset-2{--tw-ring-offset-width:2px}.ring-offset-slate-900{--tw-ring-offset-color:#0f172a}
 .ring-sky-500\/40{--tw-ring-color:#0ea5e9}
 .ring-white{--tw-ring-color:#ffffff}
 .rounded{border-radius:.25rem}
