@@ -27,13 +27,14 @@ const More = named(() => import("./views/More.jsx"), "More");
 const NoteViewer = named(() => import("./views/Search.jsx"), "NoteViewer");
 const SearchModal = named(() => import("./views/Search.jsx"), "SearchModal");
 const ShareImport = named(() => import("./views/Share.jsx"), "ShareImport");
-const Loading = () => <p className="py-10 text-center text-sm text-slate-500" role="status">Lädt …</p>;
+const Loading = () => <p className="py-3 text-center text-sm text-slate-500" role="status">Lädt …</p>;
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries } from "./lib/study.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
+import { sharedNote, takeShared } from "./lib/shared.js";
 
 /* ---------------- App ---------------- */
 export default function App() {
@@ -83,6 +84,13 @@ export default function App() {
     else if (a === "karten") { setLearnTab("karten"); setTab("lernen"); }
     else if (a === "pruefungen") { setLearnTab("pruefungen"); setTab("lernen"); }
     else if (a === "heute") setTab("heute");
+    else if (a === "geteilt") takeShared().then((msg) => {
+      if (!msg) return;
+      const note = { ...sharedNote(msg, iso()), id: uid() };
+      saveEntity("note", note, true);
+      toast(note.files.length ? `Als Notiz mit ${note.files.length} ${note.files.length === 1 ? "Anhang" : "Anhängen"} gespeichert.` : "Als Notiz gespeichert.");
+      setTimeout(() => openForm("note", note, false), 0);
+    });
   }, [ready]);
 
   /* Tastenkürzel (Desktop): siehe ui/shortcuts.jsx; Aktionen über eine Ref, damit der Handler stabil bleibt */

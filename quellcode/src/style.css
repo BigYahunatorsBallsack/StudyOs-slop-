@@ -182,7 +182,7 @@
 .w-7{width:1.75rem}
 .w-8{width:2rem}
 .w-full{width:100%}
-.whitespace-pre-wrap{white-space:pre-wrap}
+.whitespace-pre-wrap{white-space:pre-wrap}.whitespace-pre-line{white-space:pre-line}
 .z-20{z-index:20}
 .z-40{z-index:40}
 .z-50{z-index:50}

@@ -14,6 +14,22 @@
   "orientation": "portrait-primary",
   "background_color": "#1b1830",
   "theme_color": "#1b1830",
+  "share_target": {
+    "action": "./teilen-ziel",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": ["application/pdf", "image/*", "text/plain", ".pdf", ".txt", ".md", ".java", ".py"]
+        }
+      ]
+    }
+  },
   "categories": [
     "education",
     "productivity"
