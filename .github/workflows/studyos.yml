@@ -21,7 +21,7 @@ defaults:
 jobs:
   pruefen:
     name: Prüfen
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -35,8 +35,11 @@ jobs:
         run: npm run lint
       - name: Unit-Tests
         run: npm test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Edge Function in Deno
-        run: npm run test:function
+        run: npm run build && node tests/deno/run-function.mjs deno
       - name: CSS-Klassen
         run: python3 tools/css_check.py .
       - name: Playwright-Browser
@@ -54,7 +57,7 @@ jobs:
     name: Veröffentlichen
     needs: pruefen
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
