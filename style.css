@@ -642,3 +642,63 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .stats > .stat { min-width: 7.25rem; }
 /* Tabs neben anderen Elementen (z. B. Filterzeile): nicht bis an den Rand ziehen */
 .flex > .seg { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; min-width: 0; }
+
+/* ---- Dreifach-Schalter: vorbereitet, besucht, nachbereitet ---- */
+.tri { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; gap: 2px; }
+.surface .tri, .popover .tri { background: var(--surface-3); }
+.tri-btn { display: inline-flex; align-items: center; gap: .25rem; border-radius: 999px; padding: .32rem .7rem; font-size: .75rem; font-weight: 650; color: var(--muted); transition: background-color .15s, color .15s, transform .12s; white-space: nowrap; }
+.tri-btn:hover { color: var(--text); }
+.tri-btn:active { transform: scale(.95); }
+.tri-btn[aria-pressed="true"] { background: var(--mod, var(--accent)); color: var(--on-module); }
+.tri-btn.tri-warn { color: var(--warn-text); }
+.tri-mark { display: inline-block; min-width: .6rem; text-align: center; }
+.tri-btn[aria-pressed="true"] .tri-mark { animation: pop .28s ease; }
+.tri-compact .tri-btn { padding: .28rem .55rem; font-size: .7rem; }
+.tri-compact .tri-mark:empty { display: none; }
+
+/* ---- Termin-Karte im Raster ---- */
+.popover { position: fixed; z-index: 45; width: 17.5rem; max-width: calc(100vw - 16px); background: var(--surface); color: var(--text); border-radius: var(--r-group); padding: .9rem .95rem .85rem 1.15rem; box-shadow: var(--shadow), inset 0 0 0 1px var(--line-strong); overflow: hidden; animation: fade .12s ease; }
+.popover::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--mod, var(--accent)); }
+.popover-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; line-height: 1.2; }
+.ev-active { outline: 2px solid var(--text); outline-offset: 1px; z-index: 4; }
+.mt-0\.5 { margin-top: .125rem; }
+
+/* ---- Heute: Kennzahlen als Zeile ---- */
+.minis { display: flex; flex-wrap: wrap; gap: .35rem 1.1rem; font-size: .8125rem; color: var(--muted); }
+.minis b { font-family: var(--font-display); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* ---- Tagesplan als Zeitleiste ---- */
+.timeline { display: flex; flex-direction: column; gap: .5rem; }
+.tl-row { display: grid; grid-template-columns: 3.1rem 1fr; gap: .6rem; align-items: stretch; }
+.tl-time { display: flex; flex-direction: column; align-items: flex-end; padding-top: .8rem; font-variant-numeric: tabular-nums; }
+.tl-time b { font-family: var(--font-display); font-weight: 700; font-size: .95rem; }
+.tl-time span { font-size: .72rem; color: var(--faint); }
+.tl-body { position: relative; background: var(--surface); border-radius: var(--r-row); padding: .75rem .85rem .75rem 1.1rem; overflow: hidden; min-width: 0; }
+.tl-body::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--mod, var(--surface-3)); }
+.tl-live .tl-body { box-shadow: inset 0 0 0 2px var(--mod, var(--accent)); }
+.tl-live .tl-time b { color: var(--accent-text); }
+.tl-past .tl-time { opacity: .6; }
+
+/* ---- Zu erledigen ---- */
+.todo { display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-group); overflow: hidden; }
+.todo-row { display: flex; align-items: center; gap: .75rem; padding: .55rem .85rem; }
+.todo-row + .todo-row { border-top: 1px solid var(--line); }
+.todo-check { flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 999px; border: 2px solid var(--mod, var(--line-strong)); display: grid; place-items: center; transition: background-color .15s, transform .12s; }
+.todo-check:hover { background: color-mix(in srgb, var(--mod, var(--accent)) 25%, transparent); }
+.todo-check:hover::after { content: "✓"; font-size: .8rem; color: var(--text); }
+.todo-check:active { transform: scale(.88); }
+.todo-check-go { border-color: var(--line-strong); color: var(--muted); font-size: 1.1rem; line-height: 1; }
+.todo-body { min-width: 0; flex: 1; text-align: left; padding: .2rem 0; }
+.todo-late { color: var(--danger-text); font-weight: 600; }
+.todo-dot { width: .55rem; height: .55rem; border-radius: 999px; background: var(--mod); flex-shrink: 0; }
+
+/* ---- Prüfungs-Countdown ---- */
+.exam-chips { display: flex; gap: .5rem; overflow-x: auto; scrollbar-width: none; margin-left: -1rem; margin-right: -1rem; padding: 0 1rem; }
+.exam-chips::-webkit-scrollbar { display: none; }
+.exam-chip { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; max-width: 12rem; padding: .65rem .9rem; border-radius: var(--r-row); background: color-mix(in srgb, var(--mod, var(--accent)) 22%, var(--surface)); text-align: left; }
+.exam-chip-days { font-family: var(--font-display); font-weight: 750; font-size: 1.15rem; }
+.exam-chip-name { font-size: .75rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.block { display: block; }
+.popover { width: 19.5rem; }
+.popover .tri { display: flex; width: 100%; }
+.popover .tri-btn { flex: 1 1 0; justify-content: center; padding: .38rem .25rem; font-size: .72rem; min-width: 0; }
