@@ -66,7 +66,8 @@ function WeekGrid({ db, days, weekSes }) {
   const cardSession = hover.card && data.sessions.find((x) => x.id === hover.card.id);
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(id); }, []);
-  const weekend = days.slice(5).filter((d) => d === t || weekSes.some((s) => s.date === d) || data.exams.some((e) => e.date === d));
+  /* Wochenende nur, wenn dort etwas ist: Termine, Prüfungen, Abgaben, Lernblöcke (oder heute) */
+  const weekend = days.slice(5).filter((d) => d === t || weekSes.some((s) => s.date === d) || data.exams.some((e) => e.date === d) || data.homework.some((h) => h.due === d) || (data.blocks || []).some((b) => b.date === d));
   const shown = [...days.slice(0, 5), ...weekend];
   const active = weekSes.filter((s) => shown.includes(s.date));
   const exams = data.exams.filter((e) => shown.includes(e.date) && e.time);

@@ -617,3 +617,16 @@ test('Anhang an eine Hausaufgabe (lokal) und Probeklausur', async ({ page }) => 
   await res.getByRole('button', { name: '1 unsichere Karten heute wiederholen' }).click();
   await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).cards.find((c) => c.id === 'c3').due)).toBe(await page.evaluate(() => new Date().toLocaleDateString('sv-SE')));
 });
+
+test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-21T09:00:00') }); /* Mittwoch */
+  await page.goto('./');
+  await seed(page, () => ({ sessions: [{ id: 'a', moduleId: 'ds', type: 'Vorlesung', date: '2026-10-21', start: '10:00', end: '12:00' }],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 3', due: '2026-10-24', status: 'ausgegeben' }] }));
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  await expect(page.locator('.grid-day')).toHaveText(['Mo19', 'Di20', 'Mi21', 'Do22', 'Fr23', 'Sa24']);
+  await expect(page.getByRole('button', { name: /Abgabe Blatt 3/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

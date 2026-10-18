@@ -1,5 +1,8 @@
 # Änderungen
 
+## 2.5.3
+- **Wochenraster:** Samstag und Sonntag erscheinen jetzt auch, wenn dort nur eine Abgabe oder ein Lernblock liegt (bisher nur bei Terminen und Prüfungen).
+
 ## 2.5.2
 - **Artemis:** Erkennt das echte Format der Artemis-Kalender („EIDI Exercise | Due: …“ bzw. „Aufgabe | Abgabefrist: …“). Ein Abo geht jetzt auch, solange noch keine Abgaben im Kalender stehen; sie werden übernommen, sobald sie erscheinen. Freigabe-, Start- und Korrekturtermine werden ignoriert.
 
