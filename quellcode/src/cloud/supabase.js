@@ -148,6 +148,20 @@ export function createSupabaseCloud() {
         return new Uint8Array(await res.arrayBuffer());
       },
       async remove(id) { await storage("DELETE", id).catch(() => {}); },
+      /* Dateien im eigenen Ordner, deren Name mit `search` beginnt (für die Cloud-Sicherungen) */
+      async list(search) {
+        const { data } = await auth.getSession();
+        if (!data.session) throw new CloudError("Nicht angemeldet.");
+        let res;
+        try {
+          res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/studyos-files`, {
+            method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${data.session.access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ prefix: data.session.user.id + "/", search, limit: 100, sortBy: { column: "name", order: "desc" } }),
+          });
+        } catch (e) { throw explain(e); }
+        if (!res.ok) throw new CloudError(res.status === 404 || res.status === 400 ? "Cloud-Speicher ist noch nicht eingerichtet: Bitte supabase/anhaenge.sql im SQL-Editor ausführen." : `Liste der Sicherungen nicht verfügbar (${res.status}).`);
+        return (await res.json()).filter((o) => o.name && o.name.startsWith(search)).map((o) => ({ id: o.name, created: o.updated_at || o.created_at || null, size: Number(o.metadata?.size) || 0 }));
+      },
     },
     calUrl: (token) => `${FN}?action=cal&token=${token}`,
     fetchIcs: async (url) => (await callFn("ics", { body: { url } })).text(),

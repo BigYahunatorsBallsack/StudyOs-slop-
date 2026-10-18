@@ -25,6 +25,7 @@ export function createFakeCloud(call) {
       put: (id, bytes) => call("files.put", uid(), id, Array.from(bytes)),
       get: async (id) => { const a = await call("files.get", uid(), id); if (!a) throw new Error("Datei nicht in der Cloud gefunden."); return new Uint8Array(a); },
       remove: (id) => call("files.remove", uid(), id),
+      list: (search) => call("files.list", uid(), search),
     },
     mvg: async (body) => { const r = await call("mvg", uid(), body); if (r && r.error) throw new Error(r.error); return r; },
     fetchIcs: async (url) => { const r = await call("ics", uid(), url); if (r && r.error) throw new Error(r.error); return r.text; },

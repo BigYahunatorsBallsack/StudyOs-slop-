@@ -18,6 +18,7 @@ function createBackend() {
       if (op === 'files.put') { this.files.set(args[0] + '/' + args[1], args[2]); return true; }
       if (op === 'files.get') return this.files.get(args[0] + '/' + args[1]) ?? null;
       if (op === 'files.remove') { this.files.delete(args[0] + '/' + args[1]); return true; }
+      if (op === 'files.list') return [...this.files.entries()].filter(([k]) => k.startsWith(args[0] + '/' + args[1])).map(([k, v]) => ({ id: k.slice(args[0].length + 1), created: new Date().toISOString(), size: v.length })).sort((a, b) => b.id.localeCompare(a.id));
       if (op === 'push.setCalToken') { pushRow(args[0]).cal_token = args[1]; return true; }
       if (op === 'push.test') { this.tests++; return { devices: pushRow(args[0]).subscriptions.length, sent: pushRow(args[0]).subscriptions.length }; }
       if (op === 'shares.create') { this.shares.set(args[1], { owner: args[0], blob: args[2] }); return true; }
@@ -474,4 +475,38 @@ test('Konflikt: Änderung von einem anderen Gerät überschrieben, „Meine beha
   expect(A.errors).toEqual([]);
   expect(B.errors).toEqual([]);
   await A.context.close(); await B.context.close();
+});
+
+test('Cloud-Sicherung: wöchentlich verschlüsselt, Wiederherstellen holt Gelöschtes zurück', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const A = await newDevice(browser, backend);
+  await addNote(A.page, 'Wichtige Notiz');
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  // Nach dem ersten Sync automatisch gesichert, verschlüsselt
+  await expect.poll(() => [...backend.files.keys()].filter((k) => k.includes('/sicherung-')).length, { timeout: 15000 }).toBe(1);
+  const blob = Buffer.from([...backend.files.entries()].find(([k]) => k.includes('/sicherung-'))[1]).toString('utf8');
+  expect(blob).not.toContain('Wichtige Notiz');
+  const list = A.page.getByRole('list', { name: 'Cloud-Sicherungen' });
+  await expect(list.getByText(/^KW \d+\/\d{4}/)).toHaveCount(1);
+
+  // Notiz löschen (auf allen Geräten), dann aus der Sicherung wiederherstellen
+  await A.page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  await A.page.getByPlaceholder(/Module, Hausaufgaben/).fill('Wichtige');
+  await A.page.getByRole('option', { name: /Wichtige Notiz/ }).click();
+  await A.page.getByRole('button', { name: 'Bearbeiten' }).click();
+  const dlg = A.page.getByRole('dialog', { name: /bearbeiten/ });
+  await dlg.getByRole('button', { name: 'Löschen', exact: true }).click();
+  await dlg.getByRole('button', { name: 'Wirklich löschen?' }).click();
+  await expect.poll(() => notes(A.page)).toEqual([]);
+  await openData(A.page);
+  await list.getByRole('button', { name: 'Wiederherstellen' }).click();
+  await list.getByRole('button', { name: /Stand aus KW \d+ laden\?/ }).click();
+  await expect(A.page.getByText(/wiederhergestellt/)).toBeVisible();
+  await expect.poll(() => notes(A.page)).toEqual(['Wichtige Notiz']);
+  expect(A.errors).toEqual([]);
+  await A.context.close();
 });
