@@ -130,7 +130,8 @@ async function mvg(body, fetchImpl) {
     time: Number(d.realtimeDepartureTime || d.plannedDepartureTime) || 0,
     delay: Number(d.delayInMinutes) || 0,
     realtime: !!d.realtime,
-    cancelled: !!d.cancelled
+    cancelled: !!d.cancelled,
+    platform: d.platform ? String(d.platform).slice(0, 8) : ""
   })).filter((d) => d.time) };
 }
 

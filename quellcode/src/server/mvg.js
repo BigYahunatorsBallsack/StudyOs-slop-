@@ -29,6 +29,6 @@ export async function mvg(body, fetchImpl) {
   return { data: raw.map((d) => ({
     line: String(d.label || ""), destination: String(d.destination || ""), type: d.transportType || "",
     planned: Number(d.plannedDepartureTime) || 0, time: Number(d.realtimeDepartureTime || d.plannedDepartureTime) || 0,
-    delay: Number(d.delayInMinutes) || 0, realtime: !!d.realtime, cancelled: !!d.cancelled,
+    delay: Number(d.delayInMinutes) || 0, realtime: !!d.realtime, cancelled: !!d.cancelled, platform: d.platform ? String(d.platform).slice(0, 8) : "",
   })).filter((d) => d.time) };
 }

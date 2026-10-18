@@ -347,6 +347,9 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
     if (body.kind === 'stations') return [{ id: 'de:09184:2222', name: 'Haar, Gymnasium', place: 'Haar (b München)', types: ['BUS'] }];
     const base = new Date(); base.setHours(0, 0, 0, 0);
     const t = (d, hm) => base.getTime() + d * 86400000 + (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60000;
+    if (body.station === 'de:09175:4020') return [0, 1].flatMap((d) => ['07:32', '07:52', '08:12'].flatMap((hm) => [
+      { line: 'S6', destination: 'Leuchtenbergring', type: 'SBAHN', planned: t(d, hm), time: t(d, hm), delay: 0, realtime: true, cancelled: false, platform: '5' },
+      { line: 'S6', destination: 'Grafing-Bahnhof', type: 'SBAHN', planned: t(d, hm) + 60000, time: t(d, hm) + 60000, delay: 0, realtime: true, cancelled: false, platform: '4' }]));
     return [0, 1].flatMap((d) => ['07:53', '08:13', '08:33', '09:13'].map((hm) => ({ line: '230', destination: 'Garching, Forschungszentrum (U)', type: 'REGIONAL_BUS', planned: t(d, hm), time: t(d, hm) + (hm === '08:13' ? 120000 : 0), delay: hm === '08:13' ? 2 : 0, realtime: true, cancelled: false })))
       .concat([{ line: '241', destination: 'Taufkirchen', type: 'REGIONAL_BUS', planned: Date.now() + 600000, time: Date.now() + 600000, delay: 0, realtime: true, cancelled: false }]);
   };
@@ -364,16 +367,19 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
 
   // Haltestelle ändern über die Suche
-  await A.page.getByLabel('Haltestelle suchen').fill('Haar Gym');
-  await A.page.getByRole('button', { name: 'Suchen', exact: true }).click();
+  await A.page.getByLabel('Umstieg suchen').fill('Haar Gym');
+  await A.page.getByRole('button', { name: 'Suchen', exact: true }).nth(1).click();
   await A.page.getByRole('button', { name: 'Haar, Gymnasium, Haar (b München)' }).click();
-  await expect(A.page.getByText('Haltestelle: Haar, Gymnasium')).toBeVisible();
+  await expect(A.page.getByText('Umstieg: Haar, Gymnasium')).toBeVisible();
 
   await nav(A.page, 'Heute').click();
   const card = A.page.getByRole('region', { name: 'Weg zur Uni' });
-  await expect(card.getByRole('heading', { name: 'Bus 230 ab Haar, Gymnasium' })).toBeVisible();
-  // 9:15 − 10 Min. Puffer − 50 Min. Fahrt = 8:15 → Bus 8:13 (+2 → 8:15 fährt real erst 8:15, passt genau)
-  await expect(card.getByText(/morgen um 09:15: los um 08:10, 230 um 08:15 \(\+2\)/)).toBeVisible();
+  // 9:15 − 10 Puffer − 50 Fahrt: Bus 8:13 (+2, real 8:15); S6 spätestens 8:03 (8 Fahrt + 4 Umstieg) → 7:52; los 7:47
+  await expect(card.getByText(/morgen um 09:15: los um 07:47/)).toBeVisible();
+  await expect(card.getByText('07:52 S6 ab Zorneding, Gleis 5')).toBeVisible();
+  await expect(card.getByText('08:00 an Haar, Gymnasium, umsteigen')).toBeVisible();
+  await expect(card.getByText('08:15 Bus 230 ab Haar, Gymnasium (+2)')).toBeVisible();
+  await expect(card.getByText('Grafing')).toHaveCount(0);
   await expect(card.getByText('241')).toHaveCount(0);
 
   // Anhang: verschlüsselt hochgeladen

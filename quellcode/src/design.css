@@ -381,3 +381,6 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .attachment { display: flex; align-items: center; gap: .65rem; }
 .attachment-thumb { width: 2.5rem; height: 2.5rem; border-radius: .5rem; object-fit: cover; flex-shrink: 0; }
 .attachment-icon { width: 2.5rem; height: 2.5rem; border-radius: .5rem; flex-shrink: 0; display: grid; place-items: center; font-size: .6rem; font-weight: 800; letter-spacing: .04em; background: var(--surface-2); color: var(--muted); }
+.commute-steps { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .15rem; font-size: .85rem; }
+.commute-steps b { display: inline-block; min-width: 2.9rem; }
+.commute-leg { border-left: 3px solid var(--line-strong); padding-left: .85rem; }

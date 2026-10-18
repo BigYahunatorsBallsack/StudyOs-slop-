@@ -1,5 +1,8 @@
 # Änderungen
 
+## 2.5.1
+- **Weg zur Uni mit Umstieg:** Standard ist jetzt S6 Zorneding → Haar (8 Min.), Umstieg (4 Min.), Bus 230 → Garching-Forschungszentrum. StudyOS sucht zum spätesten passenden Bus die passende S6 (Richtung München, ohne Grafing/Ebersberg) und sagt, wann du zu Hause losmusst. Zubringer abschaltbar, alle Zeiten einstellbar; Gleis wird angezeigt.
+
 ## 2.5.0
 
 ### Neu

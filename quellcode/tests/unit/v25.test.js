@@ -16,7 +16,10 @@ describe("Bus zur Uni", () => {
   const c = commuteOf({});
   const ses = [{ id: "a", date: "2026-10-19", start: "10:15", moduleId: "ds" }, { id: "b", date: "2026-10-19", start: "14:00" }, { id: "c", date: "2026-10-20", start: "08:30" }];
   it("Standard: 230 ab Haar Richtung Forschungszentrum", () => {
-    expect(c).toMatchObject({ line: "230", towards: "Forschungszentrum", station: { id: "de:09184:2140" } });
+    expect(c).toMatchObject({ line: "230", towards: "Forschungszentrum", station: { id: "de:09184:2140" }, feeder: { line: "S6", station: { name: "Zorneding" }, travel: 8 } });
+    expect(commuteOf({ commute: { feeder: null } }).feeder).toBeNull();
+    expect(matches({ line: "S6", destination: "Grafing-Bahnhof" }, c.feeder)).toBe(false);
+    expect(matches({ line: "S6", destination: "Leuchtenbergring" }, c.feeder)).toBe(true);
     expect(commuteOf({ commute: null })).toBeNull();
     expect(matches({ line: "230", destination: "Garching, Forschungszentrum (U)" }, c)).toBe(true);
     expect(matches({ line: "230", destination: "Haar (S)" }, c)).toBe(false);
@@ -29,9 +32,21 @@ describe("Bus zur Uni", () => {
   it("späteste passende Abfahrt mit Fahrzeit und Puffer", () => {
     const deps = [["08:53", 0], ["09:13", 2], ["09:23", 0], ["09:33", 0]].map(([hm, delay]) => ({ line: "230", destination: "Garching, Forschungszentrum (U)", time: at("2026-10-19", hm), delay, cancelled: false }));
     deps[2].cancelled = true;
-    const r = recommend(deps, ses[0], c); /* 10:15 − 10 Puffer − 50 Fahrt → spätestens 9:15 */
+    const noFeeder = { ...c, feeder: null };
+    const r = recommend(deps, ses[0], noFeeder); /* 10:15 − 10 Puffer − 50 Fahrt → spätestens 9:15 */
     expect(new Date(r.dep.time).toTimeString().slice(0, 5)).toBe("09:13");
     expect(new Date(r.leaveAt).toTimeString().slice(0, 5)).toBe("09:08");
+    /* mit S6 Zorneding → Haar (8 Min. + 4 Min. Umstieg): S6 muss spätestens 9:03 (real 9:15−12) fahren */
+    const s6 = [["08:32", 0], ["08:52", 0], ["09:12", 0]].map(([hm, delay]) => ({ line: "S6", destination: "Leuchtenbergring", time: at("2026-10-19", hm), delay, cancelled: false }))
+      .concat([{ line: "S6", destination: "Grafing-Bahnhof", time: at("2026-10-19", "09:00"), delay: 0, cancelled: false }]);
+    const chain = recommend(deps, ses[0], c, s6);
+    expect(new Date(chain.feederDep.time).toTimeString().slice(0, 5)).toBe("08:52");
+    expect(new Date(chain.changeAt).toTimeString().slice(0, 5)).toBe("09:00");
+    expect(new Date(chain.leaveAt).toTimeString().slice(0, 5)).toBe("08:47");
+    /* fällt die passende S6 aus, nimmt StudyOS die S6 davor */
+    const chain2 = recommend(deps, ses[0], c, s6.map((d) => (d.time === at("2026-10-19", "08:52") ? { ...d, cancelled: true } : d)));
+    expect(new Date(chain2.dep.time).toTimeString().slice(0, 5)).toBe("09:13");
+    expect(new Date(chain2.feederDep.time).toTimeString().slice(0, 5)).toBe("08:32");
     expect(queryOffset(ses[0], c, new Date("2026-10-19T06:00:00"))).toBe(135);
   });
 });
@@ -45,7 +60,7 @@ describe("MVG-Abfrage der Edge Function", () => {
     const f = fake([{ label: "230", destination: "Garching, Forschungszentrum (U)", transportType: "REGIONAL_BUS", plannedDepartureTime: 1000, realtimeDepartureTime: 61000, delayInMinutes: 1, realtime: true, cancelled: false, secret: "x" }]);
     const r = await mvg({ kind: "departures", station: "de:09184:2140", offset: 30 }, f);
     expect(fake.last).toBe("https://www.mvg.de/api/bgw-pt/v3/departures?globalId=de:09184:2140&limit=40&offsetInMinutes=30&transportTypes=BUS,REGIONAL_BUS");
-    expect(r.data).toEqual([{ line: "230", destination: "Garching, Forschungszentrum (U)", type: "REGIONAL_BUS", planned: 1000, time: 61000, delay: 1, realtime: true, cancelled: false }]);
+    expect(r.data).toEqual([{ line: "230", destination: "Garching, Forschungszentrum (U)", type: "REGIONAL_BUS", planned: 1000, time: 61000, delay: 1, realtime: true, cancelled: false, platform: "" }]);
     const s = await mvg({ kind: "stations", query: "Haar" }, fake([{ globalId: "de:09184:2140", name: "Haar", place: "Haar (b München)", transportTypes: ["SBAHN"] }]));
     expect(s.data[0]).toEqual({ id: "de:09184:2140", name: "Haar", place: "Haar (b München)", types: ["SBAHN"] });
   });

@@ -1,4 +1,4 @@
-const CACHE = 'studyos-shell-0c209b0c0329';
+const CACHE = 'studyos-shell-063a61d39e5c';
 const SHELL = ['./', './index.html', './app.js', './style.css', './fonts/bricolage-grotesque-latin-wght.woff2', './manifest.webmanifest', './favicon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png', './extras.js', './katex/katex.min.css'];
 self.addEventListener('install', (event) => { event.waitUntil((async () => { const cache = await caches.open(CACHE); await Promise.all(SHELL.map(async (url) => { const response = await fetch(new Request(url, { cache: 'reload' })); if (!response.ok) throw new Error('Precache failed: ' + url); await cache.put(url, response); })); if (!self.registration.active) await self.skipWaiting(); })()); });
 self.addEventListener('activate', (event) => { event.waitUntil((async () => { const keys = await caches.keys(); await Promise.all(keys.filter((key) => key.startsWith('studyos-shell-') && key !== CACHE).map((key) => caches.delete(key))); await self.clients.claim(); })()); });
