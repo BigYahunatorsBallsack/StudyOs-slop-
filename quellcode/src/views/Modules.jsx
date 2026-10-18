@@ -9,6 +9,7 @@ import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
 import { bonusForecast, workload } from "../lib/study.js";
+import { isGop } from "../lib/tum.js";
 
 /* ---------------- Module ---------------- */
 export function ModuleList({ db }) {
@@ -116,10 +117,11 @@ export function ModuleDetail({ db, id, onBack }) {
         <span className="mt-1 h-8 w-1.5 rounded-full" style={{ background: m.color }} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold tracking-tight">{m.name}</h2>
-          <p className="text-xs text-slate-400">{m.code ? m.code + " · " : ""}{m.ects} ECTS · Semester {m.semester} · {m.status}{m.grade ? ` · Note ${String(m.grade).replace(".", ",")}` : ""}</p>
+          <p className="text-xs text-slate-400">{m.code ? m.code + " · " : ""}{m.ects} ECTS · Semester {m.semester} · {m.status}{m.grade ? ` · Note ${String(m.grade).replace(".", ",")}` : ""}{isGop(m) ? " · GOP" : ""}</p>
         </div>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {m.liveUrl && <a className={btnGhost} href={m.liveUrl} target="_blank" rel="noopener noreferrer">Aufzeichnungen ↗</a>}
         <button className={btnGhost} onClick={() => db.openForm("module", m)}>Bearbeiten</button>
         <button className={btnGhost} onClick={() => setMerge(true)}>Zusammenführen</button>
       </div>

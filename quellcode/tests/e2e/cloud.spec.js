@@ -14,6 +14,7 @@ function createBackend() {
       if (op === 'push.saveSubscription') { const r = pushRow(args[0]); r.subscriptions = [...r.subscriptions.filter((x) => x.endpoint !== args[1].endpoint), args[1]]; r.tz = args[2]; return true; }
       if (op === 'push.removeSubscription') { const r = pushRow(args[0]); r.subscriptions = r.subscriptions.filter((x) => x.endpoint !== args[1]); return true; }
       if (op === 'push.saveDeadlines') { const r = pushRow(args[0]); r.deadlines = args[1]; r.tz = args[2]; return true; }
+      if (op === 'push.setCalToken') { pushRow(args[0]).cal_token = args[1]; return true; }
       if (op === 'push.test') { this.tests++; return { devices: pushRow(args[0]).subscriptions.length, sent: pushRow(args[0]).subscriptions.length }; }
       if (op === 'shares.create') { this.shares.set(args[1], { owner: args[0], blob: args[2] }); return true; }
       if (op === 'shares.get') return this.shares.get(args[0])?.blob ?? null;
@@ -43,6 +44,7 @@ async function newDevice(browser, backend) {
     }
     if (window.Notification) Notification.requestPermission = async () => 'granted';
   });
+  await context.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -196,8 +198,8 @@ test('Stundenplan-Abo: einrichten, Änderungen übernehmen, neue Veranstaltung z
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
 
-  await A.page.getByLabel('Kalender-Link').fill('https://campus.tum.de/tumonline/ical?pToken=abc');
-  await A.page.getByRole('button', { name: 'Abrufen', exact: true }).click();
+  await A.page.getByLabel('TUMonline-Kalender-Link').fill('https://campus.tum.de/tumonline/ical?pToken=abc');
+  await A.page.getByRole('button', { name: 'Abrufen', exact: true }).first().click();
   await expect(A.page.getByText('2 Termine in 1 Veranstaltungen gefunden.')).toBeVisible();
   await expect(A.page.getByLabel('Modul für Analysis für Informatik VO')).toHaveValue('__new');
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
@@ -249,8 +251,8 @@ test('Stundenplan-Abo legt Vorlesung, Übung und Tutorübung als ein Modul an', 
   await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
-  await A.page.getByLabel('Kalender-Link').fill('https://campus.tum.de/x.ics');
-  await A.page.getByRole('button', { name: 'Abrufen', exact: true }).click();
+  await A.page.getByLabel('TUMonline-Kalender-Link').fill('https://campus.tum.de/x.ics');
+  await A.page.getByRole('button', { name: 'Abrufen', exact: true }).first().click();
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
   await expect(A.page.getByText('Abonniert: 3 Termine übernommen.')).toBeVisible();
   await expect.poll(() => A.page.evaluate(async () => { const x = (await window.STUDYOS_ENV.load()) || { modules: [], sessions: [] }; return { mods: x.modules.map((m) => m.name), types: x.sessions.map((s) => s.type).sort() }; }))
@@ -292,4 +294,44 @@ test('Karteikarten teilen: Link erzeugen, ohne Konto öffnen und importieren', a
   await expect.poll(() => backend.shares.size).toBe(0);
   expect(A.errors).toEqual([]); expect(B.errors).toEqual([]);
   await A.context.close(); await B.context.close();
+});
+
+test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const stamp = (n, hm) => { const d = new Date(Date.now() + n * 86400000); return d.toLocaleDateString('sv-SE').replace(/-/g, '') + 'T' + hm; };
+  const ev = (uid, summary, n, course) => `BEGIN:VEVENT\r\nUID:${uid}\r\nSUMMARY:${summary}\r\nDTSTART:${stamp(n, '120000')}\r\nCATEGORIES:${course}\r\nEND:VEVENT\r\n`;
+  const calendar = `BEGIN:VCALENDAR\r\n${ev('m1', 'Hausaufgabe 3 ist fällig', 3, 'Diskrete Strukturen')}${ev('m2', 'Hausaufgabe 4 öffnet', 4, 'Diskrete Strukturen')}${ev('m3', 'Blatt 1 ist fällig', 5, 'WiSe EIDI')}END:VCALENDAR\r\n`;
+  backend.ics = () => ({ text: calendar });
+  const A = await newDevice(browser, backend);
+  await A.page.evaluate(async () => { await window.STUDYOS_ENV.save({ version: 3, settings: {}, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }], sessions: [], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] }); });
+  await A.page.reload();
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+
+  await A.page.getByLabel('Moodle-Kalender-Link').fill('https://www.moodle.tum.de/calendar/export_execute.php?userid=1&authtoken=x');
+  await A.page.getByRole('button', { name: 'Abrufen', exact: true }).nth(1).click();
+  await expect(A.page.getByText('2 Abgaben in 2 Kursen.', { exact: false })).toBeVisible();
+  await expect(A.page.getByLabel('Modul für Diskrete Strukturen')).toHaveValue('ds');
+  await A.page.getByLabel('Modul für WiSe EIDI').selectOption('__skip');
+  await A.page.getByRole('button', { name: 'Abonnieren' }).click();
+  await expect(A.page.getByText('Abonniert: 1 Abgabe übernommen.')).toBeVisible();
+  await expect.poll(() => A.page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework.map((h) => `${h.title}|${h.moduleId}|${h.dueTime}`))).toEqual([expect.stringMatching(/^Hausaufgabe 3\|ds\|\d\d:00$/)]);
+
+  // Kalender-Link für die Fristen
+  await A.page.getByRole('button', { name: 'Kalender-Link erstellen' }).click();
+  await expect(A.page.getByText('Link erstellt.', { exact: false })).toBeVisible();
+  const link = await A.page.getByLabel('Link für dein Kalender-Abo').inputValue();
+  const token = new URL(link).searchParams.get('token');
+  expect(token).toMatch(/^[\w-]{32}$/);
+  const row = [...backend.push.values()][0];
+  expect(row.cal_token).toBe(token);
+  await expect.poll(() => [...backend.push.values()][0].deadlines.map((d) => d.title)).toContain('Hausaufgabe 3');
+  await A.page.getByRole('button', { name: 'Widerrufen' }).click();
+  await expect.poll(() => [...backend.push.values()][0].cal_token).toBeNull();
+  expect(A.errors).toEqual([]);
+  await A.context.close();
 });

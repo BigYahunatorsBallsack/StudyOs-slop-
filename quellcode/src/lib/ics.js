@@ -21,6 +21,7 @@ export function parseICS(text) {
     const key = line.slice(0, i).split(";")[0].toUpperCase(), val = line.slice(i + 1);
     if (key === "SUMMARY") cur.summary = unesc(val);
     else if (key === "LOCATION") cur.location = unesc(val);
+    else if (key === "CATEGORIES") cur.categories = unesc(val);
     else if (key === "DTSTART") cur.start = parseDT(val);
     else if (key === "DTEND") cur.end = parseDT(val);
     else if (key === "RRULE") cur.rrule = val;
@@ -35,7 +36,7 @@ export function parseICS(text) {
   for (const e of events) {
     if (!e.start) continue;
     const uid = e.uid || `${e.summary || ""}|${e.start.date}|${e.start.time}`;
-    const base = { uid, cancelled: !!e.cancelled, summary: e.summary || "Ohne Titel", room: e.location || "", start: e.start.time || "08:00", end: e.end?.time || e.start.time || "10:00" };
+    const base = { uid, cancelled: !!e.cancelled, summary: e.summary || "Ohne Titel", room: e.location || "", start: e.start.time || "08:00", end: e.end?.time || e.start.time || "10:00", course: e.categories || "", allDay: !e.start.time };
     if (e.rrule && /FREQ=WEEKLY/i.test(e.rrule)) {
       const get = (k) => (new RegExp(k + "=([^;]+)", "i").exec(e.rrule) || [])[1];
       const until = get("UNTIL") ? parseDT(get("UNTIL"))?.date : null;

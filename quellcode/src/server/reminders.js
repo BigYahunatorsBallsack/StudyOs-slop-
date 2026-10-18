@@ -18,7 +18,7 @@ const addDays = (date, n) => { const d = new Date(date + "T12:00:00Z"); d.setUTC
 
 /* Regeln je Art: [Tage vorher, Uhrzeit, Titel, Text] */
 const RULES = {
-  homework: [[1, "18:00", "Abgabe morgen", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}`], [0, "08:00", "Abgabe heute", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}`]],
+  homework: [[1, "18:00", "Abgabe morgen", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}${x.time ? `, bis ${x.time} Uhr` : ""}`], [0, "08:00", "Abgabe heute", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}${x.time ? `, bis ${x.time} Uhr` : ""}`]],
   exam: [[7, "18:00", "Prüfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Prüfung morgen", (x) => `${x.module || x.title}${x.time ? ` um ${x.time}` : ""}`]],
   register: [[3, "18:00", "Anmeldeschluss in 3 Tagen", (x) => `Prüfung ${x.module || x.title}`], [0, "08:00", "Anmeldeschluss heute", (x) => `Prüfung ${x.module || x.title}`]],
   retake: [[7, "18:00", "Wiederholungsprüfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Wiederholungsprüfung morgen", (x) => x.module || x.title]],

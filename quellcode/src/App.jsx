@@ -25,6 +25,7 @@ import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries } from "./lib/study.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
+import { applyMoodle, unmappedCourses } from "./lib/moodle.js";
 import { ShareImport } from "./views/Share.jsx";
 
 const FONT_CSS = `.font-ui{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
@@ -220,6 +221,14 @@ export default function App() {
       if (kind === "topic" && (item.order === null || item.order === undefined)) item.order = d.topics.filter((x) => x.moduleId === item.moduleId).length + 1;
     }
     if (kind === "homework") item.doneAt = DONE_HW.has(item.status) ? item.doneAt || iso() : null;
+    if (kind === "homework" && !isNew && item.feedKey) {
+      /* von Hand geänderte Felder übernimmt das Moodle-Abo nicht mehr */
+      const old = d.homework.find((x) => x.id === item.id) || {};
+      const locked = new Set(old.locked || []);
+      ["title", "moduleId"].forEach((k) => { if ((old[k] || "") !== (item[k] || "")) locked.add(k); });
+      if (old.due !== item.due || (old.dueTime || "") !== (item.dueTime || "")) locked.add("due");
+      item.locked = [...locked];
+    }
     if (kind === "note") item.updated = iso();
     if (kind === "session" && !isNew) {
       const r = saveSessionEdit(d.sessions, item, !!extra.applySeries);
@@ -240,6 +249,9 @@ export default function App() {
     n[COLL[kind]] = d[COLL[kind]].filter((x) => x.id !== id);
     if (kind === "topic") { n.logs = d.logs.map((l) => (l.topicId === id ? { ...l, topicId: "" } : l)); n.cards = d.cards.map((c) => (c.topicId === id ? { ...c, topicId: "" } : c)); }
     if (kind === "session") n.notes = d.notes.map((x) => (x.sessionId === id ? { ...x, sessionId: "" } : x));
+    /* gelöschte Moodle-Abgaben merken, damit das Abo sie nicht wieder anlegt */
+    const hw = kind === "homework" && d.homework.find((x) => x.id === id);
+    if (hw?.feedKey && d.settings.moodleFeed) n.settings = { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, dismissed: [...(d.settings.moodleFeed.dismissed || []), hw.feedKey].slice(-500) } };
     return n;
   });
 
@@ -349,6 +361,31 @@ export default function App() {
       return null;
     }
   };
+  /* Moodle-Fristen: gleiches Muster wie das Stundenplan-Abo */
+  const syncMoodleRef = useRef(null);
+  syncMoodleRef.current = async ({ manual } = {}) => {
+    const feed = dataRef.current.settings.moodleFeed;
+    if (!feed || !feed.url || cloud.phase !== "ready") return null;
+    try {
+      const events = parseICS(await cloud.fetchIcs(feed.url));
+      return commitFeed((d) => {
+        const mf = d.settings.moodleFeed;
+        const r = applyMoodle(d, events, mf.map, iso(), mf.dismissed || []);
+        return { stats: r.stats, next: { ...d, homework: r.homework, settings: { ...d.settings, moodleFeed: { ...mf, lastSync: new Date().toISOString(), pending: unmappedCourses(events, mf.map), lastError: "" } } } };
+      });
+    } catch (e) {
+      if (manual) throw e;
+      change((d) => (d.settings.moodleFeed ? { ...d, settings: { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, lastError: e.message || String(e) } } } : d));
+      return null;
+    }
+  };
+  const moodleDue = !!data.settings.moodleFeed?.url && (!data.settings.moodleFeed.lastSync || Date.now() - new Date(data.settings.moodleFeed.lastSync).getTime() > 3 * 3600 * 1000);
+  useEffect(() => {
+    if (!ready || loadError || cloud.phase !== "ready" || !moodleDue) return;
+    const id = setTimeout(() => syncMoodleRef.current(), 6000);
+    return () => clearTimeout(id);
+  }, [ready, loadError, cloud.phase, moodleDue]);
+
   const feedDue = !!data.settings.icsFeed?.url && (!data.settings.icsFeed.lastSync || (data.settings.icsFeed.v || 1) < FEED_VERSION || Date.now() - new Date(data.settings.icsFeed.lastSync).getTime() > 6 * 3600 * 1000);
   useEffect(() => {
     if (!ready || loadError || cloud.phase !== "ready" || !feedDue) return;
@@ -396,6 +433,22 @@ export default function App() {
       });
     },
     syncFeed: (opts) => syncFeedRef.current(opts),
+    subscribeMoodle: async (url, draftMap, events) => commitFeed((d) => {
+      const { modules, map } = resolveNewModules(d, draftMap);
+      const r = applyMoodle({ ...d, modules }, events, map);
+      return { stats: r.stats, next: { ...d, modules, homework: r.homework, settings: { ...d.settings, moodleFeed: { url, map, dismissed: [], lastSync: new Date().toISOString(), pending: [], lastError: "" } } } };
+    }),
+    mapMoodle: async (extra) => {
+      const events = parseICS(await cloud.fetchIcs(dataRef.current.settings.moodleFeed.url));
+      return commitFeed((d) => {
+        const mf = d.settings.moodleFeed;
+        const { modules, map } = resolveNewModules(d, { ...mf.map, ...extra });
+        const r = applyMoodle({ ...d, modules }, events, map, iso(), mf.dismissed || []);
+        return { stats: r.stats, next: { ...d, modules, homework: r.homework, settings: { ...d.settings, moodleFeed: { ...mf, map, pending: unmappedCourses(events, map), lastSync: new Date().toISOString(), lastError: "" } } } };
+      });
+    },
+    syncMoodle: (opts) => syncMoodleRef.current(opts),
+    unsubscribeMoodle: () => change((d) => { const { moodleFeed, ...settings } = d.settings; void moodleFeed; return { ...d, settings }; }),
     unsubscribeFeed: () => change((d) => { const { icsFeed, ...settings } = d.settings; return { ...d, settings }; }),
     mergeIn: (remote) => { const { data: merged, stats } = mergeData(dataRef.current, remote); replaceAll(merged, "Vor dem Zusammenführen", { stamp: false }); return stats; },
     cloud,

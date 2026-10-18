@@ -379,6 +379,7 @@
 .ml-1{margin-left:.25rem}
 .w-20{width:5rem}
 .mr-4{margin-right:1rem}
+.mt-6{margin-top:1.5rem}
 
 /* ==== StudyOS Designsystem (Bold Mobile) ====
    Wird beim Build an style.css angehängt. Hell/Dunkel unterscheiden sich nur in den Variablen.
@@ -719,3 +720,12 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 /* Studienplan-Dialog */
 .tag-gop { margin-left: .4rem; border-radius: 999px; padding: .05rem .4rem; font-size: .65rem; font-weight: 700; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); vertical-align: middle; }
 .link-inline { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Links zu NavigaTUM / TUM-Live */
+.ext-links { display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
+.ext-link { font-size: .75rem; font-weight: 600; color: var(--accent-text, var(--accent)); text-decoration: none; padding: .15rem 0; }
+.ext-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Mensa */
+.mensa-list { display: flex; flex-direction: column; gap: .55rem; }
+.mensa-dish { display: flex; align-items: flex-start; gap: .75rem; }

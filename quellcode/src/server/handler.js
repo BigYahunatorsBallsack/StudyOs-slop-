@@ -1,9 +1,11 @@
 /* Supabase Edge Function „studyos“: ein Endpunkt, drei Aufgaben.
      GET  ?action=vapid    öffentlicher VAPID-Schlüssel für Push-Abos (wird beim ersten Aufruf erzeugt)
      POST ?action=remind   fällige Erinnerungen verschicken (nur mit x-cron-secret, aufgerufen von pg_cron)
+     GET  ?action=cal&token=…  Fristen als Kalender-Abo (iCal), Token statt Anmeldung
      POST ?action=ics      Kalender-Abo (z. B. TUMonline) abrufen und mit CORS zurückgeben (nur angemeldet)
    Keine Fremdbibliotheken: Datenbank über die REST-API, Kryptografie über WebCrypto. */
 import { dueReminders, pruneSent } from "./reminders.js";
+import { buildDeadlineIcs } from "./calendar.js";
 import { generateVapidKeys, sendPush } from "./webpush.js";
 
 const CORS = {
@@ -154,6 +156,14 @@ export function createHandler({ env, fetchImpl = fetch, now = () => new Date() }
           if (r.ok) sent++;
         }
         return json({ devices: subs.length, sent });
+      }
+      if (action === "cal" && req.method === "GET") {
+        /* Kalender-Abo: ohne Anmeldung, nur mit dem geheimen Link-Token */
+        const token = new URL(req.url).searchParams.get("token") || "";
+        if (!/^[A-Za-z0-9_-]{24,64}$/.test(token)) return fail("Ungültiger Kalender-Link.", 404);
+        const rows = (await q(`studyos_push?cal_token=eq.${token}&select=deadlines,tz`)) || [];
+        if (!rows.length) return fail("Diesen Kalender gibt es nicht (mehr).", 404);
+        return new Response(buildDeadlineIcs(rows[0].deadlines, rows[0].tz || "Europe/Berlin", now()), { status: 200, headers: { ...CORS, "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "private, max-age=900" } });
       }
       if (action === "health") return json({ ok: true });
       return fail("Unbekannte Aktion.", 404);

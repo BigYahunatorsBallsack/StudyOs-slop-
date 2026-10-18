@@ -120,7 +120,7 @@ function fakeWorld() {
         }
       }
       if (table === "studyos_push") {
-        if (method === "GET") { const f = u.searchParams.get("user_id"); return Response.json(f ? w.push.filter((r) => r.user_id === f.slice(3)) : w.push); }
+        if (method === "GET") { const f = u.searchParams.get("user_id"), c = u.searchParams.get("cal_token"); return Response.json(c ? w.push.filter((r) => r.cal_token === c.slice(3)) : f ? w.push.filter((r) => r.user_id === f.slice(3)) : w.push); }
         if (method === "PATCH") { const id = u.searchParams.get("user_id").slice(3); Object.assign(w.push.find((r) => r.user_id === id), JSON.parse(init.body)); return new Response(""); }
       }
     }
@@ -200,5 +200,28 @@ describe("Edge Function", () => {
     const r = await h(req("test", { method: "POST", headers: { authorization: "Bearer user-token" } }));
     expect(await r.json()).toEqual({ devices: 1, sent: 1 });
     expect(w.pushCalls).toEqual(["/ok"]);
+  });
+});
+
+describe("Kalender-Abo der Fristen", () => {
+  it("liefert iCal nur mit gültigem Token", async () => {
+    const w = fakeWorld();
+    w.push.push({ user_id: "u1", cal_token: "a".repeat(32), tz: "Europe/Berlin", subscriptions: [], deadlines: [
+      { id: "h1", kind: "homework", title: "Blatt 3", module: "DS", date: "2026-10-28", time: "23:59" },
+      { id: "x1", kind: "exam", title: "Prüfung", module: "Analysis, Teil 1", date: "2027-02-10" },
+      { id: "r1", kind: "review", title: "1 Termin", date: "2026-10-21" },
+    ] });
+    const h = createHandler({ env: w.env, fetchImpl: w.fetch, now: () => new Date("2026-10-20T10:00:00Z") });
+    const ok = await h(new Request("https://proj.supabase.co/functions/v1/studyos?action=cal&token=" + "a".repeat(32)));
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("content-type")).toMatch(/text\/calendar/);
+    const ics = await ok.text();
+    expect(ics).toContain("SUMMARY:Abgabe: Blatt 3 (DS)");
+    expect(ics).toContain("DTEND:20261028T225900Z"); /* 23:59 MEZ */
+    expect(ics).toContain("SUMMARY:Prüfung: Analysis\\, Teil 1");
+    expect(ics).toContain("DTSTART;VALUE=DATE:20270210");
+    expect(ics).not.toContain("1 Termin");
+    expect((await h(new Request("https://proj.supabase.co/functions/v1/studyos?action=cal&token=" + "b".repeat(32)))).status).toBe(404);
+    expect((await h(new Request("https://proj.supabase.co/functions/v1/studyos?action=cal&token=x';drop"))).status).toBe(404);
   });
 });

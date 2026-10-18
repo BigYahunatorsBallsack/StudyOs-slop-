@@ -22,10 +22,13 @@ export function formDef(kind, d) {
       { k: "status", l: "Status", t: "select", opts: opt(MODULE_STATUS), def: "belegt", half: true },
       { k: "grade", l: "Note (optional)", t: "decimal", min: 1, max: 5, ph: "z. B. 1,7", half: true },
       { k: "bonusPct", l: "Bonusgrenze HA in % (optional)", t: "decimal", min: 0, max: 100, ph: "z. B. 50", half: true },
+      { k: "expectedGrade", l: "Erwartete Note (für die Prognose)", t: "decimal", min: 1, max: 5, ph: "z. B. 2,3", half: true },
+      { k: "liveUrl", l: "Aufzeichnungen (TUM-Live-Link)", t: "url", ph: "https://live.rbg.tum.de/…", half: true },
+      { k: "gop", l: "Zählt zur Grundlagenprüfung (GOP)", t: "checkbox" },
       { k: "semesterStart", l: "Semesterbeginn (optional)", t: "date", half: true, hint: "Für die Workload-Ampel; sonst zählt der erste Termin." },
       { k: "color", l: "Farbe", t: "color", def: () => PALETTE[d.modules.length % PALETTE.length] },
       { k: "archived", l: "Archiviert (abgeschlossen, wird in Heute, Woche-Vorschlägen und Erinnerungen ausgeblendet)", t: "checkbox", editOnly: true },
-    ] };
+    ], validate: (v) => (v.liveUrl && !/^https:\/\/\S+$/i.test(v.liveUrl) ? "Der Aufzeichnungs-Link muss mit https:// beginnen." : "") };
     case "session": return { title: "Lehrveranstaltung", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },
       { k: "type", l: "Art", t: "select", opts: opt(SESSION_TYPES), def: "Vorlesung", half: true },
@@ -42,6 +45,7 @@ export function formDef(kind, d) {
       { k: "title", l: "Titel", t: "text", req: true, ph: "z. B. Übungsblatt 3" },
       { k: "issued", l: "Ausgegeben am", t: "date", def: iso, half: true },
       { k: "due", l: "Abgabe", t: "date", req: true, half: true },
+      { k: "dueTime", l: "Uhrzeit (optional)", t: "time", half: true },
       { k: "status", l: "Status", t: "select", opts: opt(HW_STATUS), def: "ausgegeben" },
       { k: "points", l: "Erreichte Punkte", t: "decimal", min: 0, half: true },
       { k: "maxPoints", l: "Maximale Punkte", t: "decimal", min: 0, half: true },

@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2.4.0
+
+### Neu
+- **Moodle-Abgaben:** Kalender-Export aus Moodle abonnieren; Abgabefristen landen automatisch als Hausaufgaben (mit Uhrzeit). Eigene Änderungen und gelöschte Abgaben überschreibt das Abo nicht.
+- **Fristen im Handy-Kalender:** Kalender-Link (iCal) für Google, Apple oder Outlook mit Abgaben, Prüfungen und Anmeldeschlüssen; jederzeit widerrufbar. Einmalig `supabase/kalender.sql` ausführen.
+- **GOP-Tracker:** Wie viele der 12 ECTS Grundlagenprüfung schon bestanden sind und welche Module reichen würden.
+- **Notenprognose:** Erwartete Noten eintragen und den voraussichtlichen Schnitt sehen.
+- **Mensa auf „Heute“:** Speiseplan (eat-api der TUM-Dev-Gruppe), heute bzw. am nächsten Werktag; Mensa in den Einstellungen wählbar.
+- **Raum finden:** Räume verlinken direkt auf NavigaTUM; pro Modul ein Link zu den Aufzeichnungen (TUM-Live).
+- **Karteikarten mit FSRS-5** statt SM-2: gleicher Lernerfolg mit weniger Wiederholungen. Vorhandene Karten werden übernommen.
+
 ## 2.3.0
 
 ### Studienalltag

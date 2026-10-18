@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { parseICS } from "../lib/ics.js";
 import { guessMapping, NEW, SKIP, unmappedSummaries } from "../lib/feed.js";
+import { isMoodleDeadline, unmappedCourses } from "../lib/moodle.js";
 import { Card, ConfirmButton } from "../ui/primitives.jsx";
 
 const fmtWhen = (s) => (s ? new Date(s).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie");
@@ -76,7 +77,7 @@ export function FeedCard({ db }) {
           <>
             <p className="text-xs text-slate-400">In TUMonline unter <b className="text-slate-200">Terminkalender</b> auf <b className="text-slate-200">Veröffentlichen</b> gehen und den iCal-Link kopieren. Links von cal.tum.app gehen auch.</p>
             <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); preview(); }}>
-              <input type="url" inputMode="url" aria-label="Kalender-Link" placeholder="https://campus.tum.de/…" className="field min-w-0 flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} />
+              <input type="url" inputMode="url" aria-label="TUMonline-Kalender-Link" placeholder="https://campus.tum.de/…" className="field min-w-0 flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} />
               <button type="submit" className="btn btn-primary" disabled={busy || !url.trim()}>{busy ? "Ruft ab …" : "Abrufen"}</button>
             </form>
           </>
@@ -95,6 +96,87 @@ export function FeedCard({ db }) {
           <div className="mt-3 flex flex-wrap gap-2">
             <button className="btn btn-ghost" onClick={refresh} disabled={busy}>{busy ? "Ruft ab …" : "Jetzt abrufen"}</button>
             <ConfirmButton label="Abo beenden" confirmLabel="Abo beenden? Termine bleiben." onConfirm={() => { db.unsubscribeFeed(); setMsg("Abo beendet. Die übernommenen Termine bleiben erhalten."); }} />
+          </div>
+          {feed.lastError && !err && <p className="mt-2 text-xs text-amber-300">Letzter automatischer Abruf fehlgeschlagen: {feed.lastError}</p>}
+        </>
+      )}
+      {err && <p role="alert" className="mt-2 text-xs text-rose-400">{err}</p>}
+      {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
+    </Card>
+  );
+}
+
+/* Moodle-Fristen: Kalender-Export aus Moodle → Hausaufgaben */
+export function MoodleCard({ db }) {
+  const { data, cloud } = db;
+  const feed = data.settings.moodleFeed || null;
+  const [url, setUrl] = useState("");
+  const [draft, setDraft] = useState(null);
+  const [pendingMap, setPendingMap] = useState({});
+  const [busy, setBusy] = useState(false), [msg, setMsg] = useState(""), [err, setErr] = useState("");
+  const ready = cloud && cloud.phase === "ready";
+  const run = async (fn) => { setBusy(true); setErr(""); setMsg(""); try { await fn(); } catch (e) { setErr(e.message || String(e)); } finally { setBusy(false); } };
+  const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+
+  const preview = () => run(async () => {
+    if (!/moodle/i.test(url)) throw new Error("Das sieht nicht nach einem Moodle-Link aus. Er beginnt mit https://www.moodle.tum.de/calendar/export_execute.php …");
+    const events = parseICS(await cloud.fetchIcs(url.trim()));
+    const due = events.filter(isMoodleDeadline);
+    if (!due.length) throw new Error(events.length ? "Im Kalender sind Termine, aber keine Abgaben. In Moodle beim Export „Alle Kurse“ und „Kürzlich und nächste 60 Tage“ wählen." : "Der Kalender ist leer. In Moodle beim Export „Alle Kurse“ wählen.");
+    setDraft({ url: url.trim(), events, count: due.length, map: guessMapping(unmappedCourses(events, {}), data.modules) });
+  });
+  const subscribe = () => run(async () => {
+    const r = await db.subscribeMoodle(draft.url, draft.map, draft.events);
+    setDraft(null); setUrl("");
+    setMsg(`Abonniert: ${n(r.added, "Abgabe", "Abgaben")} übernommen.`);
+  });
+  const refresh = () => run(async () => {
+    const r = await db.syncMoodle({ manual: true });
+    if (r) setMsg(`Abgerufen: ${r.added} neu, ${r.updated} geändert.`);
+  });
+  const assignPending = () => run(async () => {
+    const r = await db.mapMoodle(Object.fromEntries((feed.pending || []).map((c) => [c, pendingMap[c] ?? NEW])));
+    setPendingMap({});
+    setMsg(`Zugeordnet: ${n(r.added, "Abgabe", "Abgaben")} übernommen.`);
+  });
+
+  return (
+    <Card title="Moodle-Abgaben">
+      {!ready ? (
+        <p className="text-xs text-slate-400">Abgabefristen aus Moodle automatisch als Hausaufgaben übernehmen. Dafür oben beim Cloud-Sync anmelden.</p>
+      ) : !feed ? (
+        draft ? (
+          <>
+            <p className="text-xs text-slate-400">{n(draft.count, "Abgabe", "Abgaben")} in {n(Object.keys(draft.map).length, "Kurs", "Kursen")}. Ordne die Kurse deinen Modulen zu:</p>
+            <MappingList summaries={Object.keys(draft.map)} map={draft.map} setMap={(m) => setDraft({ ...draft, map: m })} modules={data.modules} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button className="btn btn-primary" onClick={subscribe} disabled={busy}>Abonnieren</button>
+              <button className="btn btn-ghost" onClick={() => setDraft(null)}>Abbrechen</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-slate-400">In Moodle: <b className="text-slate-200">Kalender</b> → <b className="text-slate-200">Kalender importieren oder exportieren</b> → <b className="text-slate-200">Kalender exportieren</b>. Dort „Alle Kurse“ und „Kürzlich und nächste 60 Tage“ wählen, dann <b className="text-slate-200">Kalender-URL abfragen</b> und den Link hier einfügen.</p>
+            <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); preview(); }}>
+              <input type="url" inputMode="url" aria-label="Moodle-Kalender-Link" placeholder="https://www.moodle.tum.de/calendar/export_execute.php?…" className="field min-w-0 flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} />
+              <button type="submit" className="btn btn-primary" disabled={busy || !url.trim()}>{busy ? "Ruft ab …" : "Abrufen"}</button>
+            </form>
+          </>
+        )
+      ) : (
+        <>
+          <p className="text-sm text-slate-300">Abonniert, zuletzt abgerufen: {fmtWhen(feed.lastSync)}</p>
+          <p className="mt-1 text-xs text-slate-400">Neue Abgaben erscheinen automatisch als Hausaufgaben. Was du selbst änderst oder löschst, bleibt so.</p>
+          {(feed.pending || []).length > 0 && (
+            <div className="notice notice-info mt-3">
+              <p className="notice-title">{n(feed.pending.length, "neuer Kurs", "neue Kurse")} mit Abgaben</p>
+              <MappingList summaries={feed.pending} map={pendingMap} setMap={setPendingMap} modules={data.modules} />
+              <button className="btn btn-primary mt-3" onClick={assignPending} disabled={busy}>Zuordnung übernehmen</button>
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className="btn btn-ghost" onClick={refresh} disabled={busy}>{busy ? "Ruft ab …" : "Jetzt abrufen"}</button>
+            <ConfirmButton label="Abo beenden" confirmLabel="Abo beenden? Abgaben bleiben." onConfirm={() => { db.unsubscribeMoodle(); setMsg("Abo beendet. Die übernommenen Abgaben bleiben erhalten."); }} />
           </div>
           {feed.lastError && !err && <p className="mt-2 text-xs text-amber-300">Letzter automatischer Abruf fehlgeschlagen: {feed.lastError}</p>}
         </>

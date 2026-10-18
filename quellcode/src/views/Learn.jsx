@@ -10,6 +10,7 @@ import { CardList, LogRow } from "../ui/rows.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls, inputFlex } from "../ui/styles.js";
 import { useRemaining } from "../ui/timer.jsx";
 import { ShareDeck } from "./Share.jsx";
+import { PlaceLinks } from "../ui/links.jsx";
 import { Markdown } from "../ui/markdown.jsx";
 
 /* ---------------- Lernen ---------------- */
@@ -259,6 +260,7 @@ export function ExamsView({ db }) {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{m?.name}</p>
                 <p className="text-xs text-slate-400">{[`${WD_LONG[wdIdx(e.date)]}, ${fmt(e.date)}`, e.time, e.room].filter(Boolean).join(" · ")}</p>
+                <PlaceLinks room={e.room} className="mt-0.5" />
                 <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
                   {Number(e.attempt) > 1 && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">{e.attempt}. Versuch</span>}
                   {e.registered ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-200">angemeldet</span>

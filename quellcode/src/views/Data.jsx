@@ -8,7 +8,8 @@ import { Card, ConfirmButton, Tabs } from "../ui/primitives.jsx";
 import { btnGhost, btnPrimary, inputBase, inputCls, inputFlex } from "../ui/styles.js";
 import { decryptBackup, encryptBackup, isEncryptedBackup } from "../lib/crypto.js";
 import { CloudCard } from "./Cloud.jsx";
-import { FeedCard } from "./Feed.jsx";
+import { CANTEENS, mensaOf } from "../lib/mensa.js";
+import { FeedCard, MoodleCard } from "./Feed.jsx";
 
 export function DataView({ db }) {
   const { data } = db;
@@ -97,6 +98,7 @@ export function DataView({ db }) {
       <CloudCard cloud={db.cloud} settings={data.settings} patchSettings={db.patchSettings} />
 
       <FeedCard db={db} />
+      <MoodleCard db={db} />
 
       <Card title="Export (Sicherung)">
         <p className="text-xs text-slate-400">{counts(data)}</p>
@@ -200,6 +202,13 @@ export function DataView({ db }) {
           <div>
             <label htmlFor="st-uni" className="mb-1 block text-xs text-slate-400">Hochschule</label>
             <input id="st-uni" className={inputCls} value={data.settings.university ?? ""} onChange={(e) => db.patchSettings({ university: e.target.value })} placeholder="z. B. TUM" />
+          </div>
+          <div className="col-span-2">
+            <label htmlFor="st-mensa" className="mb-1 block text-xs text-slate-400">Mensa auf „Heute“</label>
+            <select id="st-mensa" className={inputCls} value={mensaOf(data.settings)} onChange={(e) => db.patchSettings({ mensa: e.target.value })}>
+              <option value="">Keine anzeigen</option>
+              {CANTEENS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
           </div>
           <div>
             <label htmlFor="st-prog" className="mb-1 block text-xs text-slate-400">Studiengang</label>

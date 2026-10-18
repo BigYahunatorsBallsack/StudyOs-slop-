@@ -5,7 +5,9 @@ import { join } from 'node:path';
 
 /* Fehler aus Konsole und Seite sammeln: jeder Test muss ohne laufen */
 const pageErrors = new WeakMap();
+const MENSA = { days: [0, 1, 2, 3, 4, 5, 6].map((n) => { const d = new Date(); d.setDate(d.getDate() + n); return { date: d.toLocaleDateString('sv-SE'), dishes: [{ name: 'Testpasta mit Tomaten', dish_type: 'Pasta', labels: ['VEGAN'], prices: { students: { base_price: 0, price_per_unit: 0.9, unit: '100g' } } }] }; }) };
 test.beforeEach(async ({ page }) => {
+  await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: MENSA }));
   const list = [];
   pageErrors.set(page, list);
   page.on('pageerror', (e) => list.push(String(e)));
@@ -499,4 +501,38 @@ test('Studienplan übernehmen und Semester archivieren', async ({ page }) => {
   await page.getByRole('button', { name: 'Archivieren' }).first().click();
   await nav(page, 'Module').click();
   await expect(page.getByRole('heading', { name: /Archiv/ })).toBeVisible();
+});
+
+test('Mensa, GOP-Karte, Raum-Link und FSRS-Vorschau', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ settings: { university: 'TUM' },
+    modules: [{ id: 'ds', name: 'Diskrete Strukturen', code: 'IN0015', ects: 8, semester: 1, status: 'bestanden', grade: 2.0, color: '#34d399', liveUrl: 'https://live.rbg.tum.de/old/course/2026/W/ds' },
+      { id: 'era', name: 'Rechnerarchitektur', code: 'IN0004', ects: 8, semester: 1, status: 'belegt', color: '#38bdf8' }],
+    sessions: [{ id: 's', moduleId: 'ds', type: 'Vorlesung', date: day(0), start: '00:00', end: '23:59', room: 'MI HS 1 (5602.EG.001)' }],
+    cards: [{ id: 'c', moduleId: 'ds', front: 'Was ist ein Graph?', back: 'G=(V,E)', tags: '', ease: 2.5, interval: 0, reps: 0, due: day(0) }] }));
+  await page.reload();
+  // Mensa auf Heute
+  await expect(page.getByRole('region', { name: 'Mensa' }).getByText('Testpasta mit Tomaten')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Mensa' }).getByText('0,90 €/100g')).toBeVisible();
+  // Raum und Aufzeichnung im Tagesplan
+  await expect(page.getByRole('link', { name: 'Raum MI HS 1 (5602.EG.001) in NavigaTUM öffnen' }).first()).toHaveAttribute('href', 'https://nav.tum.de/room/5602.EG.001');
+  await expect(page.getByRole('link', { name: 'Aufzeichnung ↗' }).first()).toHaveAttribute('href', /live\.rbg\.tum\.de/);
+  // GOP
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Studienfortschritt' }).click();
+  await expect(page.getByText('Es fehlen noch')).toBeVisible();
+  await expect(page.getByText('Reicht zum Beispiel: Rechnerarchitektur', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: /Was wäre wenn/ }).click();
+  await page.getByLabel('Erwartete Note Rechnerarchitektur').fill('1,0');
+  await page.getByLabel('Erwartete Note Rechnerarchitektur').blur();
+  await expect(page.getByText(/Ø 1,50/)).toBeVisible();
+  // FSRS: neue Karte, Vorschau der Intervalle
+  await page.goto('./?aktion=karten');
+  await page.getByRole('button', { name: 'Lernen starten' }).click();
+  await page.getByRole('button', { name: /Antwort zeigen/ }).click();
+  await expect(page.getByRole('button', { name: /Gut.*3 Tage/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Leicht.*16 Tage/ })).toBeVisible();
+  await page.getByRole('button', { name: /Gut.*3 Tage/ }).click();
+  await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).cards[0].stability)).toBeCloseTo(3.173, 2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

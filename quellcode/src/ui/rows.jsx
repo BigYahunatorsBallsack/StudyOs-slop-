@@ -47,7 +47,7 @@ export function HomeworkRow({ h, db }) {
         <button onClick={() => db.openForm("homework", h)} className="row-main min-w-0 flex-1">
           <p className={`row-title truncate ${done ? "line-through" : ""}`}>{h.title}</p>
           <p className="row-meta truncate">{m?.name}</p>
-          <p className={`text-xs font-semibold ${dl.cls}`}>{dl.text}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
+          <p className={`text-xs font-semibold ${dl.cls}`}>{dl.text}{h.dueTime && !done ? `, ${h.dueTime} Uhr` : ""}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
         <label className="sr-only" htmlFor={"hw-" + h.id}>Status von {h.title}</label>
         <select id={"hw-" + h.id} value={h.status} onChange={(e) => db.setHwStatus(h.id, e.target.value)} className="field w-32 shrink-0 py-1.5 text-xs">

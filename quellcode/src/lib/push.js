@@ -7,7 +7,7 @@ export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
   const mod = (id) => data.modules.find((m) => m.id === id)?.name || "";
   const out = [];
-  data.homework.forEach((h) => { if (h.due && h.due >= addDays(today, -1) && !DONE_HW.has(h.status)) out.push({ id: h.id, kind: "homework", title: h.title, module: mod(h.moduleId), date: h.due }); });
+  data.homework.forEach((h) => { if (h.due && h.due >= addDays(today, -1) && !DONE_HW.has(h.status)) out.push({ id: h.id, kind: "homework", title: h.title, module: mod(h.moduleId), date: h.due, ...(h.dueTime ? { time: h.dueTime } : {}) }); });
   data.exams.forEach((e) => {
     if (e.date >= today && e.result !== "bestanden") out.push({ id: e.id, kind: "exam", title: "Prüfung", module: mod(e.moduleId), date: e.date, time: e.time || "" });
     if (e.registerBy && !e.registered && e.registerBy >= today) out.push({ id: e.id, kind: "register", title: "Anmeldung", module: mod(e.moduleId), date: e.registerBy });

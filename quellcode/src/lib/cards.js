@@ -1,17 +1,49 @@
 /* Karteikarten: Wiederholungs-Algorithmus (vereinfachtes SM-2), Lückentext, Tags, CSV */
 import { addDays, iso } from "./util.js";
 
-/* Spaced Repetition (vereinfachtes SM-2). q: 0 nochmal, 1 schwer, 2 gut, 3 leicht */
+/* Spaced Repetition mit FSRS-5 (Free Spaced Repetition Scheduler, Standardparameter wie in Anki).
+   Jede Karte hat Stabilität S (Tage, nach denen sie mit 90 % Wahrscheinlichkeit noch sitzt) und
+   Schwierigkeit D (1–10). Bewertung q: 0 nochmal, 1 schwer, 2 gut, 3 leicht. */
+export const FSRS_W = [0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621];
+const DECAY = -0.5, FACTOR = 19 / 81, RETENTION = 0.9, MAX_IVL = 36500;
+const clampD = (d) => Math.min(10, Math.max(1, d));
+const w = FSRS_W;
+const initS = (g) => Math.max(0.1, w[g - 1]);
+const initD = (g) => clampD(w[4] - Math.exp(w[5] * (g - 1)) + 1);
+export const retrievability = (t, s) => Math.pow(1 + (FACTOR * t) / s, DECAY);
+const nextD = (d, g) => { const d1 = d - w[6] * (g - 3) * (10 - d) / 9; return clampD(w[7] * initD(4) + (1 - w[7]) * d1); };
+const recallS = (d, s, r, g) => s * (1 + Math.exp(w[8]) * (11 - d) * Math.pow(s, -w[9]) * (Math.exp((1 - r) * w[10]) - 1) * (g === 2 ? w[15] : 1) * (g === 4 ? w[16] : 1));
+const forgetS = (d, s, r) => Math.min(w[11] * Math.pow(d, -w[12]) * (Math.pow(s + 1, w[13]) - 1) * Math.exp((1 - r) * w[14]), s / Math.exp(w[17] * w[18]));
+const shortS = (s, g) => s * Math.exp(w[17] * (g - 3 + w[18]));
+const ivlOf = (s) => Math.min(MAX_IVL, Math.max(1, Math.round((s / FACTOR) * (Math.pow(RETENTION, 1 / DECAY) - 1))));
+const daysBetween = (a, b) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 86400000);
+
+/** Zustand einer Karte für FSRS; Karten aus dem alten Verfahren (SM-2) werden sinnvoll übernommen. */
+function fsrsState(card, today) {
+  if (Number(card.stability) > 0) return { s: Number(card.stability), d: clampD(Number(card.difficulty) || 5), last: card.lastReview || null };
+  if (!card.reps) return null; /* neu */
+  const ivl = Math.max(1, Number(card.interval) || 1);
+  const ease = Number(card.ease) || 2.5;
+  return { s: ivl, d: clampD(11 - (ease - 1.3) * 4), last: card.lastReview || (card.due ? addDays(card.due, -ivl) : today) };
+}
+
 export function schedule(card, q, today = iso()) {
-  let ease = card.ease || 2.5, interval = card.interval || 0, reps = card.reps || 0;
-  if (q === 0) { reps = 0; interval = 0; ease = Math.max(1.3, ease - 0.2); }
+  const g = Math.min(4, Math.max(1, (Number(q) || 0) + 1));
+  const st = fsrsState(card, today);
+  let s, d;
+  if (!st) { s = initS(g); d = initD(g); }
   else {
-    reps += 1;
-    if (q === 1) { interval = reps === 1 ? 1 : Math.max(interval + 1, Math.round(interval * 1.2)); ease = Math.max(1.3, ease - 0.15); }
-    else if (q === 2) { interval = reps === 1 ? 1 : reps === 2 ? 3 : Math.max(interval + 1, Math.round(interval * ease)); }
-    else { interval = reps === 1 ? 3 : reps === 2 ? 6 : Math.max(interval + 1, Math.round(interval * ease * 1.3)); ease = ease + 0.15; }
+    const t = st.last ? Math.max(0, daysBetween(st.last, today)) : 0;
+    d = nextD(st.d, g);
+    if (t === 0) s = shortS(st.s, g); /* am selben Tag noch einmal gesehen */
+    else { const r = retrievability(t, st.s); s = g === 1 ? forgetS(st.d, st.s, r) : recallS(st.d, st.s, r, g); }
   }
-  return { ease: Math.round(ease * 100) / 100, interval, reps, due: addDays(today, interval), lastReview: today };
+  const interval = g === 1 ? 0 : ivlOf(s);
+  return {
+    stability: Math.round(s * 1000) / 1000, difficulty: Math.round(d * 1000) / 1000, interval,
+    reps: g === 1 ? 0 : (card.reps || 0) + 1, lapses: (card.lapses || 0) + (g === 1 && st ? 1 : 0),
+    due: addDays(today, interval), lastReview: today,
+  };
 }
 
 /* Lückentext im Anki-Stil: {{c1::Antwort}} oder {{c1::Antwort::Hinweis}} */

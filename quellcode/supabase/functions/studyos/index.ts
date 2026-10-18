@@ -20,7 +20,7 @@ var addDays = (date, n) => {
   return d.toISOString().slice(0, 10);
 };
 var RULES = {
-  homework: [[1, "18:00", "Abgabe morgen", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}`], [0, "08:00", "Abgabe heute", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}`]],
+  homework: [[1, "18:00", "Abgabe morgen", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}${x.time ? `, bis ${x.time} Uhr` : ""}`], [0, "08:00", "Abgabe heute", (x) => `${x.title}${x.module ? ` (${x.module})` : ""}${x.time ? `, bis ${x.time} Uhr` : ""}`]],
   exam: [[7, "18:00", "Pr\xFCfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Pr\xFCfung morgen", (x) => `${x.module || x.title}${x.time ? ` um ${x.time}` : ""}`]],
   register: [[3, "18:00", "Anmeldeschluss in 3 Tagen", (x) => `Pr\xFCfung ${x.module || x.title}`], [0, "08:00", "Anmeldeschluss heute", (x) => `Pr\xFCfung ${x.module || x.title}`]],
   retake: [[7, "18:00", "Wiederholungspr\xFCfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Wiederholungspr\xFCfung morgen", (x) => x.module || x.title]],
@@ -45,6 +45,44 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
 function pruneSent(sent = {}, now2 = /* @__PURE__ */ new Date()) {
   const limit = now2.getTime() - 60 * 864e5;
   return Object.fromEntries(Object.entries(sent).filter(([, at]) => new Date(at).getTime() >= limit));
+}
+
+// src/server/calendar.js
+var LABEL = { homework: "Abgabe", exam: "Pr\xFCfung", register: "Anmeldeschluss", retake: "Wiederholungspr\xFCfung" };
+var esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/;/g, ";").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+var utc = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+var day = (date) => date.replace(/-/g, "");
+var nextDay = (date) => {
+  const d = /* @__PURE__ */ new Date(date + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+var fold = (line) => {
+  const out = [];
+  let s = line;
+  while (s.length > 74) {
+    out.push(s.slice(0, 74));
+    s = " " + s.slice(74);
+  }
+  out.push(s);
+  return out.join("\r\n");
+};
+function buildDeadlineIcs(deadlines, tz = "Europe/Berlin", now2 = /* @__PURE__ */ new Date()) {
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//StudyOS//Fristen//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:StudyOS Fristen", "X-PUBLISHED-TTL:PT3H", "REFRESH-INTERVAL;VALUE=DURATION:PT3H"];
+  for (const x of deadlines || []) {
+    const label = LABEL[x.kind];
+    if (!label || !/^\d{4}-\d{2}-\d{2}$/.test(x.date || "")) continue;
+    const what = x.kind === "homework" ? `${label}: ${x.title}${x.module ? ` (${x.module})` : ""}` : `${label}: ${x.module || x.title}`;
+    lines.push("BEGIN:VEVENT", `UID:${esc(`${x.kind}-${x.id}`)}@studyos`, `DTSTAMP:${utc(now2)}`, `SUMMARY:${esc(what)}`);
+    if (/^\d{2}:\d{2}$/.test(x.time || "")) {
+      const start = zonedInstant(x.date, x.time, tz);
+      const end = new Date(start.getTime() + (x.kind === "exam" ? 120 : 30) * 6e4);
+      lines.push(`DTSTART:${utc(x.kind === "homework" ? new Date(start.getTime() - 30 * 6e4) : start)}`, `DTEND:${utc(x.kind === "homework" ? start : end)}`);
+    } else lines.push(`DTSTART;VALUE=DATE:${day(x.date)}`, `DTEND;VALUE=DATE:${day(nextDay(x.date))}`);
+    lines.push("TRANSP:TRANSPARENT", "END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return lines.map(fold).join("\r\n") + "\r\n";
 }
 
 // src/server/webpush.js
@@ -277,6 +315,13 @@ function createHandler({ env: env2, fetchImpl = fetch, now: now2 = () => /* @__P
           if (r.ok) sent++;
         }
         return json({ devices: subs.length, sent });
+      }
+      if (action === "cal" && req.method === "GET") {
+        const token = new URL(req.url).searchParams.get("token") || "";
+        if (!/^[A-Za-z0-9_-]{24,64}$/.test(token)) return fail("Ung\xFCltiger Kalender-Link.", 404);
+        const rows = await q(`studyos_push?cal_token=eq.${token}&select=deadlines,tz`) || [];
+        if (!rows.length) return fail("Diesen Kalender gibt es nicht (mehr).", 404);
+        return new Response(buildDeadlineIcs(rows[0].deadlines, rows[0].tz || "Europe/Berlin", now2()), { status: 200, headers: { ...CORS, "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "private, max-age=900" } });
       }
       if (action === "health") return json({ ok: true });
       return fail("Unbekannte Aktion.", 404);

@@ -11,22 +11,33 @@ import { DATA_VERSION } from "../../src/lib/constants.js";
 
 const T = "2026-10-19"; /* ein Montag */
 
-describe("schedule (SM-2)", () => {
-  it("setzt bei 'Nochmal' zurück und senkt die Leichtigkeit", () => {
-    const r = schedule({ ease: 2.5, interval: 10, reps: 4 }, 0, T);
-    expect(r).toMatchObject({ interval: 0, reps: 0, ease: 2.3, due: T, lastReview: T });
+describe("schedule (FSRS-5)", () => {
+  it("neue Karte: Intervalle steigen von Schwer über Gut zu Leicht", () => {
+    const iv = [1, 2, 3].map((q) => schedule({ reps: 0 }, q, T).interval);
+    expect(iv).toEqual([1, 3, 16]);
+    expect(schedule({ reps: 0 }, 0, T)).toMatchObject({ interval: 0, due: T, reps: 0 });
   });
-  it("wächst bei 'Gut' mit der Leichtigkeit", () => {
-    let c = { ease: 2.5, interval: 0, reps: 0 };
-    c = { ...c, ...schedule(c, 2, T) }; expect(c.interval).toBe(1);
-    c = { ...c, ...schedule(c, 2, T) }; expect(c.interval).toBe(3);
-    c = { ...c, ...schedule(c, 2, T) }; expect(c.interval).toBe(8);
-    expect(c.due).toBe(addDays(T, 8));
+  it("wächst bei 'Gut' zum fälligen Zeitpunkt, 'Nochmal' setzt zurück und senkt die Stabilität", () => {
+    let c = { reps: 0 }, day = T;
+    const ivls = [];
+    for (let i = 0; i < 4; i++) { c = { ...c, ...schedule(c, 2, day) }; ivls.push(c.interval); day = c.due; }
+    expect(ivls[0]).toBe(3);
+    for (let i = 1; i < ivls.length; i++) expect(ivls[i]).toBeGreaterThan(ivls[i - 1]);
+    const lapse = schedule(c, 0, day);
+    expect(lapse.interval).toBe(0);
+    expect(lapse.stability).toBeLessThan(c.stability);
+    expect(lapse.lapses).toBe(1);
   });
-  it("hält die Leichtigkeit bei mindestens 1,3", () => {
-    let c = { ease: 1.35, interval: 5, reps: 3 };
-    for (let i = 0; i < 5; i++) c = { ...c, ...schedule(c, 1, T) };
-    expect(c.ease).toBe(1.3);
+  it("übernimmt Karten aus dem alten Verfahren", () => {
+    const r = schedule({ ease: 2.5, interval: 10, reps: 4, due: T }, 2, T);
+    expect(r.interval).toBeGreaterThan(10);
+    expect(r.due).toBe(addDays(T, r.interval));
+  });
+  it("Schwierigkeit bleibt zwischen 1 und 10", () => {
+    let c = { reps: 0 }, day = T;
+    for (let i = 0; i < 12; i++) { c = { ...c, ...schedule(c, i % 2 ? 0 : 1, day) }; day = addDays(day, 1); }
+    expect(c.difficulty).toBeLessThanOrEqual(10);
+    expect(c.difficulty).toBeGreaterThanOrEqual(1);
   });
 });
 

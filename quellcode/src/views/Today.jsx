@@ -8,6 +8,9 @@ import { examDeadlines } from "../lib/stats.js";
 import { nextUp } from "../lib/next.js";
 import { SessionTri } from "../ui/session.jsx";
 import { dueLabel, todoItems } from "../lib/todo.js";
+import { PlaceLinks } from "../ui/links.jsx";
+import { MensaCard } from "./Mensa.jsx";
+import { mensaOf } from "../lib/mensa.js";
 import { withoutArchived } from "../lib/study.js";
 
 /* ---------------- Heute ---------------- */
@@ -104,6 +107,7 @@ export function Today({ db, onQuick, notice }) {
           </div>
         </Group>
       )}
+      {mensaOf(db.data.settings) && <div className="mt-6"><MensaCard canteen={mensaOf(db.data.settings)} /></div>}
     </div>
   );
 }
@@ -121,6 +125,7 @@ function TimelineRow({ s, db }) {
           <p className="row-meta truncate">{s.type}{s.room ? `, ${s.room}` : ""}{s.cancelled ? ", fällt aus" : state === "live" ? ", läuft gerade" : ""}</p>
         </button>
         {!s.cancelled && <div className="mt-2"><SessionTri s={s} db={db} compact color={m?.color} /></div>}
+        {!s.cancelled && <PlaceLinks room={s.room} live={m?.liveUrl} className="mt-1.5" />}
       </div>
     </li>
   );

@@ -12,6 +12,7 @@ export function createFakeCloud(call) {
       saveSubscription: (sub, tz) => call("push.saveSubscription", uid(), sub, tz),
       removeSubscription: (endpoint) => call("push.removeSubscription", uid(), endpoint),
       saveDeadlines: (deadlines, tz) => call("push.saveDeadlines", uid(), deadlines, tz),
+      setCalToken: (token) => call("push.setCalToken", uid(), token || null),
       test: () => call("push.test", uid()),
     },
     shares: {
@@ -19,6 +20,7 @@ export function createFakeCloud(call) {
       get: async (token) => { const b = await call("shares.get", token); if (!b) throw new Error("Diesen Stapel gibt es nicht (mehr). Links laufen nach 180 Tagen ab."); return b; },
       remove: (token) => call("shares.remove", uid(), token),
     },
+    calUrl: (token) => `https://example.supabase.co/functions/v1/studyos?action=cal&token=${token}`,
     fetchIcs: async (url) => { const r = await call("ics", uid(), url); if (r && r.error) throw new Error(r.error); return r.text; },
     async getUser() { return read(); },
     onAuthChange(cb) { listeners.add(cb); return () => listeners.delete(cb); },

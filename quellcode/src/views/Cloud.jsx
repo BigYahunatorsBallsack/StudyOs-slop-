@@ -73,6 +73,7 @@ export function CloudCard({ cloud, settings = {}, patchSettings }) {
             <ConfirmButton label="Cloud-Daten löschen" confirmLabel="Cloud-Kopie wirklich löschen?" onConfirm={cloud.deleteCloud} />
           </div>
           <Reminders cloud={cloud} settings={settings} patchSettings={patchSettings} />
+          {patchSettings && <CalendarFeed cloud={cloud} settings={settings} patchSettings={patchSettings} />}
           <p className="mt-2 text-[11px] text-slate-500">Abmelden lässt die Daten auf diesem Gerät. „Cloud-Daten löschen“ entfernt nur die Kopie in der Cloud; danach kannst du mit einer neuen Passphrase neu hochladen. Achtung: „Alle Daten löschen“ unten wird bei aktivem Sync auf allen Geräten wirksam.</p>
         </>
       )}
@@ -111,6 +112,47 @@ function Reminders({ cloud, settings, patchSettings }) {
       )}
       {cloud.pushStep && <p role="status" className="mt-2 text-xs text-slate-400">{cloud.pushStep}</p>}
       {cloud.pushMsg && <p role="status" className="mt-2 text-xs text-emerald-300">{cloud.pushMsg}</p>}
+    </div>
+  );
+}
+
+/* Fristen als Kalender-Abo für Google/Apple-Kalender */
+function CalendarFeed({ cloud, settings, patchSettings }) {
+  const token = settings.calToken || "";
+  const [msg, setMsg] = useState(""), [err, setErr] = useState("");
+  const url = token ? cloud.calUrl(token) : "";
+  const create = async () => {
+    setErr(""); setMsg("");
+    const raw = crypto.getRandomValues(new Uint8Array(24));
+    const t = btoa(String.fromCharCode(...raw)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    try { await cloud.setCalToken(t); patchSettings({ calToken: t }); setMsg("Link erstellt. In deinem Kalender als Abo hinzufügen."); }
+    catch (e) { setErr(/cal_token|column/i.test(e.message || "") ? "Bitte zuerst supabase/kalender.sql im SQL-Editor ausführen." : e.message); }
+  };
+  const revoke = async () => {
+    setErr(""); setMsg("");
+    try { await cloud.setCalToken(null); patchSettings({ calToken: "" }); setMsg("Link widerrufen. Kalender-Abos damit bekommen keine Daten mehr."); }
+    catch (e) { setErr(e.message); }
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(url); setMsg("Link kopiert."); } catch { setMsg("Bitte den Link markieren und kopieren."); } };
+  return (
+    <div className="mt-4 border-t border-slate-800 pt-4">
+      <h3 className="section-title">Fristen im Handy-Kalender</h3>
+      <p className="mt-1 text-xs text-slate-400">Abgaben, Prüfungen und Anmeldeschlüsse als Kalender-Abo für Google Kalender, Apple Kalender oder Outlook. Es nutzt dieselben unverschlüsselten Fristen wie die Erinnerungen. Wer den Link kennt, sieht sie; du kannst ihn jederzeit widerrufen.</p>
+      {!token ? (
+        <button className="btn btn-ghost mt-3" onClick={create} disabled={cloud.busy}>Kalender-Link erstellen</button>
+      ) : (
+        <>
+          <input readOnly aria-label="Link für dein Kalender-Abo" className="field mt-3 w-full text-xs" value={url} onFocus={(e) => e.target.select()} />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button className="btn btn-ghost" onClick={copy}>Kopieren</button>
+            <a className="btn btn-ghost" href={url.replace(/^https:/, "webcal:")}>In Kalender öffnen</a>
+            <button className="btn btn-ghost" onClick={revoke} disabled={cloud.busy}>Widerrufen</button>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">Google Kalender: „Weitere Kalender“ → „Per URL“ → Link einfügen. Aktualisiert sich je nach Kalender alle paar Stunden.</p>
+        </>
+      )}
+      {err && <p role="alert" className="mt-2 text-xs text-rose-400">{err}</p>}
+      {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
     </div>
   );
 }

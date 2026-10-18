@@ -87,6 +87,7 @@ export function createSupabaseCloud() {
         if (row) await pushUpsert({ subscriptions: (row.subscriptions || []).filter((x) => x.endpoint !== endpoint) });
       },
       saveDeadlines: (deadlines, tz) => pushUpsert({ deadlines, tz }),
+      setCalToken: (token) => pushUpsert({ cal_token: token || null }),
       test: async () => (await callFn("test")).json(),
     },
     shares: {
@@ -107,6 +108,7 @@ export function createSupabaseCloud() {
         if (error) throw new CloudError(error.message);
       },
     },
+    calUrl: (token) => `${FN}?action=cal&token=${token}`,
     fetchIcs: async (url) => (await callFn("ics", { body: { url } })).text(),
     async getUser() { const { data } = await sb.auth.getSession(); const u = toUser(data.session); uid = u?.id || null; return u; },
     onAuthChange(cb) {

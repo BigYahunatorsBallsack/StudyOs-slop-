@@ -6,6 +6,7 @@ import { Bar, Card, Dot, Empty, Stat, Tabs } from "../ui/primitives.jsx";
 import { HomeworkRow } from "../ui/rows.jsx";
 import { btnPrimary, focusRing, inputBase, inputFlex } from "../ui/styles.js";
 import { DataView } from "./Data.jsx";
+import { gopStatus, gradeForecast } from "../lib/tum.js";
 import { gradeTimeline, heatmap, minutesBySemester } from "../lib/stats.js";
 
 /* ---------------- Mehr ---------------- */
@@ -160,8 +161,10 @@ export function Progress({ db }) {
           <span><span className="text-emerald-400">●</span> bestanden {passed}</span><span><span className="text-sky-400">●</span> belegt {enrolled}</span><span><span className="text-slate-500">●</span> geplant {planned}</span><span>offen {Math.max(0, target - passed - enrolled - planned)}</span>
         </div>
       </Card>
+      <GopCard db={db} />
       <Card title="Notenschnitt (ECTS-gewichtet)">
         <p className="font-num text-3xl font-semibold">{avg ? avg.toFixed(2).replace(".", ",") : "–"}</p>
+        <Forecast data={data} db={db} />
         <p className="text-xs text-slate-500">aus {graded.length} benoteten Modulen ({gEcts} ECTS). Nicht berücksichtigt: Gewichtungsregeln deiner Prüfungsordnung.</p>
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div>
@@ -213,6 +216,65 @@ export function Progress({ db }) {
           );
         })}
       </Card>
+    </div>
+  );
+}
+
+const g2 = (n) => n.toFixed(2).replace(".", ",");
+
+/* Grundlagen- und Orientierungsprüfung: mindestens 12 ECTS aus den GOP-Modulen */
+function GopCard({ db }) {
+  const g = gopStatus(db.data);
+  if (!g) return null;
+  const cls = g.reached ? "notice-ok" : g.enough ? "notice-info" : "notice-warn";
+  return (
+    <Card title="Grundlagenprüfung (GOP)">
+      <p className="text-sm"><span className="font-num text-3xl font-semibold">{g.passed}</span><span className="text-slate-400"> / 12 ECTS aus GOP-Modulen bestanden</span></p>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800" role="img" aria-label={`${g.passed} von 12 ECTS`}><div className="h-full" style={{ width: `${Math.min(100, (g.passed / 12) * 100)}%`, background: g.reached ? "#34d399" : "#fbbf24" }} /></div>
+      <p className={`notice ${cls} mt-3`}>
+        {g.reached ? "Geschafft: Die GOP ist bestanden."
+          : !g.enough ? `Es fehlen ${g.need} ECTS, aber die offenen GOP-Module bringen nicht mehr genug. Bitte sofort bei der Studienberatung melden.`
+          : <>Es fehlen noch <b>{g.need} ECTS</b> bis Ende des 1. Semesters bzw. in der Wiederholungsprüfung. Reicht zum Beispiel: {g.combos.slice(0, 3).map((c) => c.map((m) => m.name).join(" + ")).join(" oder ")}.</>}
+      </p>
+      <ul className="mt-3 space-y-1 text-sm">
+        {g.modules.map((m) => {
+          const ex = g.open.find((x) => x.id === m.id)?.exam;
+          return (
+            <li key={m.id} className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: m.color }} aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">{m.name}</span>
+              <span className="font-num shrink-0 text-xs text-slate-400">{m.ects} ECTS</span>
+              <span className={`shrink-0 text-xs font-semibold ${m.status === "bestanden" ? "text-emerald-300" : "text-slate-400"}`}>{m.status === "bestanden" ? "bestanden" : ex ? `Prüfung ${fmt(ex.date)}` : "offen"}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-[11px] text-slate-500">Gezählt werden Module mit Häkchen „Grundlagenprüfung“ oder den Nummern aus dem TUM-Studienplan. Maßgeblich ist deine FPSO.</p>
+    </Card>
+  );
+}
+
+/* Prognose mit erwarteten Noten der laufenden und geplanten Module */
+function Forecast({ data, db }) {
+  const f = gradeForecast(data);
+  const open = data.modules.filter((m) => (m.status === "belegt" || m.status === "geplant") && Number(m.ects) > 0 && !m.archived);
+  const [show, setShow] = useState(false);
+  if (!open.length) return null;
+  return (
+    <div className="mt-3">
+      {f.forecast !== null && <p className="text-sm text-slate-300">Mit deinen erwarteten Noten ({f.expectedCount} {f.expectedCount === 1 ? "Modul" : "Module"}, {f.expectedEcts} ECTS): <b className="font-num">Ø {g2(f.forecast)}</b></p>}
+      <button className="link-btn mt-1" onClick={() => setShow(!show)} aria-expanded={show}>{show ? "Erwartete Noten ausblenden" : "Was wäre wenn: erwartete Noten eintragen"}</button>
+      {show && (
+        <ul className="mt-2 space-y-1.5">
+          {open.map((m) => (
+            <li key={m.id} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1 truncate">{m.name} <span className="text-xs text-slate-500">({m.ects})</span></span>
+              <input className="field w-16 py-1 text-sm" inputMode="decimal" placeholder="–" aria-label={`Erwartete Note ${m.name}`} defaultValue={m.expectedGrade ? String(m.expectedGrade).replace(".", ",") : ""}
+                onBlur={(e) => { const v = parseDec(e.target.value); const ok = v >= 1 && v <= 5 ? v : null; if ((m.expectedGrade ?? null) !== ok) db.patch("modules", m.id, { expectedGrade: ok }); }} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

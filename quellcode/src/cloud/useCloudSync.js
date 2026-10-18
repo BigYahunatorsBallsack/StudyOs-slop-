@@ -123,7 +123,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     try { localStorage.setItem("studyos-push-deadlines", key); } catch {}
   }, [cloud, getLocal, tz]);
   /* Fristen hochladen, sobald sie sich ändern (nur wenn Erinnerungen irgendwo eingeschaltet wurden) */
-  const pushWanted = !!data?.settings?.push;
+  const pushWanted = !!data?.settings?.push || !!data?.settings?.calToken;
   useEffect(() => {
     if (!active || !pushWanted) return;
     const id = setTimeout(() => { uploadDeadlines(false).catch(() => {}); }, 2500);
@@ -229,6 +229,16 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       return true;
     }),
     fetchIcs: (url) => cloud.fetchIcs(url),
+    /* Kalender-Abo der Fristen: Token auf dem Server setzen (null = widerrufen) */
+    setCalToken: async (token) => {
+      setBusy(true);
+      try {
+        await withTimeout(cloud.push.setCalToken(token), 20000, "Supabase antwortet nicht.");
+        if (token) await withTimeout(uploadDeadlines(true), 20000, "Supabase antwortet nicht beim Hochladen der Fristen.");
+      } finally { setBusy(false); }
+      return true;
+    },
+    calUrl: (token) => cloud.calUrl(token),
     signOut: wrap(async () => {
       keyRef.current = null; lastFp.current = null;
       await clearKeys(); await cloud.signOut();
