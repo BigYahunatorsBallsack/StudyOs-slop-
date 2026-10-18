@@ -515,7 +515,7 @@ test('Mensa, GOP-Karte, Raum-Link und FSRS-Vorschau', async ({ page }) => {
   await expect(page.getByRole('region', { name: 'Mensa' }).getByText('Testpasta mit Tomaten')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Mensa' }).getByText('0,90 €/100g')).toBeVisible();
   // Raum und Aufzeichnung im Tagesplan
-  await expect(page.getByRole('link', { name: 'Raum MI HS 1 (5602.EG.001) in NavigaTUM öffnen' }).first()).toHaveAttribute('href', 'https://nav.tum.de/room/5602.EG.001');
+  await expect(page.getByRole('link', { name: 'Raum finden: MI HS 1 (5602.EG.001) in NavigaTUM öffnen' }).first()).toHaveAttribute('href', 'https://nav.tum.de/room/5602.EG.001');
   await expect(page.getByRole('link', { name: 'Aufzeichnung ↗' }).first()).toHaveAttribute('href', /live\.rbg\.tum\.de/);
   // GOP
   await nav(page, 'Mehr').click();

@@ -18,7 +18,7 @@ export function SessionTri({ s, db, compact = false, color }) {
       {SESSION_STEPS.map(([key, long, short]) => {
         const on = !!s[key], warn = key === "reviewed" && held && !on;
         return (
-          <button key={key} type="button" aria-pressed={on} title={long} aria-label={long} className={`tri-btn ${warn ? "tri-warn" : ""}`}
+          <button key={key} type="button" aria-pressed={on} title={long} aria-label={compact && short !== long ? `${short}: ${long}` : undefined} className={`tri-btn ${warn ? "tri-warn" : ""}`}
             onClick={(e) => { e.stopPropagation(); db.toggleSession(s.id, key); }}>
             <span className="tri-mark" aria-hidden="true">{on ? "✓" : warn ? "!" : ""}</span>
             <span>{compact ? short : long}</span>
