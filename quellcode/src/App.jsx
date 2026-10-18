@@ -13,7 +13,7 @@ import { Icon, Toasts } from "./ui/primitives.jsx";
 import { btnGhost, btnPrimary } from "./ui/styles.js";
 import { Today } from "./views/Today.jsx";
 import { WeekView } from "./views/Week.jsx";
-import { mergeData, stampChanges } from "./lib/sync.js";
+import { mergeData, restoreConflicts, stampChanges } from "./lib/sync.js";
 import { TimerBadge, TimerTitle } from "./ui/timer.jsx";
 import { QuickAdd } from "./ui/QuickAdd.jsx";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
@@ -211,7 +211,13 @@ export default function App() {
     setData((cur) => (cur === base || cur === merged ? merged : mergeData(cur, merged).data));
   }, []);
   const onPushEnabled = useCallback(() => change((d) => (d.settings.push ? d : { ...d, settings: { ...d.settings, push: true } })), []);
-  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled });
+  /* Ein anderes Gerät hat Änderungen von hier überschrieben oder gelöscht: zeigen, mit „Meine behalten“ */
+  const onConflict = (list) => {
+    const names = list.slice(0, 2).map((k) => `„${k.title}“`).join(", ") + (list.length > 2 ? ` und ${list.length - 2} weitere` : "");
+    const what = list.every((k) => k.kind === "deleted") ? "gelöscht" : "überschrieben";
+    toast(`Von einem anderen Gerät ${what}: ${names}.`, { label: "Meine behalten", run: () => { change((d) => restoreConflicts(d, list)); toast("Deine Fassung ist wiederhergestellt."); } }, 20000);
+  };
+  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict });
 
   const feeds = useFeeds({ ready, loadError, cloud, data, dataRef, change });
 

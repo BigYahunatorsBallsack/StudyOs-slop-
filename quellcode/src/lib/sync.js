@@ -71,3 +71,42 @@ export function mergeData(local, remote, now = new Date().toISOString()) {
   out.deleted = pruneTombs(tombs, now);
   return { data: out, stats };
 }
+
+const titleOf = (x) => String(x.title || x.name || x.front || x.type || "Eintrag").slice(0, 60);
+
+/** Zeitstempel aller Einträge ("sammlung:id" → updated), z. B. nach einem erfolgreichen Sync. */
+export function stampMap(d) {
+  const m = new Map();
+  for (const c of COLLS) for (const x of d[c] || []) m.set(`${c}:${x.id}`, stamp(x));
+  return m;
+}
+
+/** Was hat ein Zusammenführen auf diesem Gerät überschrieben? Nur Einträge, die hier seit dem letzten Sync
+    geändert wurden (Zeitstempel weicht von `synced` ab) und danach von einem anderen Gerät ersetzt oder gelöscht sind.
+    Ohne `synced` (erster Sync nach dem Start) wird nichts gemeldet. */
+export function findConflicts(local, merged, synced) {
+  if (!synced) return [];
+  const out = [];
+  for (const c of COLLS) {
+    const after = new Map((merged[c] || []).map((x) => [x.id, x]));
+    for (const x of local[c] || []) {
+      if (synced.get(`${c}:${x.id}`) === stamp(x)) continue;
+      const y = after.get(x.id);
+      if (!y) out.push({ c, id: x.id, title: titleOf(x), kind: "deleted", local: x });
+      else if (y !== x && stamp(y) !== stamp(x)) out.push({ c, id: x.id, title: titleOf(x), kind: "overwritten", local: x });
+    }
+  }
+  return out;
+}
+
+/** Stellt die lokalen Fassungen aus findConflicts wieder her (werden danach neu gestempelt und synchronisiert). */
+export function restoreConflicts(d, conflicts) {
+  const out = { ...d };
+  for (const c of new Set(conflicts.map((k) => k.c))) {
+    const mine = new Map(conflicts.filter((k) => k.c === c).map((k) => [k.id, k.local]));
+    const kept = (d[c] || []).map((x) => (mine.has(x.id) ? { ...mine.get(x.id) } : x));
+    const present = new Set(kept.map((x) => x.id));
+    out[c] = [...kept, ...[...mine.values()].filter((x) => !present.has(x.id)).map((x) => ({ ...x }))];
+  }
+  return out;
+}

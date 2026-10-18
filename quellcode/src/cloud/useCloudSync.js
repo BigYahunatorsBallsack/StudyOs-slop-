@@ -27,7 +27,7 @@ function withTimeout(promise, ms, message) {
 const INTERVAL_MS = 5 * 60 * 1000;
 const LAST_KEY = "studyos-cloud-last";
 
-export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled }) {
+export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict }) {
   const cloud = getCloud();
   const [phase, setPhase] = useState(cloud ? "loading" : "off");
   const [user, setUser] = useState(null);
@@ -40,6 +40,8 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   const keyRef = useRef(null);
   const running = useRef(false), again = useRef(false), lastFp = useRef(null);
   const enabledRef = useRef(enabled); enabledRef.current = enabled;
+  const syncedRef = useRef(null); /* Zeitstempel nach dem letzten erfolgreichen Sync, für den Konflikthinweis */
+  const onConflictRef = useRef(onConflict); onConflictRef.current = onConflict;
 
   /* Anmeldestatus und gespeicherten Schlüssel laden */
   const enterUser = useCallback(async (u) => {
@@ -68,8 +70,9 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     running.current = true;
     setStatus("syncing");
     try {
-      const res = await syncOnce({ remote: cloud.remote, key: keyRef.current, getLocal, applyLocal });
-      lastFp.current = res.fingerprint;
+      const res = await syncOnce({ remote: cloud.remote, key: keyRef.current, getLocal, applyLocal, synced: syncedRef.current });
+      lastFp.current = res.fingerprint; syncedRef.current = res.stamps;
+      if (res.conflicts.length && onConflictRef.current) onConflictRef.current(res.conflicts);
       const at = new Date().toISOString();
       setLastSync(at); try { localStorage.setItem(LAST_KEY, at); } catch {}
       setStatus("idle"); setError("");

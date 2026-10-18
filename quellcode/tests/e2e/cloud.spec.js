@@ -425,3 +425,53 @@ test('Artemis: Abo auch ohne Abgaben, übernimmt sie später automatisch', async
   expect(A.errors).toEqual([]);
   await A.context.close();
 });
+
+test('Konflikt: Änderung von einem anderen Gerät überschrieben, „Meine behalten“ stellt sie wieder her', async ({ browser }) => {
+  test.setTimeout(90000);
+  const backend = createBackend();
+  const A = await newDevice(browser, backend);
+  const B = await newDevice(browser, backend);
+  const unlock = async (page, first) => {
+    await page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+    if (first) await page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+    await page.getByRole('button', { name: first ? 'Festlegen und hochladen' : 'Entsperren und synchronisieren' }).click();
+    await expect(page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+  };
+  const rename = async (page, from, to) => {
+    await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+    await page.getByPlaceholder(/Module, Hausaufgaben/).fill(from);
+    await page.getByRole('option', { name: new RegExp(from) }).click();
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByLabel('Titel').fill(to);
+    await page.getByRole('button', { name: 'Speichern' }).click();
+  };
+  await addNote(A.page, 'Gemeinsame Notiz');
+  await login(A.page); await unlock(A.page, true);
+  await login(B.page); await unlock(B.page, false);
+  await expect.poll(() => notes(B.page), { timeout: 15000 }).toEqual(['Gemeinsame Notiz']);
+  // A synchronisiert einmal (merkt sich den Stand) und geht dann offline
+  await openData(A.page);
+  await A.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect(A.page.getByText('Synchronisiert', { exact: true })).toBeVisible();
+  await A.context.setOffline(true);
+  await rename(A.page, 'Gemeinsame Notiz', 'Fassung von A');
+  await A.page.waitForTimeout(500);
+  await rename(B.page, 'Gemeinsame Notiz', 'Fassung von B');
+  await openData(B.page);
+  await B.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect(B.page.getByText('Synchronisiert', { exact: true })).toBeVisible();
+  // A wieder online: B's jüngere Fassung gewinnt, A bekommt den Hinweis
+  await A.context.setOffline(false);
+  await A.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect(A.page.getByText('Von einem anderen Gerät überschrieben: „Fassung von A“.')).toBeVisible({ timeout: 15000 });
+  await expect.poll(() => notes(A.page)).toEqual(['Fassung von B']);
+  const before = [...backend.rows.values()][0].version;
+  await A.page.getByRole('button', { name: 'Meine behalten' }).click();
+  await expect.poll(() => notes(A.page)).toEqual(['Fassung von A']);
+  await expect.poll(() => [...backend.rows.values()][0].version, { timeout: 15000 }).toBeGreaterThan(before); // A lädt hoch
+  await B.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect.poll(() => notes(B.page), { timeout: 15000 }).toEqual(['Fassung von A']);
+  expect(A.errors).toEqual([]);
+  expect(B.errors).toEqual([]);
+  await A.context.close(); await B.context.close();
+});
