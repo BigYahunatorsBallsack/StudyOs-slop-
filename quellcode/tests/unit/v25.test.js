@@ -135,3 +135,17 @@ describe("Artemis und Formeln", () => {
     expect(needsExtras("Preis 5 €")).toBe(false);
   });
 });
+
+describe("Artemis-Kalenderformat (wie im Artemis-Quellcode)", () => {
+  it("nur „Due:“/„Abgabefrist:“ von Aufgaben zählen", async () => {
+    const { parseArtemis, feedSummary } = await import("../../src/lib/moodle.js");
+    expect(parseArtemis("EIDI Exercise | Due: W01H01 - Hello World")).toEqual({ course: "EIDI", kind: "Exercise", due: true, title: "W01H01 - Hello World" });
+    expect(isMoodleDeadline({ summary: "EIDI Aufgabe | Abgabefrist: W02H01" })).toBe(true);
+    expect(isMoodleDeadline({ summary: "EIDI Exercise | Release: W02H01" })).toBe(false);
+    expect(isMoodleDeadline({ summary: "EIDI Exercise | Assessment due: W02H01" })).toBe(false);
+    expect(isMoodleDeadline({ summary: "EIDI Aufgabe | Korrekturfrist: W02H01" })).toBe(false);
+    expect(isMoodleDeadline({ summary: "EIDI Lecture | Due: Kapitel 3" })).toBe(false);
+    expect(cleanTitle("EIDI Aufgabe | Abgabefrist: W02H01")).toBe("W02H01");
+    expect(feedSummary([{ summary: "EIDI Lecture | Einführung" }, { summary: "EIDI Lecture | Rekursion" }, { summary: "EIDI Exercise | Release: W01" }])).toEqual({ Vorlesungen: 2, "Aufgaben-Termine": 1 });
+  });
+});

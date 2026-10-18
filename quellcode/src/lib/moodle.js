@@ -9,9 +9,31 @@ const DUE = /(ist fällig|fällig|is due|\bdue\b|schließt|closes|abgabe|deadlin
 const NOT_DUE = /(öffnet|opens|geöffnet|beginnt|starts|verfügbar ab|available from|veröffentlich|release|freigabe|bewertung|assessment|korrektur|vorlesung|lecture|tutorium|tutorial|prüfung|klausur|exam|einsicht|review)/i;
 const STRIP = [/\s+(ist|wird)\s+fällig\.?$/i, /\s+is due\.?$/i, /\s+(schließt|closes|endet|ends)\.?$/i, /^(fällig|abgabetermin|abgabefrist|abgabe|einreichungsfrist|deadline|due date|due)\s*[:–-]\s*/i, /\s*[-–:]\s*(abgabe|abgabefrist|due date|due|deadline)$/i, /\s*\((fällig|due|abgabe|abgabefrist|due date)\)$/i];
 
-export const isMoodleDeadline = (e) => !NOT_DUE.test(e.summary) && DUE.test(e.summary);
-export function cleanTitle(summary) { let t = String(summary || "").trim(); for (const re of STRIP) t = t.replace(re, "").trim(); return t || summary; }
-export const courseOf = (e) => e.course || "Ohne Kurs";
+/* Artemis: „<Kurs> Exercise | Due: <Titel>“ bzw. „<Kurs> Aufgabe | Abgabefrist: <Titel>“ (siehe ExerciseService/CalendarSubscriptionService) */
+const ARTEMIS = /^(.*?)\s*\b(Exercise|Aufgabe|Lecture|Vorlesung|Tutorial|Tutorium|Exam|Klausur)\s*\|\s*(.*)$/;
+const ARTEMIS_DUE = /^(Due|Abgabefrist):\s*/i;
+export function parseArtemis(summary) {
+  const m = ARTEMIS.exec(String(summary || ""));
+  if (!m) return null;
+  const exercise = /^(Exercise|Aufgabe)$/.test(m[2]);
+  return { course: m[1].trim(), kind: m[2], due: exercise && ARTEMIS_DUE.test(m[3]), title: m[3].replace(ARTEMIS_DUE, "").trim() };
+}
+
+export const isMoodleDeadline = (e) => { const a = parseArtemis(e.summary); return a ? a.due : !NOT_DUE.test(e.summary) && DUE.test(e.summary); };
+export function cleanTitle(summary) {
+  const a = parseArtemis(summary);
+  if (a) return a.title || summary;
+  let t = String(summary || "").trim(); for (const re of STRIP) t = t.replace(re, "").trim(); return t || summary;
+}
+export const courseOf = (e) => e.course || parseArtemis(e.summary)?.course || "Ohne Kurs";
+
+/** Was steht im Kalender? (für die Vorschau: Anzahl je Art) */
+export function feedSummary(events) {
+  const kinds = {};
+  const DE = { Exercise: "Aufgaben-Termine", Aufgabe: "Aufgaben-Termine", Lecture: "Vorlesungen", Vorlesung: "Vorlesungen", Tutorial: "Tutorien", Tutorium: "Tutorien", Exam: "Prüfungstermine", Klausur: "Prüfungstermine" };
+  for (const e of events) { const a = parseArtemis(e.summary); const k = a ? (a.due ? "Abgaben" : DE[a.kind]) : isMoodleDeadline(e) ? "Abgaben" : "sonstige Termine"; kinds[k] = (kinds[k] || 0) + 1; }
+  return kinds;
+}
 
 /** Fälligkeit: Mitternacht bedeutet „bis Ende des Vortags“ */
 export function dueOf(e) {

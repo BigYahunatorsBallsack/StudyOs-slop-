@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { parseICS } from "../lib/ics.js";
 import { guessMapping, NEW, SKIP, unmappedSummaries } from "../lib/feed.js";
-import { isMoodleDeadline, unmappedCourses } from "../lib/moodle.js";
+import { cleanTitle, feedSummary, isMoodleDeadline, unmappedCourses } from "../lib/moodle.js";
 import { Card, ConfirmButton } from "../ui/primitives.jsx";
 
 const fmtWhen = (s) => (s ? new Date(s).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie");
@@ -200,8 +200,9 @@ export function ArtemisCard({ db }) {
     if (!/artemis/i.test(url)) throw new Error("Das sieht nicht nach einem Artemis-Link aus.");
     const events = parseICS(await cloud.fetchIcs(url.trim()));
     const due = events.filter(isMoodleDeadline);
-    if (!due.length) throw new Error(events.length ? "Im Kalender sind Termine, aber keine Abgabefristen. Beim Abonnieren in Artemis „Aufgaben“ auswählen." : "Der Kalender ist leer.");
-    setDraft({ url: url.trim(), events, count: due.length, sample: due.slice(0, 3).map((e) => e.summary) });
+    const kinds = feedSummary(events);
+    const what = Object.entries(kinds).filter(([k]) => k !== "Abgaben").map(([k, n]) => `${n} ${k}`).join(", ");
+    setDraft({ url: url.trim(), events, count: due.length, sample: due.slice(0, 3).map((e) => cleanTitle(e.summary)), what });
   });
   const subscribe = () => run(async () => {
     if (!moduleId) throw new Error("Bitte ein Modul wählen.");
@@ -229,7 +230,10 @@ export function ArtemisCard({ db }) {
           )}
           {draft ? (
             <>
-              <p className="text-xs text-slate-400">{draft.count} {draft.count === 1 ? "Abgabe" : "Abgaben"} gefunden, z. B. „{draft.sample[0]}“. Zu welchem Modul gehört der Kurs?</p>
+              <p className="text-xs text-slate-400">
+                {draft.count ? <>{draft.count} {draft.count === 1 ? "Abgabe" : "Abgaben"} gefunden, z. B. „{draft.sample[0]}“.</> : <>Noch keine Abgabefristen im Kalender{draft.what ? ` (nur ${draft.what})` : ""}. Das ist normal, solange die Aufgaben noch nicht freigeschaltet sind: StudyOS übernimmt sie automatisch, sobald sie im Kalender stehen.</>}
+                {" "}Zu welchem Modul gehört der Kurs?
+              </p>
               <select aria-label="Modul für den Artemis-Kurs" className="field mt-2 w-full text-sm" value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
                 <option value="">Modul wählen …</option>
                 {data.modules.filter((m) => !m.archived).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -241,7 +245,7 @@ export function ArtemisCard({ db }) {
             </>
           ) : (
             <>
-              <p className="text-xs text-slate-400">In Artemis im Kurs auf <b className="text-slate-200">Kalender</b> → <b className="text-slate-200">Abonnieren</b>, bei den Kategorien „Aufgaben“ auswählen und den Link kopieren. Für jeden Kurs ein eigenes Abo.</p>
+              <p className="text-xs text-slate-400">In Artemis im Kurs auf <b className="text-slate-200">Calendar</b> → <b className="text-slate-200">Subscribe</b> („iCalendar subscription“). Sprache egal, <b className="text-slate-200">Exercises</b> muss angehakt sein (die anderen stören nicht). Dann den Link kopieren. Für jeden Kurs ein eigenes Abo.</p>
               <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); preview(); }}>
                 <input type="url" inputMode="url" aria-label="Artemis-Kalender-Link" placeholder="https://artemis.tum.de/…" className="field min-w-0 flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} />
                 <button type="submit" className="btn btn-primary" disabled={busy || !url.trim()}>{busy ? "Ruft ab …" : "Prüfen"}</button>

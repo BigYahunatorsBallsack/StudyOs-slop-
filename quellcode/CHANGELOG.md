@@ -1,5 +1,8 @@
 # Änderungen
 
+## 2.5.2
+- **Artemis:** Erkennt das echte Format der Artemis-Kalender („EIDI Exercise | Due: …“ bzw. „Aufgabe | Abgabefrist: …“). Ein Abo geht jetzt auch, solange noch keine Abgaben im Kalender stehen; sie werden übernommen, sobald sie erscheinen. Freigabe-, Start- und Korrekturtermine werden ignoriert.
+
 ## 2.5.1
 - **Weg zur Uni mit Umstieg:** Standard ist jetzt S6 Zorneding → Haar (8 Min.), Umstieg (4 Min.), Bus 230 → Garching-Forschungszentrum. StudyOS sucht zum spätesten passenden Bus die passende S6 (Richtung München, ohne Grafing/Ebersberg) und sagt, wann du zu Hause losmusst. Zubringer abschaltbar, alle Zeiten einstellbar; Gleis wird angezeigt.
 

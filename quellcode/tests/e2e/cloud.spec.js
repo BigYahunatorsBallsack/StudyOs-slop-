@@ -395,3 +395,33 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   expect(A.errors).toEqual([]);
   await A.context.close();
 });
+
+test('Artemis: Abo auch ohne Abgaben, übernimmt sie später automatisch', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const stamp = (n, hm) => { const d = new Date(Date.now() + n * 86400000); return d.toLocaleDateString('sv-SE').replace(/-/g, '') + 'T' + hm; };
+  const ev = (uid, summary, n) => `BEGIN:VEVENT\r\nUID:${uid}\r\nSUMMARY:${summary}\r\nDTSTART:${stamp(n, '100000')}\r\nDTEND:${stamp(n, '113000')}\r\nEND:VEVENT\r\n`;
+  let calendar = `BEGIN:VCALENDAR\r\n${ev('l1', 'EIDI Lecture | Einführung', 1)}${ev('l2', 'EIDI Lecture | Rekursion', 8)}END:VCALENDAR\r\n`;
+  backend.ics = () => ({ text: calendar });
+  const A = await newDevice(browser, backend);
+  await A.page.evaluate(async () => { await window.STUDYOS_ENV.save({ version: 3, settings: {}, meta: {}, modules: [{ id: 'eidi', name: 'Einführung in die Informatik', ects: 12, semester: 1, status: 'belegt', color: '#38bdf8' }], sessions: [], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] }); });
+  await A.page.reload();
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+  await A.page.getByLabel('Artemis-Kalender-Link').fill('https://artemis.tum.de/api/calendar/courses/621/calendar-events-ics?token=abc');
+  await A.page.getByRole('button', { name: 'Prüfen', exact: true }).click();
+  await expect(A.page.getByText('Noch keine Abgabefristen im Kalender (nur 2 Vorlesungen).', { exact: false })).toBeVisible();
+  await A.page.getByLabel('Modul für den Artemis-Kurs').selectOption('eidi');
+  await A.page.getByRole('button', { name: 'Abonnieren' }).click();
+  await expect(A.page.getByText('Abonniert: 0 Abgaben übernommen.')).toBeVisible();
+  // später erscheinen Aufgaben im Kalender
+  calendar = calendar.replace('END:VCALENDAR', ev('e1', 'EIDI Exercise | Release: W01H01', 2) + ev('e2', 'EIDI Exercise | Due: W01H01 - Hello World', 9) + 'END:VCALENDAR');
+  await A.page.getByRole('button', { name: 'Alle jetzt abrufen' }).click();
+  await expect(A.page.getByText('Abgerufen: 1 neu, 0 geändert.')).toBeVisible();
+  await expect.poll(() => A.page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework.map((h) => `${h.title}|${h.moduleId}`))).toEqual(['W01H01 - Hello World|eidi']);
+  expect(A.errors).toEqual([]);
+  await A.context.close();
+});
