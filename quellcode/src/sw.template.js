@@ -1,5 +1,5 @@
 const CACHE = 'studyos-shell-__HASH__';
-const SHELL = ['./', './index.html', './app.js', './style.css', './fonts/bricolage-grotesque-latin-wght.woff2', './manifest.webmanifest', './favicon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png', './extras.js', './katex/katex.min.css'];
+const SHELL = __SHELL__;
 self.addEventListener('install', (event) => { event.waitUntil((async () => { const cache = await caches.open(CACHE); await Promise.all(SHELL.map(async (url) => { const response = await fetch(new Request(url, { cache: 'reload' })); if (!response.ok) throw new Error('Precache failed: ' + url); await cache.put(url, response); })); if (!self.registration.active) await self.skipWaiting(); })()); });
 self.addEventListener('activate', (event) => { event.waitUntil((async () => { const keys = await caches.keys(); await Promise.all(keys.filter((key) => key.startsWith('studyos-shell-') && key !== CACHE).map((key) => caches.delete(key))); await self.clients.claim(); })()); });
 self.addEventListener('message', (event) => { if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting(); });

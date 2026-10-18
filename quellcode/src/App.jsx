@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
 import { useCloudSync } from "./cloud/useCloudSync.js";
 import { COLL, COLLS, DATA_VERSION, DONE_HW, TIMER_KEY } from "./lib/constants.js";
 import { buildWeeklySeries, emptyData, migrate } from "./lib/data.js";
@@ -8,16 +8,23 @@ import { diffDays, iso, uid } from "./lib/util.js";
 import { FormModal } from "./ui/FormModal.jsx";
 import { Icon, Toasts } from "./ui/primitives.jsx";
 import { btnGhost, btnPrimary } from "./ui/styles.js";
-import { Learn } from "./views/Learn.jsx";
-import { ModuleDetail, ModuleList } from "./views/Modules.jsx";
-import { More } from "./views/More.jsx";
-import { NoteViewer, SearchModal } from "./views/Search.jsx";
 import { Today } from "./views/Today.jsx";
 import { WeekView } from "./views/Week.jsx";
 import { mergeData, stampChanges } from "./lib/sync.js";
 import { TimerBadge, TimerTitle } from "./ui/timer.jsx";
-import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 import { QuickAdd } from "./ui/QuickAdd.jsx";
+import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
+
+/* Seltener genutzte Bereiche als eigene Dateien: werden beim ersten Öffnen geladen (offline über den Service Worker) */
+const named = (load, name) => lazy(() => load().then((m) => ({ default: m[name] })));
+const Learn = named(() => import("./views/Learn.jsx"), "Learn");
+const ModuleDetail = named(() => import("./views/Modules.jsx"), "ModuleDetail");
+const ModuleList = named(() => import("./views/Modules.jsx"), "ModuleList");
+const More = named(() => import("./views/More.jsx"), "More");
+const NoteViewer = named(() => import("./views/Search.jsx"), "NoteViewer");
+const SearchModal = named(() => import("./views/Search.jsx"), "SearchModal");
+const ShareImport = named(() => import("./views/Share.jsx"), "ShareImport");
+const Loading = () => <p className="py-10 text-center text-sm text-slate-500" role="status">Lädt …</p>;
 import { FEED_VERSION, applyFeed, resolveNewModules, unmappedSummaries } from "./lib/feed.js";
 import { parseICS } from "./lib/ics.js";
 import { mergeModules } from "./lib/modules.js";
@@ -26,7 +33,6 @@ import { buildHomeworkSeries } from "./lib/study.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
 import { applyArtemis, applyMoodle, unmappedCourses } from "./lib/moodle.js";
-import { ShareImport } from "./views/Share.jsx";
 
 const FONT_CSS = `.font-ui{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 .font-num{font-family:var(--font-display);font-variant-numeric:tabular-nums}
@@ -592,6 +598,7 @@ export default function App() {
             <button onClick={() => setBannerOpen(false)} className="btn btn-icon" aria-label="Hinweis schließen">✕</button>
           </div>
         )}
+        <Suspense fallback={<Loading />}>
         {tab === "heute" && <Today db={db} onQuick={() => setQuickOpen(true)} whatNowOpen={whatNowOpen} setWhatNowOpen={setWhatNowOpen} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
           <div className="notice notice-plain flex items-center gap-3">
             <p className="flex-1">{backupAge === null ? "Du hast noch keine Sicherung exportiert." : `Letzte Sicherung vor ${backupAge} Tagen.`} Deine Daten liegen nur auf diesem Gerät. Sichere sie oder schalte den Cloud-Sync ein.</p>
@@ -602,6 +609,7 @@ export default function App() {
         {tab === "woche" && <WeekView db={db} />}
         {tab === "lernen" && <Learn db={db} sub={learnTab} setSub={setLearnTab} timer={timerApi} cardFilter={cardFilter} setCardFilter={setCardFilter} />}
         {tab === "mehr" && <More db={db} sub={moreTab} setSub={setMoreTab} />}
+        </Suspense>
         <p className="mt-10 text-center text-[11px] text-slate-600">StudyOS {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}, Datenformat {DATA_VERSION}</p>
       </main>
 
@@ -618,13 +626,17 @@ export default function App() {
         </ul>
       </nav>
 
+      <Suspense fallback={null}>
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       {shareIn && <ShareImport db={db} token={shareIn.token} keyStr={shareIn.key} onClose={() => { setShareIn(null); setLearnTab("karten"); setTab("lernen"); }} />}
+      </Suspense>
       {quickOpen && <QuickAdd db={db} onClose={() => setQuickOpen(false)} />}
       <TimerTitle timer={timer} />
       <Toasts items={toasts} onClose={closeToast} />
+      <Suspense fallback={null}>
       {searchOpen && <SearchModal data={data} db={db} onPick={openResult} onClose={() => setSearchOpen(false)} />}
       {noteObj && !form && <NoteViewer note={noteObj} db={db} onClose={() => setNoteView(null)} onEdit={() => { setNoteView(null); openForm("note", noteObj); }} />}
+      </Suspense>
       {form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
     </div>
   );
