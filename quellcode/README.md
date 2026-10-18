@@ -38,7 +38,7 @@ npm run check                     # Lint, Unit-Tests, Funktions-Test (Deno), E2E
 
 **Veröffentlichen:** Im GitHub-Repository liegt dieser Ordner unter `quellcode/`, die gebaute App im Wurzelverzeichnis (dort liest GitHub Pages). Bei jedem Push auf `main`, der `quellcode/` ändert, läuft `.github/workflows/studyos.yml`: erst alle Prüfungen, dann `npm run build` und ein Commit der neuen Dateien ins Wurzelverzeichnis. Schlägt ein Test fehl, bleibt die Seite unverändert.
 
-`build.mjs` bündelt `src/` zu `dist/app.js`, kopiert das CSS und berechnet den Cache-Namen des Service Workers aus den Dateiinhalten. Dadurch kommen Updates sicher bei installierten Apps an.
+`build.mjs` kopiert `public/` (index.html, Icons, Manifest) nach `dist/`, bündelt `src/` zu `dist/app.js`, kopiert das CSS und berechnet den Cache-Namen des Service Workers aus den Dateiinhalten. Dadurch kommen Updates sicher bei installierten Apps an.
 
 **Styling:** Komponenten-Klassen (`.row`, `.hero`, `.btn`, …) und alle Farben als Tokens stehen in `src/design.css`. `src/style.css` enthält Utility-Klassen ohne Tailwind; eine neue Utility im JSX braucht eine Regel. `python3 tools/css_check.py .` findet fehlende.
 

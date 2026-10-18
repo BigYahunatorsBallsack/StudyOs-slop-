@@ -2,9 +2,12 @@
 // Service Workers aus einem Hash der ausgelieferten Dateien (damit Updates sicher ankommen).
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, cpSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+
+// 0) Statische Dateien (index.html, Icons, Manifest …) aus public/ übernehmen
+cpSync('public', 'dist', { recursive: true });
 
 // 1) JavaScript bündeln
 await build({
