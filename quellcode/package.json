@@ -8,7 +8,7 @@
     "serve": "python3 -m http.server 8080 --directory dist",
     "lint": "eslint src tests build.mjs",
     "test": "TZ=Europe/Berlin vitest run",
-    "test:e2e": "node build.mjs && playwright test",
+    "test:e2e": "node build.mjs && TZ=Europe/Berlin playwright test",
     "check": "npm run lint && npm test && npm run test:function && npm run test:e2e",
     "test:function": "node build.mjs && node tests/deno/run-function.mjs node_modules/.bin/deno"
   },
