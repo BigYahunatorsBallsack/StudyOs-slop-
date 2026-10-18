@@ -63,7 +63,7 @@ export const allTags = (cards) => [...new Set(cards.flatMap((c) => parseTags(c.t
 export function parseCsv(text) {
   const t = String(text || "").replace(/^\uFEFF/, "");
   const firstLine = t.split(/\r?\n/)[0] || "";
-  const counts = ["\t", ";", ","].map((d) => [d, firstLine.split(d).length - 1]).sort((a, b) => b[1] - a[1]);
+  const counts = ["\t", ";", ","].map((d) => /** @type {[string, number]} */ ([d, firstLine.split(d).length - 1])).sort((a, b) => b[1] - a[1]);
   const delim = counts[0][1] > 0 ? counts[0][0] : ";";
   const rows = [];
   let row = [], field = "", quoted = false;
@@ -97,6 +97,7 @@ export function parseCardsCsv(text) {
 }
 
 /** Export als CSV (Semikolon, UTF-8 mit BOM, damit Excel Umlaute richtig anzeigt). */
+/** @param {any[]} cards @param {(moduleId: string) => string} [moduleName] */
 export function cardsToCsv(cards, moduleName = () => "") {
   const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
   const lines = [["Vorderseite", "Rückseite", "Tags", "Modul"].map(q).join(";")];

@@ -5,7 +5,7 @@ import { addDays, iso, wdIdx, weekStart } from "./util.js";
 /* ICS-Parser (z. B. Kalender-Export aus TUMonline) */
 export function parseICS(text) {
   const lines = text.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "").split(/\r?\n/);
-  const events = []; let cur = null;
+  /** @type {any[]} */ const events = []; /** @type {any} */ let cur = null;
   const unesc = (v) => v.replace(/\\n/gi, " ").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\").trim();
   const parseDT = (v) => {
     const m = /(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?(Z)?/.exec(v || ""); if (!m) return null;
@@ -14,7 +14,7 @@ export function parseICS(text) {
     return { date: iso(d), time: m[4] ? String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : "" };
   };
   for (const line of lines) {
-    if (line.startsWith("BEGIN:VEVENT")) { cur = { exdates: [] }; continue; }
+    if (line.startsWith("BEGIN:VEVENT")) { cur = /** @type {any} */ ({ exdates: [] }); continue; }
     if (line.startsWith("END:VEVENT")) { if (cur) events.push(cur); cur = null; continue; }
     if (!cur) continue;
     const i = line.indexOf(":"); if (i < 0) continue;

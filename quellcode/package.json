@@ -9,15 +9,16 @@
     "lint": "eslint src tests build.mjs",
     "test": "TZ=Europe/Berlin vitest run",
     "test:e2e": "node build.mjs && TZ=Europe/Berlin playwright test",
-    "check": "npm run lint && npm test && npm run test:function && npm run test:e2e",
-    "test:function": "node build.mjs && node tests/deno/run-function.mjs node_modules/.bin/deno"
+    "test:function": "node build.mjs && node tests/deno/run-function.mjs node_modules/.bin/deno",
+    "typecheck": "tsc -p .",
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:function && npm run test:e2e"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@supabase/auth-js": "^2.118.0",
     "@supabase/postgrest-js": "^2.118.0",
     "highlight.js": "^11.12.0",
-    "katex": "^0.16.47",
+    "katex": "^0.19.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -25,10 +26,11 @@
     "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.55.0",
     "deno": "^2.9.6",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.2",
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.37.0",
     "globals": "^15.0.0",
-    "vitest": "^3.2.0"
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
   }
 }

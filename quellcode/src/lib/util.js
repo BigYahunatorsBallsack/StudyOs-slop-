@@ -10,7 +10,7 @@ export const iso = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffse
 
 export const addDays = (s, n) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); };
 
-export const diffDays = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+export const diffDays = (a, b) => Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000);
 
 export const wdIdx = (s) => (new Date(s + "T00:00:00").getDay() + 6) % 7;
 
@@ -35,7 +35,7 @@ export const sum = (arr, f) => arr.reduce((s, x) => s + (Number(f(x)) || 0), 0);
 
 export const fmtMin = (m) => { m = Math.round(m || 0); if (m < 60) return `${m} min`; const h = Math.floor(m / 60), r = m % 60; return r ? `${h} h ${r} min` : `${h} h`; };
 
-export const isoWeek = (s) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - w1) / 86400000 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
+export const isoWeek = (s) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
 
 export const parseDec = (v) => { if (v === null || v === undefined) return null; const s = String(v).trim().replace(",", "."); if (s === "") return null; const n = Number(s); return Number.isFinite(n) ? n : NaN; };
 

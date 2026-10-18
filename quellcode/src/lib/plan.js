@@ -19,6 +19,7 @@ export function buildPlan(data, exam, today = iso()) {
   let studyDates = all.filter((d) => !free.has(wdIdx(d)));
   if (!studyDates.length) studyDates = all; /* alle Tage frei → ignorieren, sonst bliebe der Plan leer */
   const studySet = new Set(studyDates);
+  /** @type {any[]} */
   const days = all.map((date) => ({ date, topics: [], note: "", free: !studySet.has(date) }));
   const byDate = new Map(days.map((d) => [d.date, d]));
 

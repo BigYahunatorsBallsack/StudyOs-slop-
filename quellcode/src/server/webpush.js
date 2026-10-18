@@ -42,7 +42,8 @@ async function hkdf(salt, ikm, info, bytes) {
   return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, key, bytes * 8));
 }
 
-/** Verschlüsselt eine Nachricht für ein Abo (RFC 8291). Liefert den Body inklusive aes128gcm-Kopf. */
+/** Verschlüsselt eine Nachricht für ein Abo (RFC 8291). Liefert den Body inklusive aes128gcm-Kopf.
+    @param {any} subscription @param {string} plaintext @param {{ salt?: Uint8Array, serverKeys?: any }} [opts] */
 export async function encryptPayload(subscription, plaintext, { salt = crypto.getRandomValues(new Uint8Array(16)), serverKeys } = {}) {
   const uaPublic = fromB64url(subscription.keys.p256dh);
   const authSecret = fromB64url(subscription.keys.auth);

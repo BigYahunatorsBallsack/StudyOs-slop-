@@ -47,6 +47,7 @@ export function examDeadlines(data, today = iso(), days = 14) {
 }
 
 /* ---------------- Lernstatistik ---------------- */
+/** @type {Array<[string, number, number]>} */
 export const DAYPARTS = [["Morgens", 5, 11], ["Mittags", 11, 14], ["Nachmittags", 14, 18], ["Abends", 18, 22], ["Nachts", 22, 29]];
 
 /** Lernminuten nach Tageszeit (nur Einheiten mit Uhrzeit) und nach Wochentag */

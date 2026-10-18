@@ -34,6 +34,7 @@ function db(env, fetchImpl) {
   const key = serviceKey(env);
   if (!key || !env.SUPABASE_URL) throw new Error("SUPABASE_URL oder Service-Schlüssel fehlt in der Funktionsumgebung.");
   const headers = { apikey: key, "Content-Type": "application/json", ...(String(key).startsWith("sb_") ? {} : { Authorization: `Bearer ${key}` }) };
+  /** @param {string} path @param {{ method?: string, body?: any, prefer?: string }} [opts] */
   return async (path, { method = "GET", body, prefer } = {}) => {
     const res = await fetchImpl(`${env.SUPABASE_URL}/rest/v1/${path}`, { method, headers: { ...headers, ...(prefer ? { Prefer: prefer } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     const text = await res.text();
