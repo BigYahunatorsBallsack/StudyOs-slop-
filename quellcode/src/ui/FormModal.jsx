@@ -5,9 +5,10 @@ import { formDef } from "../lib/forms.js";
 import { fmtDec, parseDec } from "../lib/util.js";
 import { ConfirmButton, Empty, MarkdownInput, Modal } from "./primitives.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls } from "./styles.js";
+import { Attachments } from "./Attachments.jsx";
 import { followingSimilar } from "../lib/series.js";
 
-export function FormModal({ form, data, onSave, onDelete, onDeleteSeries, onClose }) {
+export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, onClose }) {
   const def = formDef(form.kind, data);
   const following = form.kind === "session" && !form.isNew ? followingSimilar(data.sessions, form.initial).length : 0;
   const fields = def.fields
@@ -99,6 +100,8 @@ export function FormModal({ form, data, onSave, onDelete, onDeleteSeries, onClos
               );
             })}
           </div>
+          {db && !form.isNew && (form.kind === "homework" || form.kind === "note") && <Attachments db={db} coll={form.kind === "note" ? "notes" : "homework"} itemId={form.initial.id} />}
+          {db && form.isNew && (form.kind === "homework" || form.kind === "note") && <p className="mt-3 text-[11px] text-slate-500">Dateien (z. B. das Übungsblatt als PDF) kannst du nach dem Speichern anhängen.</p>}
           {err && <p role="alert" className="mt-3 text-sm text-rose-400">{err}</p>}
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <button type="submit" className={btnPrimary}>Speichern</button>

@@ -1,5 +1,20 @@
 # Änderungen
 
+## 2.5.0
+
+### Neu
+- **Weg zur Uni:** Echtzeit-Abfahrten (MVG) auf „Heute“, standardmäßig Bus 230 ab Haar Richtung Garching-Forschungszentrum. StudyOS sagt, wann du für die erste Veranstaltung losmusst. Haltestelle, Linie, Fahrzeit, Fußweg und Puffer einstellbar.
+- **Formeln und Code:** `$…$` und `$$…$$` werden mit KaTeX gesetzt, Code-Blöcke (Java, OCaml, Python, C, SQL, Assembler …) eingefärbt. Wird nur bei Bedarf geladen und offline vorgehalten.
+- **Lernblöcke:** Lernzeit im Wochenraster einplanen; StudyOS schlägt freie Lücken zwischen Veranstaltungen vor (mit passender Aufgabe), zeigt sie im Tagesplan und erinnert 10 Minuten vorher.
+- **„Was jetzt?“:** Verfügbare Zeit wählen, StudyOS schlägt die wichtigste Aufgabe vor und startet den Timer (Taste W).
+- **Anhänge:** PDFs und Fotos an Hausaufgaben und Notizen; mit Cloud-Sync verschlüsselt im privaten Supabase-Speicher. Einmalig `supabase/anhaenge.sql` ausführen.
+- **Artemis-Abgaben:** Kalender-Abo je Artemis-Kurs, Abgabefristen werden Hausaufgaben.
+- **Probeklausur:** Karten eines Moduls unter Zeitdruck, Auswertung nach Themen, unsichere Karten auf heute setzen.
+- **Lernrhythmus:** Wann du am meisten lernst (Tageszeit, Wochentag) und Lernzeit je ECTS neben der Note.
+
+### Behoben
+- „Zuletzt bearbeitet“ bei Notizen zeigte einen rohen Zeitstempel.
+
 ## 2.4.0
 
 ### Neu

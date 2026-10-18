@@ -14,6 +14,7 @@ import { fingerprint, syncOnce, checkKey } from "../lib/cloudsync.js";
 import { deriveSyncKey, KeyMismatchError, newSalt } from "../lib/crypto.js";
 import { clearKeys, loadKey, saveKey } from "../lib/keystore.js";
 import { getCloud } from "./index.js";
+import { openBytes, sealBytes } from "../lib/files.js";
 import { deadlinesFromData, deadlinesKey, keyBytes, pushBlocker } from "../lib/push.js";
 
 const DEBOUNCE_MS = 3000;
@@ -229,6 +230,18 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       return true;
     }),
     fetchIcs: (url) => cloud.fetchIcs(url),
+    mvg: (body) => cloud.mvg(body),
+    /* Anhänge verschlüsselt hoch- bzw. herunterladen; ohne entsperrten Sync-Schlüssel nicht möglich */
+    canFiles: () => !!(cloud && keyRef.current && phase === "ready"),
+    uploadFile: async (id, bytes) => {
+      if (!keyRef.current) throw new Error("Cloud-Sync ist nicht entsperrt.");
+      await cloud.files.put(id, await sealBytes(keyRef.current.key, bytes));
+    },
+    downloadFile: async (id) => {
+      if (!keyRef.current) throw new Error("Cloud-Sync ist nicht entsperrt.");
+      return openBytes(keyRef.current.key, await cloud.files.get(id));
+    },
+    removeFile: (id) => (cloud ? cloud.files.remove(id) : Promise.resolve()),
     /* Kalender-Abo der Fristen: Token auf dem Server setzen (null = widerrufen) */
     setCalToken: async (token) => {
       setBusy(true);

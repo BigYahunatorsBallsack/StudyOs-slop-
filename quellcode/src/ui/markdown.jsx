@@ -1,16 +1,39 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React from "react";
+import { needsExtras, useExtras } from "./extras.js";
 
-/* Kleiner, sicherer Markdown-Renderer für Notizen (ohne HTML-Injection) */
+/* Kleiner, sicherer Markdown-Renderer für Notizen und Karten (ohne HTML-Injection).
+   Formeln ($…$, $$…$$) und eingefärbter Code werden über KaTeX bzw. highlight.js gezeigt, sobald geladen;
+   beide maskieren ihre Eingabe, darum ist das eingesetzte HTML sicher. */
+const ExtrasCtx = React.createContext(null);
+
+function MathTex({ tex, display }) {
+  const x = React.useContext(ExtrasCtx);
+  if (!x) return display ? <pre className="math-raw">{tex}</pre> : <code>{tex}</code>;
+  const html = x.math(tex, display);
+  return display ? <div className="math-block" dangerouslySetInnerHTML={{ __html: html }} /> : <span className="math-inline" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function CodeBlock({ code, lang }) {
+  const x = React.useContext(ExtrasCtx);
+  return (
+    <pre className="code-block">
+      {lang && <span className="code-lang">{lang}</span>}
+      {x ? <code className="hljs" dangerouslySetInnerHTML={{ __html: x.code(code, lang) }} /> : <code>{code}</code>}
+    </pre>
+  );
+}
+
 export function mdInline(text, keyBase) {
-  const out = []; const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
+  const out = []; const re = /(`[^`]+`)|(\$(?=\S)[^$\n]*?\S\$|\$\S\$)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
   let last = 0, m, i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
     const k = keyBase + "-" + i++;
     if (m[1]) out.push(<code key={k}>{m[1].slice(1, -1)}</code>);
-    else if (m[2]) out.push(<strong key={k}>{m[2].slice(2, -2)}</strong>);
-    else if (m[3]) out.push(<em key={k}>{m[3].slice(1, -1)}</em>);
-    else if (m[4]) out.push(<a key={k} href={m[5]} target="_blank" rel="noopener noreferrer">{m[4].slice(1, m[4].indexOf("]"))}</a>);
+    else if (m[2]) out.push(<MathTex key={k} tex={m[2].slice(1, -1)} />);
+    else if (m[3]) out.push(<strong key={k}>{mdInline(m[3].slice(2, -2), k)}</strong>);
+    else if (m[4]) out.push(<em key={k}>{m[4].slice(1, -1)}</em>);
+    else if (m[5]) out.push(<a key={k} href={m[6]} target="_blank" rel="noopener noreferrer">{m[5].slice(1, m[5].indexOf("]"))}</a>);
     last = re.lastIndex;
   }
   if (last < text.length) out.push(text.slice(last));
@@ -18,23 +41,35 @@ export function mdInline(text, keyBase) {
 }
 
 export function Markdown({ text }) {
-  const lines = String(text || "").split("\n"); const blocks = []; let i = 0;
+  const src = String(text || "");
+  const x = useExtras(needsExtras(src));
+  const lines = src.split("\n"); const blocks = []; let i = 0;
   while (i < lines.length) {
     const ln = lines[i];
-    if (/^```/.test(ln)) { const buf = []; i++; while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]); i++; blocks.push(<pre key={i}><code>{buf.join("\n")}</code></pre>); continue; }
+    const fence = /^```\s*([\w+#-]*)/.exec(ln);
+    if (fence) { const buf = []; i++; while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]); i++; blocks.push(<CodeBlock key={i} code={buf.join("\n")} lang={fence[1]} />); continue; }
+    if (/^\s*\$\$/.test(ln)) {
+      /* $$ … $$ auf einer oder mehreren Zeilen */
+      const one = /^\s*\$\$(.+)\$\$\s*$/.exec(ln);
+      if (one) { blocks.push(<MathTex key={i} tex={one[1]} display />); i++; continue; }
+      const buf = [ln.replace(/^\s*\$\$/, "")]; i++;
+      while (i < lines.length && !/\$\$\s*$/.test(lines[i])) buf.push(lines[i++]);
+      if (i < lines.length) buf.push(lines[i++].replace(/\$\$\s*$/, ""));
+      blocks.push(<MathTex key={i} tex={buf.join("\n").trim()} display />); continue;
+    }
     const h = /^(#{1,3})\s+(.*)$/.exec(ln);
     if (h) { const T = "h" + h[1].length; blocks.push(<T key={i}>{mdInline(h[2], "h" + i)}</T>); i++; continue; }
     if (/^\s*[-*]\s+/.test(ln) || /^\s*\d+[.)]\s+/.test(ln)) {
       const ordered = /^\s*\d+[.)]\s+/.test(ln); const items = [];
       while (i < lines.length && (ordered ? /^\s*\d+[.)]\s+/ : /^\s*[-*]\s+/).test(lines[i])) { items.push(lines[i].replace(/^\s*([-*]|\d+[.)])\s+/, "")); i++; }
       const L = ordered ? "ol" : "ul";
-      blocks.push(<L key={i}>{items.map((x, j) => <li key={j}>{mdInline(x, `l${i}-${j}`)}</li>)}</L>); continue;
+      blocks.push(<L key={i}>{items.map((x2, j) => <li key={j}>{mdInline(x2, `l${i}-${j}`)}</li>)}</L>); continue;
     }
     if (/^>\s?/.test(ln)) { const buf = []; while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, "")); blocks.push(<blockquote key={i}>{mdInline(buf.join(" "), "q" + i)}</blockquote>); continue; }
     if (!ln.trim()) { i++; continue; }
-    const buf = []; while (i < lines.length && lines[i].trim() && !/^(```|#{1,3}\s|>|\s*[-*]\s+|\s*\d+[.)]\s+)/.test(lines[i])) buf.push(lines[i++]);
+    const buf = []; while (i < lines.length && lines[i].trim() && !/^(```|#{1,3}\s|>|\s*[-*]\s+|\s*\d+[.)]\s+|\s*\$\$)/.test(lines[i])) buf.push(lines[i++]);
     if (!buf.length) { buf.push(lines[i++]); }
-    blocks.push(<p key={i}>{buf.map((x, j) => <React.Fragment key={j}>{j > 0 && <br />}{mdInline(x, `p${i}-${j}`)}</React.Fragment>)}</p>);
+    blocks.push(<p key={i}>{buf.map((x2, j) => <React.Fragment key={j}>{j > 0 && <br />}{mdInline(x2, `p${i}-${j}`)}</React.Fragment>)}</p>);
   }
-  return <div className="md text-sm leading-relaxed text-slate-200">{blocks}</div>;
+  return <ExtrasCtx.Provider value={x}><div className="md text-sm leading-relaxed text-slate-200">{blocks}</div></ExtrasCtx.Provider>;
 }

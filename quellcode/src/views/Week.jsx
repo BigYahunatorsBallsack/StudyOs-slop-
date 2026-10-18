@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { WD, WD_LONG } from "../lib/constants.js";
-import { addDays, byTime, fmt, fmtMin, isHeld, iso, isoWeek, nowHM, sum, wdIdx, weekStart } from "../lib/util.js";
-import { HomeworkRow, SessionRow } from "../ui/rows.jsx";
+import { addDays, byTime, fmt, fmtMin, isHeld, iso, isoWeek, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
+import { BlockRow, HomeworkRow, SessionRow } from "../ui/rows.jsx";
 import { Tabs } from "../ui/primitives.jsx";
 import { isActive } from "../lib/data.js";
 import { SessionPopover, useHoverCard } from "../ui/session.jsx";
+import { suggestBlocks } from "../lib/blocks.js";
 
 const HOUR_PX = 46;
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
@@ -53,6 +54,7 @@ export function WeekView({ db }) {
         </div>
       </div>
       <Tabs items={[["raster", "Raster"], ["liste", "Liste"]]} value={mode} onChange={setMode} label="Ansicht" />
+      <BlockSuggestions db={db} days={days} />
       {mode === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
     </div>
   );
@@ -68,7 +70,8 @@ function WeekGrid({ db, days, weekSes }) {
   const shown = [...days.slice(0, 5), ...weekend];
   const active = weekSes.filter((s) => shown.includes(s.date));
   const exams = data.exams.filter((e) => shown.includes(e.date) && e.time);
-  const timed = [...active, ...exams.map((e) => ({ ...e, isExam: true, start: e.time, end: `${String(Math.min(23, toMin(e.time) / 60 + 2 | 0)).padStart(2, "0")}:${String(toMin(e.time) % 60).padStart(2, "0")}` }))];
+  const blocks = (data.blocks || []).filter((b) => shown.includes(b.date)).map((b) => ({ ...b, isBlock: true }));
+  const timed = [...active, ...blocks, ...exams.map((e) => ({ ...e, isExam: true, start: e.time, end: `${String(Math.min(23, toMin(e.time) / 60 + 2 | 0)).padStart(2, "0")}:${String(toMin(e.time) % 60).padStart(2, "0")}` }))];
   const startH = Math.min(8, ...timed.map((s) => Math.floor(toMin(s.start) / 60)));
   const endH = Math.max(19, ...timed.map((s) => Math.ceil(toMin(s.end || s.start) / 60)));
   const height = (endH - startH) * HOUR_PX;
@@ -112,6 +115,14 @@ function WeekGrid({ db, days, weekSes }) {
               {d === t && nowMin >= startH * 60 && nowMin <= endH * 60 && <span className="grid-now" style={{ top: y(nowMin) }} aria-hidden="true" />}
               {items.map(({ ev, s, e, lane, lanes }) => {
                 const m = db.mod(ev.moduleId);
+                if (ev.isBlock) return (
+                  <button key={ev.id} className={`ev ev-block ${ev.done ? "ev-done" : ""}`} aria-label={`Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
+                    onClick={() => db.openForm("block", ev)}
+                    style={{ "--mod": m?.color || "var(--accent)", top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto" }}>
+                    <b>{shortName(ev.title)}</b>
+                    {((e - s) / 60) * HOUR_PX > 34 && <span>{m ? shortName(m.name) : "Lernen"}</span>}
+                  </button>
+                );
                 const cls = ev.isExam ? "" : ev.cancelled ? "ev-cancelled" : ev.reviewed ? "ev-done" : isHeld(ev) ? "ev-review" : "";
                 const label = ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}`;
                 return (
@@ -127,7 +138,7 @@ function WeekGrid({ db, days, weekSes }) {
           );
         })}
       </div>
-      <p className="mt-3 text-xs text-slate-500">Umrandet: stattgefunden, aber noch nicht nachbereitet. Zum Abhaken mit der Maus kurz auf einem Termin verweilen bzw. auf dem Handy antippen.</p>
+      <p className="mt-3 text-xs text-slate-500">Gestrichelt: geplante Lernblöcke. Umrandet: stattgefunden, aber noch nicht nachbereitet. Zum Abhaken mit der Maus kurz auf einem Termin verweilen bzw. auf dem Handy antippen.</p>
       {cardSession && <SessionPopover s={cardSession} db={db} anchor={hover.card.anchor} onClose={hover.close} onEnter={hover.keep} onLeave={hover.leave} />}
     </div>
   );
@@ -151,7 +162,8 @@ function WeekList({ db, days, weekSes }) {
         const hw = data.homework.filter((h) => h.due === d);
         const ex = data.exams.filter((e) => e.date === d);
         const mins = sum(data.logs.filter((l) => l.date === d), (l) => l.minutes);
-        const isToday = d === t, empty = !ses.length && !hw.length && !ex.length;
+        const bl = (data.blocks || []).filter((b) => b.date === d).sort(byTime);
+        const isToday = d === t, empty = !ses.length && !hw.length && !ex.length && !bl.length;
         return (
           <section key={d} aria-label={`${WD_LONG[wdIdx(d)]} ${fmt(d)}`}>
             <div className="mb-2 flex items-center justify-between">
@@ -170,12 +182,52 @@ function WeekList({ db, days, weekSes }) {
                   </li>
                 ); })}
                 {ses.map((s) => <SessionRow key={s.id} s={s} db={db} />)}
+                {bl.map((b) => <BlockRow key={b.id} b={b} db={db} />)}
                 {hw.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}
               </ul>
             )}
           </section>
         );
       })}
+    </div>
+  );
+}
+
+/* Vorschläge für Lernblöcke in den Lücken der angezeigten Woche */
+function BlockSuggestions({ db, days }) {
+  const [open, setOpen] = useState(false);
+  const list = open ? suggestBlocks(db.data, days) : [];
+  const add = (items) => {
+    const fresh = items.map((x) => ({ id: uid(), moduleId: x.moduleId, title: x.title, kind: x.kind, date: x.date, start: x.start, end: x.end, done: false, created: iso() }));
+    db.withUndo(`${fresh.length} ${fresh.length === 1 ? "Lernblock" : "Lernblöcke"} eingeplant.`, (d) => ({ ...d, blocks: [...(d.blocks || []), ...fresh] }));
+  };
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        <button className="link-btn" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Vorschläge ausblenden" : "Lernblöcke vorschlagen"}</button>
+        <button className="link-btn" onClick={() => db.openForm("block", { date: days.find((d) => d >= iso()) || days[0] }, true)}>+ Lernblock</button>
+      </div>
+      {open && (
+        <div className="surface mt-2">
+          {list.length ? (
+            <>
+              <p className="text-xs text-slate-400">Freie Zeit zwischen deinen Veranstaltungen (mit 15 Minuten Puffer):</p>
+              <ul className="mt-2 space-y-2">
+                {list.map((x, i) => { const m = db.mod(x.moduleId); return (
+                  <li key={i} className="flex items-center gap-3" style={{ "--mod": m?.color }}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{WD[wdIdx(x.date)]} {x.start}–{x.end}</span>
+                      <span className="block truncate text-xs text-slate-400">{x.title}{m ? `, ${m.name}` : ""}</span>
+                    </span>
+                    <button className="btn btn-ghost" onClick={() => add([x])} aria-label={`Lernblock ${WD[wdIdx(x.date)]} ${x.start} übernehmen`}>+</button>
+                  </li>
+                ); })}
+              </ul>
+              {list.length > 1 && <button className="btn btn-primary mt-3" onClick={() => { add(list); setOpen(false); }}>Alle {list.length} übernehmen</button>}
+            </>
+          ) : <p className="text-sm text-slate-400">Keine passenden Lücken (mindestens 60 Minuten) an den restlichen Tagen mit Veranstaltungen. Mit › zur nächsten Woche blättern.</p>}
+        </div>
+      )}
     </div>
   );
 }

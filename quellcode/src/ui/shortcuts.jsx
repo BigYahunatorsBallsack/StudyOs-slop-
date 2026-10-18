@@ -3,7 +3,7 @@ import React from "react";
 import { Modal } from "./primitives.jsx";
 
 export const SHORTCUTS = [
-  ["Allgemein", [["?", "Diese Übersicht"], ["/ oder Strg + K", "Suchen"], ["E", "Schnelleingabe"], ["Esc", "Dialog schließen"]]],
+  ["Allgemein", [["?", "Diese Übersicht"], ["/ oder Strg + K", "Suchen"], ["E", "Schnelleingabe"], ["W", "Was jetzt?"], ["Esc", "Dialog schließen"]]],
   ["Neu anlegen", [["N", "Notiz"], ["H", "Hausaufgabe"], ["L", "Lerneinheit"], ["S", "Termin (Session)"], ["P", "Prüfung"]]],
   ["Navigation", [["1 bis 5", "Heute, Module, Woche, Lernen, Mehr"], ["T", "Timer"], ["K / J", "Liste: vorheriger / nächster Eintrag"], ["Enter", "Eintrag öffnen"]]],
   ["Timer", [["Leertaste", "Start / Pause (im Timer)"]]],
@@ -32,7 +32,7 @@ export function shortcutHandler(act) {
     if (document.querySelector('[role="dialog"]') || isTyping(e.target)) return;
     const k = e.key;
     const map = {
-      "/": act.search, "?": act.help, e: act.quick, E: act.quick,
+      "/": act.search, "?": act.help, e: act.quick, E: act.quick, w: act.whatNow, W: act.whatNow,
       n: () => act.create("note"), h: () => act.create("homework"), l: () => act.create("log"), s: () => act.create("session"), p: () => act.create("exam"),
       t: act.timer, j: () => moveFocus(1), k: () => moveFocus(-1),
       1: () => act.tab("heute"), 2: () => act.tab("module"), 3: () => act.tab("woche"), 4: () => act.tab("lernen"), 5: () => act.tab("mehr"),

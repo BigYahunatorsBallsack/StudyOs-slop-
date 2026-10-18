@@ -536,3 +536,84 @@ test('Mensa, GOP-Karte, Raum-Link und FSRS-Vorschau', async ({ page }) => {
   await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).cards[0].stability)).toBeCloseTo(3.173, 2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('Formeln und eingefärbter Code in Notizen', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ notes: [{ id: 'n', moduleId: 'ds', title: 'Summen', date: day(0), text: 'Gauß: $\\sum_{i=1}^n i = \\frac{n(n+1)}{2}$\n\n$$\\int_0^1 x^2\\,dx$$\n\n```java\nint x = 42; // Antwort\n```' }] }));
+  await page.reload();
+  await nav(page, 'Module').click();
+  await page.getByText('Diskrete Strukturen').first().click();
+  await page.getByRole('tab', { name: /Notizen/ }).click();
+  await page.getByText('Summen').first().click();
+  const dlg = page.getByRole('dialog', { name: 'Summen' });
+  await expect(dlg.locator('.math-inline .katex')).toHaveCount(1);
+  await expect(dlg.locator('.math-block .katex-display')).toHaveCount(1);
+  await expect(dlg.locator('code.hljs .hljs-number')).toHaveText('42');
+  await expect(dlg.locator('code.hljs .hljs-comment')).toHaveText('// Antwort');
+  await expect(dlg.locator('.code-lang')).toHaveText('java');
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.katex')).fontFamily)).toContain('KaTeX');
+});
+
+test('Lernblöcke vorschlagen, im Tagesplan, Timer starten; Was jetzt?', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-19T08:00:00') });
+  await page.goto('./');
+  await seed(page, () => ({ sessions: [
+      { id: 'a', moduleId: 'ds', type: 'Vorlesung', date: '2026-10-19', start: '10:00', end: '12:00' },
+      { id: 'b', moduleId: 'ds', type: 'Übung', date: '2026-10-19', start: '14:00', end: '16:00' }],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 3', due: '2026-10-20', status: 'ausgegeben' }] }));
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await page.getByRole('button', { name: 'Lernblöcke vorschlagen' }).click();
+  await expect(page.getByText('Mo 12:15–13:45')).toBeVisible();
+  await page.getByRole('button', { name: 'Lernblock Mo 12:15 übernehmen' }).click();
+  await expect(page.getByText('1 Lernblock eingeplant.')).toBeVisible();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  await expect(page.locator('.ev-block')).toHaveCount(1);
+  await nav(page, 'Heute').click();
+  await expect(page.locator('.tl-block')).toContainText('Vorlesung nachbereiten');
+  await page.locator('.tl-block').getByRole('button', { name: 'Timer starten' }).click();
+  await expect(page.getByRole('tab', { name: 'Timer', selected: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('studyos-timer-v1') || '{}').length)).toBe(90);
+  // Was jetzt?
+  await nav(page, 'Heute').click();
+  await page.getByRole('button', { name: 'Was jetzt?' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Was jetzt?' });
+  await dlg.getByRole('radio', { name: '60 min' }).click();
+  await expect(dlg.getByRole('region', { name: 'Vorschlag' })).toContainText('Blatt 3');
+  await expect(dlg.getByRole('region', { name: 'Vorschlag' })).toContainText('morgen fällig');
+  await dlg.getByRole('button', { name: '50 Minuten starten' }).click();
+  await expect(page.getByRole('tab', { name: 'Timer', selected: true })).toBeVisible();
+});
+
+test('Anhang an eine Hausaufgabe (lokal) und Probeklausur', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 3', due: day(3), status: 'ausgegeben' }],
+    exams: [{ id: 'x', moduleId: 'ds', date: day(20) }],
+    cards: [1, 2, 3].map((i) => ({ id: 'c' + i, moduleId: 'ds', front: 'Frage ' + i, back: 'Antwort ' + i, tags: i === 3 ? 'graphen' : 'mengen', ease: 2.5, interval: 0, reps: 0, due: day(5) })) }));
+  await page.reload();
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Alle Hausaufgaben' }).click();
+  await page.getByText('Blatt 3').first().click();
+  const dlg = page.getByRole('dialog', { name: /bearbeiten/ });
+  await dlg.getByLabel('Datei anhängen').setInputFiles({ name: 'blatt3.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 Test') });
+  await expect(dlg.getByRole('link', { name: 'blatt3.pdf' })).toBeVisible();
+  await expect(dlg.getByText(/nur auf diesem Gerät/)).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework[0].files?.[0]?.name)).toBe('blatt3.pdf');
+  await dlg.getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByText('1 Anhang')).toBeVisible();
+  // Probeklausur
+  await page.goto('./?aktion=pruefungen');
+  await page.getByRole('button', { name: 'Probeklausur' }).click();
+  const mock = page.getByRole('dialog', { name: /Probeklausur/ });
+  await mock.getByRole('button', { name: 'Starten' }).click();
+  for (let i = 0; i < 3; i++) {
+    await mock.getByRole('button', { name: 'Lösung zeigen' }).click();
+    const front = await mock.locator('.surface').innerText();
+    await mock.getByRole('button', { name: front.includes('Frage 3') ? 'Nicht gewusst' : 'Gewusst', exact: true }).click();
+  }
+  const res = page.getByRole('dialog', { name: 'Auswertung' });
+  await expect(res.getByText('67 %')).toBeVisible();
+  await expect(res.getByText('graphen')).toBeVisible();
+  await res.getByRole('button', { name: '1 unsichere Karten heute wiederholen' }).click();
+  await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).cards.find((c) => c.id === 'c3').due)).toBe(await page.evaluate(() => new Date().toLocaleDateString('sv-SE')));
+});

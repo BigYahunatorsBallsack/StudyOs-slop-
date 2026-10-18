@@ -22,9 +22,9 @@ export const TOPIC_STATES = ["nicht begonnen", "gelernt", "geübt", "sicher"];
 
 export const LOG_KINDS = ["Nacharbeiten", "Vorbereiten", "Übung/Hausaufgabe", "Klausurvorbereitung", "Karteikarten", "Sonstiges"];
 
-export const COLLS = ["modules", "sessions", "homework", "topics", "logs", "notes", "cards", "exams"];
+export const COLLS = ["modules", "sessions", "homework", "topics", "logs", "notes", "cards", "exams", "blocks"];
 
-export const COLL = { module: "modules", session: "sessions", homework: "homework", topic: "topics", log: "logs", note: "notes", card: "cards", exam: "exams" };
+export const COLL = { module: "modules", session: "sessions", homework: "homework", topic: "topics", log: "logs", note: "notes", card: "cards", exam: "exams", block: "blocks" };
 
 export const RING_COLORS = { review: "#38bdf8", hw: "#34d399", topics: "#fbbf24" };
 

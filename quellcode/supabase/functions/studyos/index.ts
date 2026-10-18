@@ -25,7 +25,14 @@ var RULES = {
   register: [[3, "18:00", "Anmeldeschluss in 3 Tagen", (x) => `Pr\xFCfung ${x.module || x.title}`], [0, "08:00", "Anmeldeschluss heute", (x) => `Pr\xFCfung ${x.module || x.title}`]],
   retake: [[7, "18:00", "Wiederholungspr\xFCfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Wiederholungspr\xFCfung morgen", (x) => x.module || x.title]],
   review: [[0, "20:00", "Noch nachzubereiten", (x) => x.body || x.title]],
-  weekly: [[0, "18:00", "Deine n\xE4chste Woche", (x) => x.body || x.title]]
+  weekly: [[0, "18:00", "Deine n\xE4chste Woche", (x) => x.body || x.title]],
+  /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
+  block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 6e4]]
+};
+var minus = (hm, n) => {
+  const [h, m] = String(hm || "00:00").split(":").map(Number);
+  const t = Math.max(0, h * 60 + m - n);
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 };
 var MAX_LATE_MS = 12 * 3600 * 1e3;
 function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), tz = "Europe/Berlin") {
@@ -33,11 +40,12 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
   for (const x of deadlines || []) {
     const rules = RULES[x.kind];
     if (!rules || !/^\d{4}-\d{2}-\d{2}$/.test(x.date || "")) continue;
-    rules.forEach(([before, hm, title, body], i) => {
-      const at = zonedInstant(addDays(x.date, -before), hm, tz);
-      const key = `${x.kind}:${x.id}:${x.date}:${i}`;
-      if (sent[key] || at > now2 || now2 - at > MAX_LATE_MS) return;
-      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" ? "./?aktion=heute" : "./?aktion=pruefungen" });
+    rules.forEach(([before, hm, title, body, maxLate = MAX_LATE_MS], i) => {
+      const time = typeof hm === "function" ? hm(x) : hm;
+      const at = zonedInstant(addDays(x.date, -before), time, tz);
+      const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
+      if (sent[key] || at > now2 || now2 - at > maxLate) return;
+      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" ? "./?aktion=heute" : "./?aktion=pruefungen" });
     });
   }
   return out;
@@ -83,6 +91,47 @@ function buildDeadlineIcs(deadlines, tz = "Europe/Berlin", now2 = /* @__PURE__ *
   }
   lines.push("END:VCALENDAR");
   return lines.map(fold).join("\r\n") + "\r\n";
+}
+
+// src/server/mvg.js
+var BASE = "https://www.mvg.de/api/bgw-pt/v3";
+var TYPES = /^(UBAHN|TRAM|BUS|REGIONAL_BUS|SBAHN|SCHIFF|BAHN)(,(UBAHN|TRAM|BUS|REGIONAL_BUS|SBAHN|SCHIFF|BAHN))*$/;
+async function mvg(body, fetchImpl) {
+  const kind = body && body.kind;
+  let url;
+  if (kind === "stations") {
+    const q = String(body.query || "").trim();
+    if (q.length < 2 || q.length > 80) return { error: "Bitte einen Haltestellennamen eingeben.", status: 400 };
+    url = `${BASE}/locations?query=${encodeURIComponent(q)}&locationTypes=STATION`;
+  } else if (kind === "departures") {
+    const id = String(body.station || "");
+    if (!/^de:\d{5}:\d{1,7}$/.test(id)) return { error: "Ung\xFCltige Haltestelle.", status: 400 };
+    const offset = Math.max(0, Math.min(24 * 60, Math.round(Number(body.offset) || 0)));
+    const limit = Math.max(1, Math.min(80, Math.round(Number(body.limit) || 40)));
+    const types = String(body.types || "BUS,REGIONAL_BUS");
+    if (!TYPES.test(types)) return { error: "Ung\xFCltige Verkehrsmittel.", status: 400 };
+    url = `${BASE}/departures?globalId=${id}&limit=${limit}&offsetInMinutes=${offset}&transportTypes=${types}`;
+  } else return { error: "Unbekannte Abfrage.", status: 400 };
+  let res;
+  try {
+    res = await fetchImpl(url, { signal: AbortSignal.timeout(1e4), headers: { Accept: "application/json" } });
+  } catch {
+    return { error: "Die MVG antwortet gerade nicht.", status: 502 };
+  }
+  if (!res.ok) return { error: `Die MVG meldet Fehler ${res.status}.`, status: 502 };
+  const raw = await res.json().catch(() => null);
+  if (!Array.isArray(raw)) return { error: "Unerwartete Antwort der MVG.", status: 502 };
+  if (kind === "stations") return { data: raw.filter((s) => s.globalId).slice(0, 10).map((s) => ({ id: s.globalId, name: s.name, place: s.place || "", types: s.transportTypes || [] })) };
+  return { data: raw.map((d) => ({
+    line: String(d.label || ""),
+    destination: String(d.destination || ""),
+    type: d.transportType || "",
+    planned: Number(d.plannedDepartureTime) || 0,
+    time: Number(d.realtimeDepartureTime || d.plannedDepartureTime) || 0,
+    delay: Number(d.delayInMinutes) || 0,
+    realtime: !!d.realtime,
+    cancelled: !!d.cancelled
+  })).filter((d) => d.time) };
 }
 
 // src/server/webpush.js
@@ -300,6 +349,13 @@ function createHandler({ env: env2, fetchImpl = fetch, now: now2 = () => /* @__P
         const r = await fetchIcs(body.url, fetchImpl);
         if (r.error) return fail(r.error, r.status);
         return new Response(r.text, { status: 200, headers: { ...CORS, "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "no-store" } });
+      }
+      if (action === "mvg" && req.method === "POST") {
+        const user = await authUser(req, env2, fetchImpl);
+        if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
+        const r = await mvg(await req.json().catch(() => ({})), fetchImpl);
+        if (r.error) return fail(r.error, r.status);
+        return json(r.data);
       }
       if (action === "test" && req.method === "POST") {
         const user = await authUser(req, env2, fetchImpl);

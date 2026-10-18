@@ -25,7 +25,7 @@ export function repairCollapsedWeeklySeries(sessions) {
   return sessions;
 }
 
-export const emptyData = () => ({ version: DATA_VERSION, settings: { ...DEFAULT_SETTINGS }, meta: { lastBackup: null, lastModule: "" }, modules: [], sessions: [], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [], deleted: [] });
+export const emptyData = () => ({ version: DATA_VERSION, settings: { ...DEFAULT_SETTINGS }, meta: { lastBackup: null, lastModule: "" }, modules: [], sessions: [], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [], blocks: [], deleted: [] });
 
 /* Ältere Sicherungen auf das aktuelle Datenformat bringen */
 export function migrate(obj) {

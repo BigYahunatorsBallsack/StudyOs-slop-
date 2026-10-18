@@ -11,6 +11,7 @@ import { btnGhost, btnPrimary, focusRing, inputCls, inputFlex } from "../ui/styl
 import { useRemaining } from "../ui/timer.jsx";
 import { ShareDeck } from "./Share.jsx";
 import { PlaceLinks } from "../ui/links.jsx";
+import { ExamMode } from "./ExamMode.jsx";
 import { Markdown } from "../ui/markdown.jsx";
 
 /* ---------------- Lernen ---------------- */
@@ -240,10 +241,12 @@ export function CardsView({ db, filter, setFilter }) {
 export function ExamsView({ db }) {
   const { data } = db, t = iso();
   const [open, setOpen] = useState(null);
+  const [mock, setMock] = useState(null);
   const upcoming = data.exams.filter((e) => e.date >= t).sort((a, b) => a.date.localeCompare(b.date));
   const past = data.exams.filter((e) => e.date < t).sort((a, b) => b.date.localeCompare(a.date));
   return (
     <div className="space-y-4">
+      {mock && <ExamMode db={db} moduleId={mock} onClose={() => setMock(null)} />}
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-400">Der Lernplan verteilt offene Themen (schwächste zuerst) auf die Tage bis zur Prüfung.</p>
         <button className={btnPrimary} onClick={() => db.openForm("exam", null, true)}>+ Prüfung</button>
@@ -286,6 +289,7 @@ export function ExamsView({ db }) {
               <button className={btnGhost} onClick={() => db.openForm("exam", e)}>Bearbeiten</button>
               {!e.registered && <button className={btnGhost} onClick={() => db.patch("exams", e.id, { registered: true })}>Als angemeldet markieren</button>}
               <button className={btnGhost} onClick={() => db.goModule(e.moduleId)}>Zum Modul</button>
+              {data.cards.some((c) => c.moduleId === e.moduleId) && <button className={btnGhost} onClick={() => setMock(e.moduleId)}>Probeklausur</button>}
             </div>
             {open === e.id && n === 0 && <p className="mt-3 rounded-lg bg-sky-500/10 px-3 py-2 text-sm text-sky-100">Die Prüfung ist heute. Viel Erfolg!</p>}
             {plan && (

@@ -2,10 +2,12 @@
      GET  ?action=vapid    öffentlicher VAPID-Schlüssel für Push-Abos (wird beim ersten Aufruf erzeugt)
      POST ?action=remind   fällige Erinnerungen verschicken (nur mit x-cron-secret, aufgerufen von pg_cron)
      GET  ?action=cal&token=…  Fristen als Kalender-Abo (iCal), Token statt Anmeldung
+     POST ?action=mvg      Haltestellen und Abfahrten (MVG), nur angemeldet
      POST ?action=ics      Kalender-Abo (z. B. TUMonline) abrufen und mit CORS zurückgeben (nur angemeldet)
    Keine Fremdbibliotheken: Datenbank über die REST-API, Kryptografie über WebCrypto. */
 import { dueReminders, pruneSent } from "./reminders.js";
 import { buildDeadlineIcs } from "./calendar.js";
+import { mvg } from "./mvg.js";
 import { generateVapidKeys, sendPush } from "./webpush.js";
 
 const CORS = {
@@ -141,6 +143,13 @@ export function createHandler({ env, fetchImpl = fetch, now = () => new Date() }
         const r = await fetchIcs(body.url, fetchImpl);
         if (r.error) return fail(r.error, r.status);
         return new Response(r.text, { status: 200, headers: { ...CORS, "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "no-store" } });
+      }
+      if (action === "mvg" && req.method === "POST") {
+        const user = await authUser(req, env, fetchImpl);
+        if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
+        const r = await mvg(await req.json().catch(() => ({})), fetchImpl);
+        if (r.error) return fail(r.error, r.status);
+        return json(r.data);
       }
       if (action === "test" && req.method === "POST") {
         const user = await authUser(req, env, fetchImpl);

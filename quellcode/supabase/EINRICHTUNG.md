@@ -70,3 +70,8 @@ Einmal im **SQL Editor** den Inhalt von `supabase/teilen.sql` ausführen (steht 
 - Geteilt wird ein Link der Form `…/?teilen=KENNUNG#k=SCHLÜSSEL`. Der Server speichert nur das verschlüsselte Paket; den Schlüssel hinter `#` bekommt er nie zu sehen.
 - Zum Öffnen braucht die andere Person **kein** Konto, nur den Link.
 - Links laufen nach 180 Tagen ab; pro Konto höchstens 200 geteilte Stapel.
+
+## Kalender-Abo, Anhänge, Abfahrten (ab 2.4/2.5)
+
+1. Im **SQL Editor** `supabase/kalender.sql` (Kalender-Link der Fristen) und `supabase/anhaenge.sql` (privater Speicher für verschlüsselte Anhänge) ausführen. Beides steht auch am Ende von `schema.sql`.
+2. Die Edge Function **studyos** mit der aktuellen `supabase/functions/studyos/index.ts` ersetzen und deployen (neu: `?action=cal` für den Kalender-Link, `?action=mvg` für Abfahrten). Danach prüfen, dass **Enforce JWT Verification** aus ist.

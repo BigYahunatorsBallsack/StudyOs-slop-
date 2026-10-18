@@ -60,6 +60,14 @@ export function formDef(kind, d) {
       { k: "rating", l: "Selbsteinschätzung", t: "select", num: true, opts: STAR_OPTS, def: 0, half: true },
       { k: "effort", l: "Aufwand", t: "select", num: true, opts: EFFORT_OPTS, def: 2, half: true, hint: "Große Themen bekommen im Lernplan mehr Zeit." },
     ] };
+    case "block": return { title: "Lernblock", fields: [
+      { k: "title", l: "Was?", t: "text", req: true, ph: "z. B. Blatt 3 rechnen" },
+      { k: "moduleId", l: "Modul", t: "select", opts: () => modOpts(d, true) },
+      { k: "date", l: "Datum", t: "date", req: true, def: iso },
+      { k: "start", l: "Beginn", t: "time", req: true, def: "12:00", half: true },
+      { k: "end", l: "Ende", t: "time", req: true, def: "13:30", half: true },
+      { k: "done", l: "Erledigt", t: "checkbox", editOnly: true },
+    ], validate: (v) => (v.end <= v.start ? "Das Ende muss nach dem Beginn liegen." : "") };
     case "log": return { title: "Lerneinheit", fields: [
       { k: "date", l: "Datum", t: "date", req: true, def: iso, half: true },
       { k: "minutes", l: "Dauer (Minuten)", t: "number", req: true, min: 1, def: 45, half: true },

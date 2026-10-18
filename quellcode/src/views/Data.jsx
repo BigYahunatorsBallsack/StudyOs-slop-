@@ -9,7 +9,8 @@ import { btnGhost, btnPrimary, inputBase, inputCls, inputFlex } from "../ui/styl
 import { decryptBackup, encryptBackup, isEncryptedBackup } from "../lib/crypto.js";
 import { CloudCard } from "./Cloud.jsx";
 import { CANTEENS, mensaOf } from "../lib/mensa.js";
-import { FeedCard, MoodleCard } from "./Feed.jsx";
+import { CommuteSettings } from "./Commute.jsx";
+import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
 
 export function DataView({ db }) {
   const { data } = db;
@@ -99,6 +100,8 @@ export function DataView({ db }) {
 
       <FeedCard db={db} />
       <MoodleCard db={db} />
+      <ArtemisCard db={db} />
+      <CommuteSettings db={db} />
 
       <Card title="Export (Sicherung)">
         <p className="text-xs text-slate-400">{counts(data)}</p>

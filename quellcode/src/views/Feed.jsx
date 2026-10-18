@@ -186,3 +186,73 @@ export function MoodleCard({ db }) {
     </Card>
   );
 }
+
+/* Artemis: Kalender-Abo je Kurs (Kurs → Kalender → Abonnieren) */
+export function ArtemisCard({ db }) {
+  const { data, cloud } = db;
+  const feeds = data.settings.artemisFeeds || [];
+  const [url, setUrl] = useState(""), [moduleId, setModuleId] = useState("");
+  const [draft, setDraft] = useState(null);
+  const [busy, setBusy] = useState(false), [msg, setMsg] = useState(""), [err, setErr] = useState("");
+  const ready = cloud && cloud.phase === "ready";
+  const run = async (fn) => { setBusy(true); setErr(""); setMsg(""); try { await fn(); } catch (e) { setErr(e.message || String(e)); } finally { setBusy(false); } };
+  const preview = () => run(async () => {
+    if (!/artemis/i.test(url)) throw new Error("Das sieht nicht nach einem Artemis-Link aus.");
+    const events = parseICS(await cloud.fetchIcs(url.trim()));
+    const due = events.filter(isMoodleDeadline);
+    if (!due.length) throw new Error(events.length ? "Im Kalender sind Termine, aber keine Abgabefristen. Beim Abonnieren in Artemis „Aufgaben“ auswählen." : "Der Kalender ist leer.");
+    setDraft({ url: url.trim(), events, count: due.length, sample: due.slice(0, 3).map((e) => e.summary) });
+  });
+  const subscribe = () => run(async () => {
+    if (!moduleId) throw new Error("Bitte ein Modul wählen.");
+    const r = await db.subscribeArtemis(draft.url, moduleId, draft.events, db.mod(moduleId)?.name || "Artemis");
+    setDraft(null); setUrl(""); setModuleId("");
+    setMsg(`Abonniert: ${r.added} ${r.added === 1 ? "Abgabe" : "Abgaben"} übernommen.`);
+  });
+  const refresh = () => run(async () => { const r = await db.syncArtemis({ manual: true }); if (r) setMsg(`Abgerufen: ${r.added} neu, ${r.updated} geändert.`); });
+
+  return (
+    <Card title="Artemis-Abgaben">
+      {!ready ? <p className="text-xs text-slate-400">Programmieraufgaben aus Artemis automatisch als Hausaufgaben übernehmen. Dafür oben beim Cloud-Sync anmelden.</p> : (
+        <>
+          {feeds.length > 0 && (
+            <ul className="rows mb-3">
+              {feeds.map((f) => (
+                <li key={f.id} className="row" style={{ "--mod": db.mod(f.moduleId)?.color }}>
+                  <div className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1"><span className="row-title block truncate">{db.mod(f.moduleId)?.name || f.label}</span><span className="row-meta block">zuletzt abgerufen: {fmtWhen(f.lastSync)}{f.lastError ? `, Fehler: ${f.lastError}` : ""}</span></span>
+                    <ConfirmButton label="Entfernen" confirmLabel="Abo entfernen?" onConfirm={() => db.removeArtemis(f.id)} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {draft ? (
+            <>
+              <p className="text-xs text-slate-400">{draft.count} {draft.count === 1 ? "Abgabe" : "Abgaben"} gefunden, z. B. „{draft.sample[0]}“. Zu welchem Modul gehört der Kurs?</p>
+              <select aria-label="Modul für den Artemis-Kurs" className="field mt-2 w-full text-sm" value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
+                <option value="">Modul wählen …</option>
+                {data.modules.filter((m) => !m.archived).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className="btn btn-primary" onClick={subscribe} disabled={busy || !moduleId}>Abonnieren</button>
+                <button className="btn btn-ghost" onClick={() => setDraft(null)}>Abbrechen</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-slate-400">In Artemis im Kurs auf <b className="text-slate-200">Kalender</b> → <b className="text-slate-200">Abonnieren</b>, bei den Kategorien „Aufgaben“ auswählen und den Link kopieren. Für jeden Kurs ein eigenes Abo.</p>
+              <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); preview(); }}>
+                <input type="url" inputMode="url" aria-label="Artemis-Kalender-Link" placeholder="https://artemis.tum.de/…" className="field min-w-0 flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} />
+                <button type="submit" className="btn btn-primary" disabled={busy || !url.trim()}>{busy ? "Ruft ab …" : "Prüfen"}</button>
+              </form>
+              {feeds.length > 0 && <button className="btn btn-ghost mt-3" onClick={refresh} disabled={busy}>Alle jetzt abrufen</button>}
+            </>
+          )}
+        </>
+      )}
+      {err && <p role="alert" className="mt-2 text-xs text-rose-400">{err}</p>}
+      {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
+    </Card>
+  );
+}

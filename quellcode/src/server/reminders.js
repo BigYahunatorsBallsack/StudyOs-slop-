@@ -24,7 +24,10 @@ const RULES = {
   retake: [[7, "18:00", "Wiederholungsprüfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Wiederholungsprüfung morgen", (x) => x.module || x.title]],
   review: [[0, "20:00", "Noch nachzubereiten", (x) => x.body || x.title]],
   weekly: [[0, "18:00", "Deine nächste Woche", (x) => x.body || x.title]],
+  /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
+  block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 60000]],
 };
+const minus = (hm, n) => { const [h, m] = String(hm || "00:00").split(":").map(Number); const t = Math.max(0, h * 60 + m - n); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
 export const MAX_LATE_MS = 12 * 3600 * 1000; /* verpasste Erinnerungen höchstens 12 h später nachholen */
 
 /**
@@ -37,11 +40,12 @@ export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europ
   for (const x of deadlines || []) {
     const rules = RULES[x.kind];
     if (!rules || !/^\d{4}-\d{2}-\d{2}$/.test(x.date || "")) continue;
-    rules.forEach(([before, hm, title, body], i) => {
-      const at = zonedInstant(addDays(x.date, -before), hm, tz);
-      const key = `${x.kind}:${x.id}:${x.date}:${i}`;
-      if (sent[key] || at > now || now - at > MAX_LATE_MS) return;
-      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" ? "./?aktion=heute" : "./?aktion=pruefungen" });
+    rules.forEach(([before, hm, title, body, maxLate = MAX_LATE_MS], i) => {
+      const time = typeof hm === "function" ? hm(x) : hm;
+      const at = zonedInstant(addDays(x.date, -before), time, tz);
+      const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
+      if (sent[key] || at > now || now - at > maxLate) return;
+      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" ? "./?aktion=heute" : "./?aktion=pruefungen" });
     });
   }
   return out;

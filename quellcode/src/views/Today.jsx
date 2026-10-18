@@ -11,10 +11,13 @@ import { dueLabel, todoItems } from "../lib/todo.js";
 import { PlaceLinks } from "../ui/links.jsx";
 import { MensaCard } from "./Mensa.jsx";
 import { mensaOf } from "../lib/mensa.js";
+import { CommuteCard } from "./Commute.jsx";
+import { commuteOf } from "../lib/transit.js";
+import { WhatNowDialog } from "./WhatNow.jsx";
 import { withoutArchived } from "../lib/study.js";
 
 /* ---------------- Heute ---------------- */
-export function Today({ db, onQuick, notice }) {
+export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
   const data = withoutArchived(db.data), t = iso();
   const deadlines = examDeadlines(data, t);
 
@@ -43,6 +46,9 @@ export function Today({ db, onQuick, notice }) {
   }
 
   const todays = data.sessions.filter((s) => s.date === t).sort(byTime);
+  const [nowOpen, setNowOpen] = [whatNowOpen, setWhatNowOpen];
+  const blocksToday = (data.blocks || []).filter((b) => b.date === t);
+  const plan = [...todays.map((s) => ({ s })), ...blocksToday.map((b) => ({ b, start: b.start }))].sort((a, b) => (a.s || a.b).start.localeCompare((b.s || b.b).start));
   const todo = todoItems(data, t);
   /* Prüfungen und Wiederholungsprüfungen als Countdown */
   const exams = [
@@ -67,10 +73,14 @@ export function Today({ db, onQuick, notice }) {
 
       <NextUp db={db} openReviews={openReviews} cardsDue={cardsDue} />
 
-      <button className="quick mt-3" onClick={onQuick} aria-label="Schnelleingabe öffnen">
-        <span>Was steht an?</span>
-        <span className="quick-plus" aria-hidden="true">+</span>
-      </button>
+      <div className="mt-3 flex gap-2">
+        <button className="quick min-w-0 flex-1" onClick={onQuick} aria-label="Schnelleingabe öffnen">
+          <span>Was steht an?</span>
+          <span className="quick-plus" aria-hidden="true">+</span>
+        </button>
+        <button className="whatnow" onClick={() => setNowOpen(true)}>Was jetzt?</button>
+      </div>
+      {nowOpen && <WhatNowDialog db={db} onClose={() => setNowOpen(false)} />}
 
       <div className="minis mt-3" aria-label="Lernzeit">
         <span><b>{fmtMin(minToday)}</b> heute</span>
@@ -81,10 +91,10 @@ export function Today({ db, onQuick, notice }) {
 
       {notice && <div className="mt-4">{notice}</div>}
 
-      <Group title="Tagesplan" count={todays.length || undefined}>
-        {todays.length ? (
+      <Group title="Tagesplan" count={plan.length || undefined}>
+        {plan.length ? (
           <ol className="timeline">
-            {todays.map((s) => <TimelineRow key={s.id} s={s} db={db} />)}
+            {plan.map((x) => (x.s ? <TimelineRow key={x.s.id} s={x.s} db={db} /> : <TimelineBlock key={x.b.id} b={x.b} db={db} />))}
           </ol>
         ) : (
           <p className="text-sm text-slate-400">Heute keine Lehrveranstaltungen.{nextDay ? ` Als nächstes: ${db.mod(nextDay.moduleId)?.name || nextDay.type}, ${fmtShort(nextDay.date)} um ${nextDay.start}.` : ""}</p>
@@ -107,6 +117,7 @@ export function Today({ db, onQuick, notice }) {
           </div>
         </Group>
       )}
+      {commuteOf(db.data.settings) && db.cloud?.available && <div className="mt-6"><CommuteCard db={db} sessions={data.sessions} /></div>}
       {mensaOf(db.data.settings) && <div className="mt-6"><MensaCard canteen={mensaOf(db.data.settings)} /></div>}
     </div>
   );
@@ -126,6 +137,28 @@ function TimelineRow({ s, db }) {
         </button>
         {!s.cancelled && <div className="mt-2"><SessionTri s={s} db={db} compact color={m?.color} /></div>}
         {!s.cancelled && <PlaceLinks room={s.room} live={m?.liveUrl} className="mt-1.5" />}
+      </div>
+    </li>
+  );
+}
+
+/* Ein Lernblock im Tagesplan */
+function TimelineBlock({ b, db }) {
+  const m = db.mod(b.moduleId), now = nowHM();
+  const state = b.start <= now && now < b.end ? "live" : b.end <= now ? "past" : "next";
+  const mins = Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
+  return (
+    <li className={`tl-row tl-block tl-${state} ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }}>
+      <div className="tl-time"><b>{b.start}</b><span>{b.end}</span></div>
+      <div className="tl-body">
+        <button className="row-main" onClick={() => db.openForm("block", b)}>
+          <p className={`row-title truncate ${b.done ? "line-through" : ""}`}>{b.title}</p>
+          <p className="row-meta truncate">Lernblock{m ? `, ${m.name}` : ""}{state === "live" && !b.done ? ", jetzt" : ""}</p>
+        </button>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button className="btn btn-ghost" onClick={() => db.patch("blocks", b.id, { done: !b.done })} aria-pressed={!!b.done}>{b.done ? "Erledigt ✓" : "Erledigt"}</button>
+          {!b.done && <button className="btn btn-ghost" onClick={() => db.focus({ moduleId: b.moduleId || "", minutes: Math.min(90, mins), kind: b.kind, blockId: b.id })}>Timer starten</button>}
+        </div>
       </div>
     </li>
   );

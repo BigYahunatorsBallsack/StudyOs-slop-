@@ -34,6 +34,24 @@ export function SessionRow({ s, db, showDate }) {
   );
 }
 
+/** Geplanter Lernblock: abhaken, Timer starten, bearbeiten */
+export function BlockRow({ b, db, showDate }) {
+  const m = db.mod(b.moduleId);
+  const mins = Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
+  return (
+    <li className={`row row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }}>
+      <div className="flex items-start gap-3">
+        <button className="todo-check mt-0.5" role="checkbox" aria-checked={!!b.done} aria-label={`${b.title} erledigt`} onClick={() => db.patch("blocks", b.id, { done: !b.done })}><span aria-hidden="true">{b.done ? "✓" : ""}</span></button>
+        <button className="row-main min-w-0 flex-1" onClick={() => db.openForm("block", b)}>
+          <p className={`row-title truncate ${b.done ? "line-through" : ""}`}>{b.title}</p>
+          <p className="row-meta truncate">Lernblock{showDate ? `, ${fmtShort(b.date)}` : ""}, {b.start}–{b.end}{m ? `, ${m.name}` : ""}</p>
+        </button>
+        {!b.done && <button className="btn btn-ghost shrink-0" onClick={() => db.focus({ moduleId: b.moduleId || "", minutes: Math.min(90, mins), kind: b.kind, blockId: b.id })}>Timer</button>}
+      </div>
+    </li>
+  );
+}
+
 export function HomeworkRow({ h, db }) {
   const m = db.mod(h.moduleId), done = DONE_HW.has(h.status), dl = dueInfo(h.due, done);
   const toggleDone = () => {
@@ -46,7 +64,7 @@ export function HomeworkRow({ h, db }) {
       <div className="flex items-start gap-3">
         <button onClick={() => db.openForm("homework", h)} className="row-main min-w-0 flex-1">
           <p className={`row-title truncate ${done ? "line-through" : ""}`}>{h.title}</p>
-          <p className="row-meta truncate">{m?.name}</p>
+          <p className="row-meta truncate">{m?.name}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}</p>
           <p className={`text-xs font-semibold ${dl.cls}`}>{dl.text}{h.dueTime && !done ? `, ${h.dueTime} Uhr` : ""}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
         <label className="sr-only" htmlFor={"hw-" + h.id}>Status von {h.title}</label>

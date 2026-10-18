@@ -14,7 +14,8 @@ export const diffDays = (a, b) => Math.round((new Date(b + "T00:00:00") - new Da
 
 export const wdIdx = (s) => (new Date(s + "T00:00:00").getDay() + 6) % 7;
 
-export const fmt = (s) => (s ? s.split("-").reverse().join(".") : "");
+/* Datum TT.MM.JJJJ; volle Zeitstempel (z. B. „updated“) werden in lokales Datum umgerechnet */
+export const fmt = (s) => { if (!s) return ""; let d = String(s); if (d.length > 10) { const t = new Date(d); d = Number.isNaN(t.getTime()) ? d.slice(0, 10) : iso(t); } return d.split("-").reverse().join("."); };
 
 export const fmtShort = (s) => (s ? `${WD[wdIdx(s)]}, ${s.slice(8)}.${s.slice(5, 7)}.` : "");
 

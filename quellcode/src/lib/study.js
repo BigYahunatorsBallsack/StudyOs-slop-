@@ -99,7 +99,7 @@ export function withoutArchived(data) {
   const arch = archivedIds(data);
   if (!arch.size) return data;
   const keep = (x) => !arch.has(x.moduleId);
-  return { ...data, modules: data.modules.filter((m) => !m.archived), sessions: data.sessions.filter(keep), homework: data.homework.filter(keep), exams: data.exams.filter(keep), cards: data.cards.filter(keep) };
+  return { ...data, modules: data.modules.filter((m) => !m.archived), sessions: data.sessions.filter(keep), homework: data.homework.filter(keep), exams: data.exams.filter(keep), cards: data.cards.filter(keep), blocks: (data.blocks || []).filter(keep) };
 }
 
 /** Offene Hausaufgaben eines Moduls (für die Anzeige). */

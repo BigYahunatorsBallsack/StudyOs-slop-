@@ -25,7 +25,7 @@ import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries } from "./lib/study.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
-import { applyMoodle, unmappedCourses } from "./lib/moodle.js";
+import { applyArtemis, applyMoodle, unmappedCourses } from "./lib/moodle.js";
 import { ShareImport } from "./views/Share.jsx";
 
 const FONT_CSS = `.font-ui{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
@@ -172,11 +172,13 @@ export default function App() {
   /* Tastenkürzel (Desktop): siehe ui/shortcuts.jsx; Aktionen über eine Ref, damit der Handler stabil bleibt */
   const [helpOpen, setHelpOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [whatNowOpen, setWhatNowOpen] = useState(false);
   const shortcutActs = useRef(null);
   shortcutActs.current = {
     search: () => setSearchOpen(true),
     help: () => setHelpOpen(true),
     quick: () => setQuickOpen(true),
+    whatNow: () => { setTab("heute"); setWhatNowOpen(true); },
     create: (kind) => openForm(kind, kind === "log" ? { date: iso() } : null, true),
     timer: () => { setLearnTab("timer"); setTab("lernen"); },
     tab: (k) => { setTab(k); if (k === "module") setModuleId(null); window.scrollTo && window.scrollTo(0, 0); },
@@ -218,6 +220,8 @@ export default function App() {
       if (kind === "module") d.meta.lastModule = item.id;
       if (kind === "session") Object.assign(item, { cancelled: false, prepared: false, attended: false, reviewed: false, reviewedAt: null });
       if (kind === "card") Object.assign(item, { ease: 2.5, interval: 0, reps: 0, due: iso() });
+      /* Uhrzeit merken (für die Lernstatistik), wenn die Einheit heute eingetragen wird */
+      if (kind === "log" && !item.at && item.date === iso()) item.at = new Date(Date.now() - (Number(item.minutes) || 0) * 60000).toTimeString().slice(0, 5);
       if (kind === "topic" && (item.order === null || item.order === undefined)) item.order = d.topics.filter((x) => x.moduleId === item.moduleId).length + 1;
     }
     if (kind === "homework") item.doneAt = DONE_HW.has(item.status) ? item.doneAt || iso() : null;
@@ -251,7 +255,8 @@ export default function App() {
     if (kind === "session") n.notes = d.notes.map((x) => (x.sessionId === id ? { ...x, sessionId: "" } : x));
     /* gelöschte Moodle-Abgaben merken, damit das Abo sie nicht wieder anlegt */
     const hw = kind === "homework" && d.homework.find((x) => x.id === id);
-    if (hw?.feedKey && d.settings.moodleFeed) n.settings = { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, dismissed: [...(d.settings.moodleFeed.dismissed || []), hw.feedKey].slice(-500) } };
+    if (hw?.feedKey?.startsWith("moodle|") && d.settings.moodleFeed) n.settings = { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, dismissed: [...(d.settings.moodleFeed.dismissed || []), hw.feedKey].slice(-500) } };
+    if (hw?.feedKey?.startsWith("artemis:")) n.settings = { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).map((f) => (hw.feedKey.startsWith(`artemis:${f.id}|`) ? { ...f, dismissed: [...(f.dismissed || []), hw.feedKey].slice(-500) } : f)) };
     return n;
   });
 
@@ -296,7 +301,8 @@ export default function App() {
     signal();
     if (timer.mode === "focus") {
       setTimer((t) => ({ ...t, running: false, mode: "break", remaining: t.brk * 60 }));
-      const init = { minutes: timer.length, moduleId: timer.moduleId, topicId: timer.topicId, kind: "Nacharbeiten", date: iso() };
+      const init = { minutes: timer.length, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso() };
+      if (timer.blockId) { patch("blocks", timer.blockId, { done: true }); setTimer((t) => ({ ...t, blockId: null })); }
       if (form) toast("Fokusphase beendet.", { label: "Eintragen", run: () => openForm("log", init, true) }, 15000);
       else openForm("log", init, true);
     } else { setTimer((t) => ({ ...t, running: false, mode: "focus", remaining: t.length * 60 })); toast("Pause vorbei. Weiter geht's!"); }
@@ -315,7 +321,7 @@ export default function App() {
     stopAndLog: () => {
       const mins = Math.round((timer.length * 60 - remainingOf(timer)) / 60);
       setTimer((t) => ({ ...t, running: false, remaining: t.length * 60 }));
-      if (mins >= 1) openForm("log", { minutes: mins, moduleId: timer.moduleId, topicId: timer.topicId, kind: "Nacharbeiten", date: iso() }, true);
+      if (mins >= 1) openForm("log", { minutes: mins, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso() }, true);
     },
   };
 
@@ -379,6 +385,36 @@ export default function App() {
       return null;
     }
   };
+  /* Artemis: ein Abo je Kurs */
+  const syncArtemisRef = useRef(null);
+  syncArtemisRef.current = async ({ manual } = {}) => {
+    const feeds = dataRef.current.settings.artemisFeeds || [];
+    if (!feeds.length || cloud.phase !== "ready") return null;
+    const total = { added: 0, updated: 0 };
+    for (const f of feeds) {
+      try {
+        const events = parseICS(await cloud.fetchIcs(f.url));
+        const st = commitFeed((d) => {
+          const cur = (d.settings.artemisFeeds || []).find((x) => x.id === f.id);
+          if (!cur) return { stats: { added: 0, updated: 0 }, next: d };
+          const r = applyArtemis(d, cur, events);
+          return { stats: r.stats, next: { ...d, homework: r.homework, settings: { ...d.settings, artemisFeeds: d.settings.artemisFeeds.map((x) => (x.id === f.id ? { ...x, lastSync: new Date().toISOString(), lastError: "" } : x)) } } };
+        });
+        total.added += st.added; total.updated += st.updated;
+      } catch (e) {
+        if (manual) throw e;
+        change((d) => ({ ...d, settings: { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).map((x) => (x.id === f.id ? { ...x, lastError: e.message || String(e) } : x)) } }));
+      }
+    }
+    return total;
+  };
+  const artemisDue = (data.settings.artemisFeeds || []).some((f) => !f.lastSync || Date.now() - new Date(f.lastSync).getTime() > 3 * 3600 * 1000);
+  useEffect(() => {
+    if (!ready || loadError || cloud.phase !== "ready" || !artemisDue) return;
+    const id = setTimeout(() => syncArtemisRef.current(), 8000);
+    return () => clearTimeout(id);
+  }, [ready, loadError, cloud.phase, artemisDue]);
+
   const moodleDue = !!data.settings.moodleFeed?.url && (!data.settings.moodleFeed.lastSync || Date.now() - new Date(data.settings.moodleFeed.lastSync).getTime() > 3 * 3600 * 1000);
   useEffect(() => {
     if (!ready || loadError || cloud.phase !== "ready" || !moodleDue) return;
@@ -448,6 +484,13 @@ export default function App() {
       });
     },
     syncMoodle: (opts) => syncMoodleRef.current(opts),
+    subscribeArtemis: async (url, moduleId, events, label) => commitFeed((d) => {
+      const feed = { id: uid(), url, moduleId, label, dismissed: [], lastSync: new Date().toISOString(), lastError: "" };
+      const r = applyArtemis(d, feed, events);
+      return { stats: r.stats, next: { ...d, homework: r.homework, settings: { ...d.settings, artemisFeeds: [...(d.settings.artemisFeeds || []), feed] } } };
+    }),
+    syncArtemis: (opts) => syncArtemisRef.current(opts),
+    removeArtemis: (id) => change((d) => ({ ...d, settings: { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).filter((f) => f.id !== id) } })),
     unsubscribeMoodle: () => change((d) => { const { moodleFeed, ...settings } = d.settings; void moodleFeed; return { ...d, settings }; }),
     unsubscribeFeed: () => change((d) => { const { icsFeed, ...settings } = d.settings; return { ...d, settings }; }),
     mergeIn: (remote) => { const { data: merged, stats } = mergeData(dataRef.current, remote); replaceAll(merged, "Vor dem Zusammenführen", { stamp: false }); return stats; },
@@ -463,6 +506,13 @@ export default function App() {
     install: async () => { if (ENV && ENV.pwa && ENV.pwa.install) { const r = await ENV.pwa.install(); if (r) { setInstallReady(false); toast("StudyOS wurde installiert."); } return r; } return false; },
     applyUpdate: async () => { try { if (ENV) await ENV.save(dataRef.current); } catch {} ENV && ENV.pwa && ENV.pwa.applyUpdate(); },
     goModule: (id) => { setModuleId(id); setTab("module"); },
+    /* Fokus-Timer für eine bestimmte Aufgabe starten (aus „Was jetzt?“ und Lernblöcken) */
+    focus: ({ moduleId = "", minutes = 25, kind = "Nacharbeiten", topicId = "", blockId = null }) => {
+      try { const AC = window.AudioContext || window.webkitAudioContext; if (AC && !audioRef.current) audioRef.current = new AC(); audioRef.current && audioRef.current.state === "suspended" && audioRef.current.resume(); } catch {}
+      const n = Math.max(5, Math.min(120, Math.round(minutes)));
+      setTimer((t) => ({ ...t, moduleId, topicId, kind, blockId, mode: "focus", length: n, remaining: n * 60, running: true, endAt: Date.now() + n * 60000 }));
+      setLearnTab("timer"); setTab("lernen");
+    },
     goLearn: (sub, mid) => { setLearnTab(sub); if (mid !== undefined) setCardFilter(mid); setTab("lernen"); },
     goMore: (sub) => { setMoreTab(sub); setTab("mehr"); },
   };
@@ -542,7 +592,7 @@ export default function App() {
             <button onClick={() => setBannerOpen(false)} className="btn btn-icon" aria-label="Hinweis schließen">✕</button>
           </div>
         )}
-        {tab === "heute" && <Today db={db} onQuick={() => setQuickOpen(true)} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
+        {tab === "heute" && <Today db={db} onQuick={() => setQuickOpen(true)} whatNowOpen={whatNowOpen} setWhatNowOpen={setWhatNowOpen} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
           <div className="notice notice-plain flex items-center gap-3">
             <p className="flex-1">{backupAge === null ? "Du hast noch keine Sicherung exportiert." : `Letzte Sicherung vor ${backupAge} Tagen.`} Deine Daten liegen nur auf diesem Gerät. Sichere sie oder schalte den Cloud-Sync ein.</p>
             <button className={btnGhost} onClick={() => db.goMore("daten")}>Jetzt sichern</button>
@@ -575,7 +625,7 @@ export default function App() {
       <Toasts items={toasts} onClose={closeToast} />
       {searchOpen && <SearchModal data={data} db={db} onPick={openResult} onClose={() => setSearchOpen(false)} />}
       {noteObj && !form && <NoteViewer note={noteObj} db={db} onClose={() => setNoteView(null)} onEdit={() => { setNoteView(null); openForm("note", noteObj); }} />}
-      {form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
+      {form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { HomeworkRow } from "../ui/rows.jsx";
 import { btnPrimary, focusRing, inputBase, inputFlex } from "../ui/styles.js";
 import { DataView } from "./Data.jsx";
 import { gopStatus, gradeForecast } from "../lib/tum.js";
-import { gradeTimeline, heatmap, minutesBySemester } from "../lib/stats.js";
+import { effortVsGrade, gradeTimeline, heatmap, learningRhythm, minutesBySemester } from "../lib/stats.js";
 
 /* ---------------- Mehr ---------------- */
 export function More({ db, sub, setSub }) {
@@ -104,7 +104,58 @@ export function Review({ db }) {
         ) : <p className="text-sm text-slate-400">In den letzten 7 Tagen keine Lernzeit eingetragen.</p>}
       </Card>
       <Heatmap logs={data.logs} />
+      <Rhythm data={data} />
     </div>
+  );
+}
+
+/* Wann du lernst, und wie Lernzeit und Note bei dir zusammenhängen */
+function Rhythm({ data }) {
+  const r = learningRhythm(data.logs);
+  const eg = effortVsGrade(data);
+  const maxP = Math.max(1, ...r.parts.map((p) => p.minutes)), maxW = Math.max(1, ...r.weekdays);
+  if (!data.logs.length) return null;
+  return (
+    <Card title="Dein Lernrhythmus">
+      {r.timed > 0 ? (
+        <>
+          <p className="text-sm text-slate-300">Am meisten schaffst du <b>{r.best.label.toLowerCase()}</b>.</p>
+          <ul className="mt-3 space-y-1.5">
+            {r.parts.map((p) => (
+              <li key={p.label} className="flex items-center gap-3 text-sm">
+                <span className="w-24 shrink-0 text-slate-400">{p.label}</span>
+                <Bar value={p.minutes} max={maxP} label={p.label} className="flex-1" />
+                <span className="font-num w-16 shrink-0 text-right text-xs text-slate-400">{fmtMin(p.minutes)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : <p className="text-xs text-slate-500">Tageszeiten erscheinen, sobald du Lernzeit über den Timer oder am selben Tag einträgst.</p>}
+      <div className="mt-4 flex items-end gap-1.5" role="img" aria-label="Lernzeit nach Wochentag">
+        {r.weekdays.map((m, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <div className="w-full rounded-md" style={{ height: `${Math.max(3, (m / maxW) * 64)}px`, background: m ? "var(--accent)" : "var(--surface-2)" }} title={`${WD[i]}: ${fmtMin(m)}`} />
+            <span className="text-[11px] text-slate-500">{WD[i]}</span>
+          </div>
+        ))}
+      </div>
+      {eg.length >= 2 && (
+        <>
+          <p className="mt-5 text-sm font-semibold">Lernzeit und Note</p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {eg.map((x) => (
+              <li key={x.id} className="flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: x.color }} aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate">{x.name}</span>
+                <span className="font-num shrink-0 text-xs text-slate-400">{x.perEcts.toFixed(1).replace(".", ",")} h/ECTS</span>
+                <span className="font-num w-10 shrink-0 text-right font-semibold">{x.grade.toFixed(1).replace(".", ",")}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-slate-500">Nur eingetragene Lernzeit, ohne Vorlesungen. Richtwert laut Modulhandbuch: 30 h pro ECTS insgesamt.</p>
+        </>
+      )}
+    </Card>
   );
 }
 

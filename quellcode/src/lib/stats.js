@@ -45,3 +45,32 @@ export function examDeadlines(data, today = iso(), days = 14) {
   });
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
+
+/* ---------------- Lernstatistik ---------------- */
+export const DAYPARTS = [["Morgens", 5, 11], ["Mittags", 11, 14], ["Nachmittags", 14, 18], ["Abends", 18, 22], ["Nachts", 22, 29]];
+
+/** Lernminuten nach Tageszeit (nur Einheiten mit Uhrzeit) und nach Wochentag */
+export function learningRhythm(logs) {
+  const parts = DAYPARTS.map(([label]) => ({ label, minutes: 0 }));
+  const weekdays = Array.from({ length: 7 }, () => 0);
+  let timed = 0;
+  for (const l of logs) {
+    const min = Number(l.minutes) || 0;
+    if (!min || !l.date) continue;
+    weekdays[(new Date(l.date + "T12:00:00").getDay() + 6) % 7] += min;
+    if (!/^\d{2}:\d{2}$/.test(l.at || "")) continue;
+    let h = Number(l.at.slice(0, 2)); if (h < 5) h += 24;
+    const i = DAYPARTS.findIndex(([, a, b]) => h >= a && h < b);
+    if (i >= 0) { parts[i].minutes += min; timed += min; }
+  }
+  const best = timed ? parts.reduce((a, b) => (b.minutes > a.minutes ? b : a)) : null;
+  return { parts, weekdays, timed, best };
+}
+
+/** Pro bestandenem, benotetem Modul: Lernstunden je ECTS und Note */
+export function effortVsGrade(data) {
+  return data.modules.filter((m) => m.status === "bestanden" && Number(String(m.grade).replace(",", ".")) >= 1 && Number(m.ects) > 0).map((m) => {
+    const h = data.logs.filter((l) => l.moduleId === m.id).reduce((s, l) => s + (Number(l.minutes) || 0), 0) / 60;
+    return { id: m.id, name: m.name, color: m.color, grade: Number(String(m.grade).replace(",", ".")), hours: h, perEcts: h / Number(m.ects) };
+  }).filter((x) => x.hours > 0).sort((a, b) => a.grade - b.grade);
+}

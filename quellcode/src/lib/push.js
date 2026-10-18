@@ -2,6 +2,7 @@
 import { DONE_HW } from "./constants.js";
 import { addDays, iso, wdIdx } from "./util.js";
 import { withoutArchived } from "./study.js";
+import { blockReminders } from "./blocks.js";
 
 export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
@@ -14,6 +15,7 @@ export function deadlinesFromData(all, today = iso()) {
     if (e.retakeDate && e.result === "nicht bestanden" && e.retakeDate >= today) out.push({ id: e.id, kind: "retake", title: "Wiederholungsprüfung", module: mod(e.moduleId), date: e.retakeDate });
   });
   const settings = all.settings || {};
+  if (settings.pushBlocks !== false) out.push(...blockReminders(data, mod, today));
   /* Abends: noch nicht nachbereitete Termine des Tages (für die nächsten 14 Tage vorab, damit es auch klappt, wenn die App an dem Tag nicht geöffnet wird) */
   if (settings.pushReviews !== false) {
     const byDay = new Map();

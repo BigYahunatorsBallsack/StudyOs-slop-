@@ -4,6 +4,7 @@ import { fmt, fmtShort } from "../lib/util.js";
 import { Markdown } from "../ui/markdown.jsx";
 import { Dot, Modal } from "../ui/primitives.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls } from "../ui/styles.js";
+import { Attachments } from "../ui/Attachments.jsx";
 import { cardsFromNote } from "../lib/cards.js";
 
 export function SearchModal({ data, db, onPick, onClose }) {
@@ -50,12 +51,13 @@ export function NoteViewer({ note, db, onClose, onEdit }) {
     <Modal title={note.title || "Notiz"} onClose={onClose}>
       <p className="mb-3 text-xs text-slate-500">{m?.name || "Allgemein"}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""} · zuletzt bearbeitet {fmt(note.updated)}</p>
       {note.text ? <Markdown text={note.text} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
+      {(note.files || []).length > 0 && <Attachments db={db} coll="notes" itemId={note.id} />}
       <div className="mt-5 flex flex-wrap gap-2">
         <button className={btnPrimary} onClick={onEdit}>Bearbeiten</button>
         {newCards.length > 0 && note.moduleId && <button className={btnGhost} onClick={() => { db.cardsFromNote(note, newCards); onClose(); }}>{newCards.length} {newCards.length === 1 ? "Karteikarte" : "Karteikarten"} erzeugen</button>}
         <button className={btnGhost} onClick={onClose}>Schließen</button>
       </div>
-      <p className="mt-3 text-[11px] text-slate-600">Formatierung: # Überschrift, - Liste, **fett**, *kursiv*, `Code`, ``` Codeblock ```, [Link](https://…). Karteikarten: eine Zeile „Frage :: Antwort“ oder ein Lückentext {"{{c1::Antwort}}"}.</p>
+      <p className="mt-3 text-[11px] text-slate-600">Formatierung: # Überschrift, - Liste, **fett**, *kursiv*, `Code`, ```java für eingefärbten Code, Formeln mit $x^2$ oder $$\sum_{"{"}i=1{"}"}^n i$$, [Link](https://…). Karteikarten: eine Zeile „Frage :: Antwort“ oder ein Lückentext {"{{c1::Antwort}}"}.</p>
     </Modal>
   );
 }

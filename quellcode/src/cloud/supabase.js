@@ -43,6 +43,17 @@ export function createSupabaseCloud() {
     return uid;
   };
 
+  /* Supabase Storage (Bucket „studyos-files“) direkt per fetch */
+  async function storage(method, id, body) {
+    if (!/^[\w-]{8,64}$/.test(id)) throw new CloudError("Ungültige Datei.");
+    const { data } = await auth.getSession();
+    if (!data.session) throw new CloudError("Nicht angemeldet.");
+    const url = `${SUPABASE_URL}/storage/v1/object/studyos-files/${data.session.user.id}/${id}`;
+    const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${data.session.access_token}` };
+    if (body) Object.assign(headers, { "Content-Type": "application/octet-stream", "x-upsert": "true" });
+    try { return await fetch(url, { method, headers, body }); } catch (e) { throw explain(e); }
+  }
+
   /* Aufruf der Edge Function „studyos“ (Erinnerungen, Kalender-Abo) */
   const FN = SUPABASE_URL + "/functions/v1/studyos";
   async function callFn(action, { method = "POST", body, withUser = true } = {}) {
@@ -58,6 +69,7 @@ export function createSupabaseCloud() {
     if (!res.ok) {
       let msg = "";
       try { msg = (await res.json()).error || ""; } catch {}
+      if (msg === "Unbekannte Aktion.") throw new CloudError("Deine Supabase-Funktion „studyos“ ist veraltet. Bitte die aktuelle index.ts einspielen (siehe supabase/EINRICHTUNG.md).");
       if (res.status === 404 && !msg) throw new CloudError("Die Supabase-Funktion „studyos“ ist noch nicht eingerichtet (siehe supabase/EINRICHTUNG.md).");
       if (res.status === 401 && !msg) throw new CloudError("Die Funktion „studyos“ verlangt eine JWT-Prüfung. Schalte „Verify JWT“ in den Funktionseinstellungen aus.");
       throw new CloudError(msg || `Die Funktion meldet Fehler ${res.status}.`);
@@ -108,8 +120,22 @@ export function createSupabaseCloud() {
         if (error) throw new CloudError(error.message);
       },
     },
+    /* Anhänge (bereits verschlüsselt) im privaten Speicher: Ordner = Nutzer-ID */
+    files: {
+      async put(id, bytes) {
+        const res = await storage("POST", id, bytes);
+        if (!res.ok) throw new CloudError(res.status === 404 || res.status === 400 ? "Anhänge sind noch nicht eingerichtet: Bitte supabase/anhaenge.sql im SQL-Editor ausführen." : `Hochladen fehlgeschlagen (${res.status}).`);
+      },
+      async get(id) {
+        const res = await storage("GET", id);
+        if (!res.ok) throw new CloudError(res.status === 404 || res.status === 400 ? "Datei nicht in der Cloud gefunden." : `Laden fehlgeschlagen (${res.status}).`);
+        return new Uint8Array(await res.arrayBuffer());
+      },
+      async remove(id) { await storage("DELETE", id).catch(() => {}); },
+    },
     calUrl: (token) => `${FN}?action=cal&token=${token}`,
     fetchIcs: async (url) => (await callFn("ics", { body: { url } })).text(),
+    mvg: async (body) => (await callFn("mvg", { body })).json(),
     async getUser() { const { data } = await sb.auth.getSession(); const u = toUser(data.session); uid = u?.id || null; return u; },
     onAuthChange(cb) {
       const { data } = sb.auth.onAuthStateChange((_event, session) => { const u = toUser(session); uid = u?.id || null; cb(u); });

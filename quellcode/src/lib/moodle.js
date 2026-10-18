@@ -5,9 +5,9 @@ import { DONE_HW } from "./constants.js";
 import { addDays, iso, uid as newId } from "./util.js";
 import { NEW, SKIP } from "./feed.js";
 
-const DUE = /(ist fällig|fällig|is due|\bdue\b|schließt|closes|abgabe|deadline|endet|ends|einsendeschluss)/i;
-const NOT_DUE = /(öffnet|opens|geöffnet|beginnt|starts|verfügbar ab|available from)/i;
-const STRIP = [/\s+(ist|wird)\s+fällig\.?$/i, /\s+is due\.?$/i, /\s+(schließt|closes|endet|ends)\.?$/i, /^(fällig|abgabetermin|abgabe|deadline|due)\s*[:–-]\s*/i, /\s*\((fällig|due)\)$/i];
+const DUE = /(ist fällig|fällig|is due|\bdue\b|schließt|closes|abgabe|deadline|endet|ends|einsendeschluss|einreichung|bearbeitungsende|submission)/i;
+const NOT_DUE = /(öffnet|opens|geöffnet|beginnt|starts|verfügbar ab|available from|veröffentlich|release|freigabe|bewertung|assessment|korrektur|vorlesung|lecture|tutorium|tutorial|prüfung|klausur|exam|einsicht|review)/i;
+const STRIP = [/\s+(ist|wird)\s+fällig\.?$/i, /\s+is due\.?$/i, /\s+(schließt|closes|endet|ends)\.?$/i, /^(fällig|abgabetermin|abgabefrist|abgabe|einreichungsfrist|deadline|due date|due)\s*[:–-]\s*/i, /\s*[-–:]\s*(abgabe|abgabefrist|due date|due|deadline)$/i, /\s*\((fällig|due|abgabe|abgabefrist|due date)\)$/i];
 
 export const isMoodleDeadline = (e) => !NOT_DUE.test(e.summary) && DUE.test(e.summary);
 export function cleanTitle(summary) { let t = String(summary || "").trim(); for (const re of STRIP) t = t.replace(re, "").trim(); return t || summary; }
@@ -27,7 +27,7 @@ export const unmappedCourses = (events, map = {}) => [...new Set(events.filter(i
  * Gleicht Abgaben aus dem Moodle-Kalender mit den Hausaufgaben ab.
  * Neue Abgaben werden nur angelegt, wenn sie noch nicht vorbei sind.
  */
-export function applyMoodle(data, events, map, today = iso(), dismissed = []) {
+export function applyMoodle(data, events, map, today = iso(), dismissed = [], prefix = "moodle") {
   const gone = new Set(dismissed);
   const stats = { added: 0, updated: 0, ignored: 0 };
   const byKey = new Map(data.homework.filter((h) => h.feedKey).map((h) => [h.feedKey, h]));
@@ -37,7 +37,7 @@ export function applyMoodle(data, events, map, today = iso(), dismissed = []) {
     if (!isMoodleDeadline(e)) { stats.ignored++; continue; }
     const moduleId = map[courseOf(e)];
     if (!moduleId || moduleId === SKIP || moduleId === NEW) continue;
-    const key = `moodle|${e.uid}`;
+    const key = `${prefix}|${e.uid}`;
     if (seen.has(key) || gone.has(key)) continue;
     seen.add(key);
     const { due, dueTime } = dueOf(e);
@@ -54,8 +54,14 @@ export function applyMoodle(data, events, map, today = iso(), dismissed = []) {
       continue;
     }
     if (due < today) continue;
-    homework.push({ id: newId(), moduleId, title, issued: null, due, dueTime, status: "ausgegeben", points: null, maxPoints: null, feedback: "", feedKey: key, source: "moodle" });
+    homework.push({ id: newId(), moduleId, title, issued: null, due, dueTime, status: "ausgegeben", points: null, maxPoints: null, feedback: "", feedKey: key, source: prefix });
     stats.added++;
   }
   return { homework, stats };
+}
+
+/* Artemis: ein Abo pro Kurs; alle Abgaben gehen an das gewählte Modul */
+export const artemisMap = (events, moduleId) => Object.fromEntries([...new Set(events.map(courseOf))].map((c) => [c, moduleId]));
+export function applyArtemis(data, feed, events, today = iso()) {
+  return applyMoodle(data, events, artemisMap(events, feed.moduleId), today, feed.dismissed || [], `artemis:${feed.id}`);
 }

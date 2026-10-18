@@ -7,13 +7,17 @@ function createBackend() {
   const push = new Map(); /* user → { subscriptions, deadlines, tz } */
   const pushRow = (uid) => { if (!push.has(uid)) push.set(uid, { subscriptions: [], deadlines: [], tz: '' }); return push.get(uid); };
   return {
-    rows, push, tests: 0, shares: new Map(),
+    rows, push, tests: 0, shares: new Map(), files: new Map(),
     async handle(op, ...args) {
       if (op === 'sendCode') return true;
       if (op === 'push.vapid') return 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM';
       if (op === 'push.saveSubscription') { const r = pushRow(args[0]); r.subscriptions = [...r.subscriptions.filter((x) => x.endpoint !== args[1].endpoint), args[1]]; r.tz = args[2]; return true; }
       if (op === 'push.removeSubscription') { const r = pushRow(args[0]); r.subscriptions = r.subscriptions.filter((x) => x.endpoint !== args[1]); return true; }
       if (op === 'push.saveDeadlines') { const r = pushRow(args[0]); r.deadlines = args[1]; r.tz = args[2]; return true; }
+      if (op === 'mvg') return this.mvg ? this.mvg(args[1]) : [];
+      if (op === 'files.put') { this.files.set(args[0] + '/' + args[1], args[2]); return true; }
+      if (op === 'files.get') return this.files.get(args[0] + '/' + args[1]) ?? null;
+      if (op === 'files.remove') { this.files.delete(args[0] + '/' + args[1]); return true; }
       if (op === 'push.setCalToken') { pushRow(args[0]).cal_token = args[1]; return true; }
       if (op === 'push.test') { this.tests++; return { devices: pushRow(args[0]).subscriptions.length, sent: pushRow(args[0]).subscriptions.length }; }
       if (op === 'shares.create') { this.shares.set(args[1], { owner: args[0], blob: args[2] }); return true; }
@@ -332,6 +336,56 @@ test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser
   await expect.poll(() => [...backend.push.values()][0].deadlines.map((d) => d.title)).toContain('Hausaufgabe 3');
   await A.page.getByRole('button', { name: 'Widerrufen' }).click();
   await expect.poll(() => [...backend.push.values()][0].cal_token).toBeNull();
+  expect(A.errors).toEqual([]);
+  await A.context.close();
+});
+
+test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in der Cloud', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  backend.mvg = (body) => {
+    if (body.kind === 'stations') return [{ id: 'de:09184:2222', name: 'Haar, Gymnasium', place: 'Haar (b München)', types: ['BUS'] }];
+    const base = new Date(); base.setHours(0, 0, 0, 0);
+    const t = (d, hm) => base.getTime() + d * 86400000 + (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60000;
+    return [0, 1].flatMap((d) => ['07:53', '08:13', '08:33', '09:13'].map((hm) => ({ line: '230', destination: 'Garching, Forschungszentrum (U)', type: 'REGIONAL_BUS', planned: t(d, hm), time: t(d, hm) + (hm === '08:13' ? 120000 : 0), delay: hm === '08:13' ? 2 : 0, realtime: true, cancelled: false })))
+      .concat([{ line: '241', destination: 'Taufkirchen', type: 'REGIONAL_BUS', planned: Date.now() + 600000, time: Date.now() + 600000, delay: 0, realtime: true, cancelled: false }]);
+  };
+  const A = await newDevice(browser, backend);
+  await A.page.evaluate(async () => {
+    const d = new Date(); d.setDate(d.getDate() + 1); const tomorrow = d.toLocaleDateString('sv-SE');
+    await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '' }, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
+      sessions: [{ id: 's', moduleId: 'ds', type: 'Vorlesung', date: tomorrow, start: '09:15', end: '10:45', room: 'MI HS 1' }], homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 3', due: tomorrow, status: 'ausgegeben' }], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await A.page.reload();
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+
+  // Haltestelle ändern über die Suche
+  await A.page.getByLabel('Haltestelle suchen').fill('Haar Gym');
+  await A.page.getByRole('button', { name: 'Suchen', exact: true }).click();
+  await A.page.getByRole('button', { name: 'Haar, Gymnasium, Haar (b München)' }).click();
+  await expect(A.page.getByText('Haltestelle: Haar, Gymnasium')).toBeVisible();
+
+  await nav(A.page, 'Heute').click();
+  const card = A.page.getByRole('region', { name: 'Weg zur Uni' });
+  await expect(card.getByRole('heading', { name: 'Bus 230 ab Haar, Gymnasium' })).toBeVisible();
+  // 9:15 − 10 Min. Puffer − 50 Min. Fahrt = 8:15 → Bus 8:13 (+2 → 8:15 fährt real erst 8:15, passt genau)
+  await expect(card.getByText(/morgen um 09:15: los um 08:10, 230 um 08:15 \(\+2\)/)).toBeVisible();
+  await expect(card.getByText('241')).toHaveCount(0);
+
+  // Anhang: verschlüsselt hochgeladen
+  await nav(A.page, 'Mehr').click();
+  await A.page.getByRole('tab', { name: 'Alle Hausaufgaben' }).click();
+  await A.page.getByText('Blatt 3').first().click();
+  const dlg = A.page.getByRole('dialog', { name: /bearbeiten/ });
+  await dlg.getByLabel('Datei anhängen').setInputFiles({ name: 'loesung.txt', mimeType: 'text/plain', buffer: Buffer.from('GEHEIMER INHALT 42') });
+  await expect(dlg.getByText(/in der Cloud/)).toBeVisible();
+  const stored = [...backend.files.values()][0];
+  expect(stored.length).toBeGreaterThan(18 + 12);
+  expect(Buffer.from(stored).toString('utf8')).not.toContain('GEHEIM');
   expect(A.errors).toEqual([]);
   await A.context.close();
 });
