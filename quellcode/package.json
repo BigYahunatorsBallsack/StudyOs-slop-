@@ -1,0 +1,32 @@
+{
+  "name": "studyos",
+  "version": "2.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "python3 -m http.server 8080 --directory dist",
+    "lint": "eslint src tests build.mjs",
+    "test": "vitest run",
+    "test:e2e": "node build.mjs && playwright test",
+    "check": "npm run lint && npm test && npm run test:function && npm run test:e2e",
+    "test:function": "node build.mjs && node tests/deno/run-function.mjs node_modules/.bin/deno"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@supabase/auth-js": "^2.118.0",
+    "@supabase/postgrest-js": "^2.118.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.55.0",
+    "deno": "^2.9.6",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "globals": "^15.0.0",
+    "vitest": "^3.2.0"
+  }
+}

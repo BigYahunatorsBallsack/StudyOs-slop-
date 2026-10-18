@@ -1,0 +1,78 @@
+# Prüft jede Änderung am Quellcode und veröffentlicht die gebaute App ins Wurzelverzeichnis,
+# aus dem GitHub Pages liest. Ein Commit mit dem GITHUB_TOKEN löst keinen neuen Lauf aus.
+name: StudyOS
+
+on:
+  push:
+    branches: [main]
+    paths: ["quellcode/**", ".github/workflows/**"]
+  pull_request:
+    paths: ["quellcode/**", ".github/workflows/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: studyos-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: quellcode
+
+jobs:
+  pruefen:
+    name: Prüfen
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: quellcode/package-lock.json
+      - run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: Unit-Tests
+        run: npm test
+      - name: Edge Function in Deno
+        run: npm run test:function
+      - name: CSS-Klassen
+        run: python3 tools/css_check.py .
+      - name: Playwright-Browser
+        run: npx playwright install --with-deps chromium
+      - name: E2E-Tests
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-ergebnisse
+          path: quellcode/test-results/
+          retention-days: 7
+
+  veroeffentlichen:
+    name: Veröffentlichen
+    needs: pruefen
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: quellcode/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Gebaute App ins Wurzelverzeichnis
+        run: cp -R dist/. ..
+      - name: Commit, falls sich etwas geändert hat
+        working-directory: .
+        run: |
+          git add -A -- . ':!quellcode'
+          if git diff --cached --quiet; then echo "Keine Änderungen an der gebauten App."; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898333+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Veröffentlichen: $(node -p "require('./quellcode/package.json').version") (${GITHUB_SHA::7})"
+          git push

@@ -1,0 +1,502 @@
+import { test, expect } from '@playwright/test';
+import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+/* Fehler aus Konsole und Seite sammeln: jeder Test muss ohne laufen */
+const pageErrors = new WeakMap();
+test.beforeEach(async ({ page }) => {
+  const list = [];
+  pageErrors.set(page, list);
+  page.on('pageerror', (e) => list.push(String(e)));
+  page.on('console', (m) => { if (m.type() === 'error') list.push(m.text()); });
+});
+test.afterEach(async ({ page }) => { expect(pageErrors.get(page), 'Konsolenfehler').toEqual([]); });
+
+const nav = (page, name) => page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('button', { name });
+async function openData(page) {
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+}
+async function loadDemo(page) {
+  await page.goto('./');
+  await openData(page);
+  await page.getByRole('button', { name: 'Beispieldaten laden' }).click();
+  await page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
+}
+const stored = (page) => page.evaluate(() => window.STUDYOS_ENV.load());
+
+test('alle Bereiche laden ohne Fehler und ohne horizontales Scrollen', async ({ page }) => {
+  await loadDemo(page);
+  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'] };
+  for (const tab of ['Heute', 'Module', 'Woche', 'Lernen', 'Mehr']) {
+    await nav(page, tab).click();
+    for (const sub of subs[tab] || [null]) {
+      if (sub) await page.getByRole('tab', { name: sub }).click();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${tab}/${sub}`).toBe(true);
+    }
+  }
+  await expect(page.getByText('Aktivität (20 Wochen)')).toHaveCount(0); // nicht im Datenbereich
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Wochenrückblick' }).click();
+  await expect(page.getByText('Aktivität (20 Wochen)')).toBeVisible();
+});
+
+test('Daten bleiben nach dem Neuladen erhalten, Änderungen tragen Zeitstempel', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.keyboard.press('n'); // Tastenkürzel für eine neue Notiz
+  await page.getByLabel('Titel').fill('Testnotiz');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page))?.notes.some((n) => n.title === 'Testnotiz')).toBe(true);
+  await page.reload();
+  const d = await stored(page);
+  const note = d.notes.find((n) => n.title === 'Testnotiz');
+  expect(note.updated).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('verschlüsselte Sicherung: Export, falsche und richtige Passphrase, Zusammenführen auf zweitem Gerät', async ({ page, browser }) => {
+  await loadDemo(page);
+  await openData(page);
+  await page.getByLabel('Mit Passphrase verschlüsseln (AES-256)').check();
+  await page.getByLabel('Passphrase', { exact: true }).fill('korrekt-pferd');
+  await page.getByLabel('Passphrase wiederholen').fill('korrekt-pferd');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Als Datei herunterladen' }).click()]);
+  const text = readFileSync(await download.path(), 'utf8');
+  expect(text).toContain('"studyosEncrypted":1');
+  expect(text).not.toContain('Beispiel');
+
+  // Zweites Gerät (eigener Browser-Kontext): eigene Notiz, dann Sicherung einspielen
+  const ctx = await browser.newContext({ locale: 'de-DE', acceptDownloads: true });
+  const b = await ctx.newPage();
+  const errs = [];
+  b.on('pageerror', (e) => errs.push(String(e)));
+  await b.goto('./?aktion=notiz');
+  await b.getByLabel('Titel').fill('Nur auf Gerät B');
+  await b.getByRole('button', { name: 'Speichern' }).click();
+  await openData(b);
+  const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'backup.json');
+  writeFileSync(file, text);
+  await b.locator('input[type=file][accept^=".json"]').setInputFiles(file);
+  await b.getByLabel('Passphrase zum Entschlüsseln').fill('falsch');
+  await b.getByRole('button', { name: 'Entschlüsseln' }).click();
+  await expect(b.getByText('Falsche Passphrase oder beschädigte Datei.')).toBeVisible();
+  await b.getByLabel('Passphrase zum Entschlüsseln').fill('korrekt-pferd');
+  await b.getByRole('button', { name: 'Entschlüsseln' }).click();
+  await b.getByRole('button', { name: 'Zusammenführen' }).click();
+  await expect(b.getByText(/Zusammengeführt: \d+ neu/)).toBeVisible();
+  await expect.poll(async () => {
+    const d = await stored(b);
+    return d && d.modules.length > 0 && d.notes.some((n) => n.title === 'Nur auf Gerät B');
+  }).toBe(true);
+  expect(errs).toEqual([]);
+  await ctx.close();
+});
+
+test('Zusammenführen nach "Alle Daten löschen" erklärt, warum nichts zurückkommt', async ({ page }) => {
+  await loadDemo(page);
+  await openData(page);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Als Datei herunterladen' }).click()]);
+  const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'backup.json');
+  writeFileSync(file, readFileSync(await download.path(), 'utf8'));
+  await page.getByRole('button', { name: 'Alle Daten löschen' }).click();
+  await page.getByRole('button', { name: 'Wirklich alles löschen?' }).click();
+  await page.locator('input[type=file][accept^=".json"]').setInputFiles(file);
+  await page.getByRole('button', { name: 'Zusammenführen' }).click();
+  await expect(page.getByText(/später gelöscht/)).toBeVisible();
+  await page.locator('input[type=file][accept^=".json"]').setInputFiles(file);
+  await page.getByRole('button', { name: 'Daten ersetzen' }).click();
+  await page.getByRole('button', { name: 'Ja, alles ersetzen' }).click();
+  await expect.poll(async () => (await stored(page))?.modules.length).toBeGreaterThan(0);
+});
+
+test('Lückentext-Karte: Lücke verdeckt, nach dem Aufdecken sichtbar', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Lernen').click();
+  await page.getByRole('tab', { name: 'Karteikarten' }).click();
+  await page.getByRole('button', { name: '+ Karte' }).click();
+  await page.getByLabel('Vorderseite (Frage)').fill('Mergesort läuft in {{c1::O(n log n)::Landau}}.');
+  await page.getByLabel('Tags').fill('Sortieren, Klausur');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByLabel('Tag filtern').selectOption('sortieren');
+  await page.getByRole('button', { name: 'Lernen starten' }).click();
+  await expect(page.getByText('[Landau]')).toBeVisible();
+  await expect(page.getByText('O(n log n)')).toHaveCount(0);
+  await page.getByRole('button', { name: /Antwort zeigen/ }).click();
+  await expect(page.getByText('O(n log n)')).toBeVisible();
+  await page.getByRole('button', { name: /^Gut/ }).click();
+  await expect(page.getByText('Sitzung abgeschlossen: 1 Karten gelernt.')).toBeVisible();
+});
+
+test('Karten-CSV: Import mit Kopfzeile und Export', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Lernen').click();
+  await page.getByRole('tab', { name: 'Karteikarten' }).click();
+  await page.getByLabel('Modul filtern').selectOption({ index: 1 });
+  const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'karten.csv');
+  writeFileSync(file, 'Vorderseite;Rückseite;Tags\n"Was ist ein Graph?";"G = (V, E)";graphen\nOhne Antwort;\n');
+  await page.locator('input[type=file][accept^=".csv"]').setInputFiles(file);
+  await expect(page.getByText(/1 Karten importiert, 1 Zeilen übersprungen/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Rückgängig' })).toBeVisible();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /CSV exportieren/ }).click()]);
+  expect(readFileSync(await download.path(), 'utf8')).toContain('"Was ist ein Graph?";"G = (V, E)";"graphen"');
+});
+
+test('Prüfung: Anmeldeschluss erscheint als Frist, Lernplan zeigt Minuten und freie Tage', async ({ page }) => {
+  await loadDemo(page);
+  const day = (n) => page.evaluate((n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); }, n);
+  await nav(page, 'Lernen').click();
+  await page.getByRole('tab', { name: 'Prüfungen & Lernplan' }).click();
+  await page.getByRole('button', { name: '+ Prüfung' }).click();
+  await page.getByLabel(/^Datum/).fill(await day(12));
+  await page.getByLabel('Anmeldeschluss').fill(await day(3));
+  await page.getByRole('group', { name: 'Lernfreie Tage im Lernplan' }).getByRole('button', { name: 'So' }).click();
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await nav(page, 'Heute').click();
+  await expect(page.locator('.todo-row', { hasText: 'anmelden' })).toContainText('Anmeldeschluss in 3 Tagen');
+  await nav(page, 'Lernen').click();
+  // Prüfungen sind nach Datum sortiert: die neue (in 12 Tagen) steht vor der Beispielprüfung (in 24 Tagen)
+  await expect(page.getByText(/Anmeldung bis/).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Lernplan anzeigen' }).first().click();
+  await expect(page.getByText('Freier Tag').first()).toBeVisible();
+  await expect(page.getByText('Gesamtwiederholung und Probeklausur unter Zeitdruck').last()).toBeVisible();
+});
+
+test('helles Farbschema und Hochschule im Kopf', async ({ page }) => {
+  await loadDemo(page);
+  await openData(page);
+  await page.getByLabel('Hochschule').fill('LMU');
+  await page.getByRole('tab', { name: 'Hell' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 240, 250)');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('header')).toContainText('Informatik, LMU'); // auf Handybreite ausgeblendet, aber gesetzt
+});
+
+test('App-Verknüpfung öffnet direkt das Formular für eine Lerneinheit', async ({ page }) => {
+  await loadDemo(page);
+  await page.goto('./?aktion=lerneinheit');
+  await expect(page.getByRole('dialog', { name: /Lerneinheit anlegen/ })).toBeVisible();
+  expect(new URL(page.url()).search).toBe('');
+});
+
+test('Timer läuft nach dem Neuladen weiter, ohne die App ständig neu zu rendern', async ({ page }) => {
+  await page.goto('./');
+  await nav(page, 'Lernen').click();
+  await page.getByRole('button', { name: 'Starten' }).click();
+  await page.waitForTimeout(1200);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Zum Timer' })).toContainText(/Fokus 2[45]:\d\d/);
+  // Der Seitenkopf darf sich nicht jede halbe Sekunde neu aufbauen: Element-Identität bleibt gleich
+  await page.evaluate(() => { window.__h1 = document.querySelector('header h1'); });
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => window.__h1 === document.querySelector('header h1'))).toBe(true);
+  await expect(page).toHaveTitle(/Fokus · StudyOS/);
+});
+
+test('ICS-Import mit mehreren Wochentagen', async ({ page }) => {
+  await loadDemo(page);
+  await openData(page);
+  const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'plan.ics');
+  writeFileSync(file, 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Algorithmen Vorlesung\r\nDTSTART:20261019T100000\r\nDTEND:20261019T113000\r\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=4\r\nEXDATE:20261021T100000\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n');
+  await page.locator('input[type=file][accept^=".ics"]').setInputFiles(file);
+  await page.getByLabel('Modul für Algorithmen Vorlesung').selectOption('__new');
+  await page.getByRole('button', { name: 'Importieren', exact: true }).click();
+  await expect(page.getByText('3 Termine importiert.').first()).toBeVisible();
+});
+
+test('Schnelleingabe legt eine Hausaufgabe an, mit Rückgängig', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
+  await page.getByLabel('Was steht an?').fill('Blatt 9 Diskrete morgen');
+  await expect(page.getByRole('radio', { name: 'Hausaufgabe' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('.preview-chip', { hasText: 'Diskrete Strukturen' })).toBeVisible();
+  await page.getByRole('button', { name: 'Hausaufgabe anlegen' }).click();
+  await expect(page.getByText('Hausaufgabe angelegt.')).toBeVisible();
+  await expect.poll(async () => (await stored(page))?.homework.some((h) => h.title === 'Blatt 9')).toBe(true);
+  await page.getByRole('button', { name: 'Rückgängig' }).first().click();
+  await expect.poll(async () => (await stored(page))?.homework.some((h) => h.title === 'Blatt 9')).toBe(false);
+  // Ohne Modul geht es ins Formular weiter
+  await page.keyboard.press('e');
+  await page.getByLabel('Was steht an?').fill('Blatt 10 Fr');
+  await expect(page.getByText('Modul fehlt')).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter im Formular' }).click();
+  await expect(page.getByRole('dialog', { name: /Hausaufgabe/ })).toBeVisible();
+  await expect(page.getByLabel(/^Titel/)).toHaveValue('Blatt 10');
+});
+
+test('Tastenkürzel: Hilfe, Tabs, Timer, Listen-Navigation', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.keyboard.press('?');
+  await expect(page.getByRole('dialog', { name: 'Tastenkürzel' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('3');
+  await expect(page.getByRole('heading', { name: /Woche \d+/ })).toBeVisible();
+  await page.keyboard.press('t');
+  await expect(page.getByRole('tab', { name: 'Timer' })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('1');
+  await page.keyboard.press('j');
+  const focused = await page.evaluate(() => !!document.activeElement.closest('main li'));
+  expect(focused).toBe(true);
+  // In Eingabefeldern greifen die Kürzel nicht
+  await page.keyboard.press('e');
+  await page.getByLabel('Was steht an?').fill('n');
+  await expect(page.getByRole('dialog', { name: /Notiz/ })).toHaveCount(0);
+});
+
+test('Als-Nächstes-Karte zeigt die überfällige Abgabe und erledigt sie per Knopf', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
+  await page.getByLabel('Was steht an?').fill('Überfälliges Blatt Diskrete heute');
+  await page.getByRole('button', { name: 'Hausaufgabe anlegen' }).click();
+  const hero = page.getByRole('region', { name: 'Als Nächstes' });
+  await expect(hero).toContainText('Überfälliges Blatt');
+  await expect(hero).toContainText('Abgabe heute');
+  await hero.getByRole('button', { name: 'Abgegeben' }).click();
+  await expect(hero).not.toContainText('Überfälliges Blatt');
+});
+
+test('Wischen nach rechts markiert eine Abgabe als abgegeben', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Alle Hausaufgaben' }).click();
+  const row = page.locator('.swipe .row').filter({ hasText: 'Übungsblatt 1' }).first();
+  await row.evaluate((el) => el.scrollIntoView({ block: 'center' })); // nicht hinter der schwebenden Navigation
+  const box = await row.boundingBox();
+  const y = box.y + 18;
+  await page.mouse.move(box.x + 30, y);
+  await page.mouse.down();
+  for (let x = 40; x <= 180; x += 20) await page.mouse.move(box.x + x, y);
+  await page.mouse.up();
+  await expect(page.getByText(/„Übungsblatt 1.*abgegeben\./)).toBeVisible();
+});
+
+test('Wochenraster zeigt heute und Termine als Blöcke', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  await expect(page.locator('.grid-day.today')).toHaveCount(1);
+  expect(await page.locator('.ev').count()).toBeGreaterThan(0);
+  await page.locator('.ev').first().click();
+  await expect(page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Liste' }).click();
+  await expect(page.locator('.row').first()).toBeVisible();
+});
+
+async function sessionToday(page, start, end) {
+  await expect.poll(async () => (await page.evaluate(async () => (await window.STUDYOS_ENV.load())?.modules?.length || 0))).toBeGreaterThan(0);
+  await page.evaluate(async ([start, end]) => {
+    const d = await window.STUDYOS_ENV.load();
+    const t = new Date().toLocaleDateString('sv-SE');
+    d.sessions.push({ id: 'heute-' + start, moduleId: d.modules[0].id, type: 'Vorlesung', date: t, start, end, room: 'MI HS 1 / Interims I', prepared: false, attended: false, reviewed: false });
+    await window.STUDYOS_ENV.save(d);
+  }, [start, end]);
+  await page.reload();
+}
+const session = (page, id) => page.evaluate(async (id) => (await window.STUDYOS_ENV.load()).sessions.find((s) => s.id === id), id);
+
+test('Wochenraster: Maus kurz über Termin zeigt Karte, dort abhaken; Klick öffnet weiter das Formular', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, locale: 'de-DE' });
+  const page = await ctx.newPage();
+  await loadDemo(page);
+  await sessionToday(page, '00:05', '00:06');
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  const ev = page.locator('.grid-col.today .ev').first();
+  await ev.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  const box = await ev.boundingBox();
+  await page.mouse.move(box.x + 5, box.y + 5);
+  await expect(page.locator('.popover')).toHaveCount(0); // nicht sofort
+  await expect(page.locator('.popover')).toBeVisible({ timeout: 2000 });
+  const card = page.locator('.popover');
+  await card.getByRole('button', { name: 'Nachbereitet' }).click();
+  await expect(card.getByRole('button', { name: 'Nachbereitet' })).toHaveAttribute('aria-pressed', 'true');
+  await card.getByRole('button', { name: 'Besucht' }).click();
+  await expect.poll(async () => (await session(page, 'heute-00:05'))).toMatchObject({ reviewed: true, attended: true });
+  await page.mouse.move(2, 2);
+  await expect(page.locator('.popover')).toHaveCount(0);
+  await ev.click();
+  await expect(page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ })).toBeVisible();
+  await ctx.close();
+});
+
+test('Wochenraster auf dem Handy: Antippen öffnet die Karte statt des Formulars', async ({ page }) => {
+  await loadDemo(page);
+  await sessionToday(page, '10:00', '12:00');
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  await page.locator('.ev.ev-review, .ev').first().tap();
+  await expect(page.locator('.popover')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toHaveCount(0);
+  await page.locator('.popover').getByRole('button', { name: 'Details' }).click();
+  await expect(page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ })).toBeVisible();
+});
+
+test('Heute: Tagesplan mit Dreifach-Schalter und Checkliste zum Abhaken', async ({ page }) => {
+  await loadDemo(page);
+  await sessionToday(page, '00:05', '00:06');
+  await nav(page, 'Heute').click();
+  const row = page.locator('.tl-row').first();
+  await expect(row).toContainText('MI HS 1 / Interims I');
+  await row.getByRole('button', { name: 'Vorbereitet' }).click();
+  await expect.poll(async () => (await session(page, 'heute-00:05')).prepared).toBe(true);
+  // heutiger Termin erscheint nicht zusätzlich in der Checkliste
+  await expect(page.locator('.todo-row', { hasText: 'Vorlesung vom' })).toHaveCount(0);
+  const todo = page.locator('.todo-row', { hasText: 'Übungsblatt 1' }).first();
+  await todo.getByRole('button', { name: /Erledigt/ }).click();
+  await expect(page.getByText(/„Übungsblatt 1.*abgegeben\./)).toBeVisible();
+  await page.getByRole('button', { name: 'Rückgängig' }).first().click();
+  await expect(page.locator('.todo-row', { hasText: 'Übungsblatt 1' })).toHaveCount(2);
+});
+
+test('Module zusammenführen: Vorschlag, Obermodul wählen, Rückgängig', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const t = new Date().toLocaleDateString('sv-SE');
+    const mods = [['ds', 'Diskrete Strukturen'], ['ue', 'Übungen zu Diskrete Strukturen'], ['tu', 'Tutorübungen zu Diskrete Strukturen'], ['la', 'Lineare Algebra']]
+      .map(([id, name], i) => ({ id, name, ects: 6, semester: 1, status: 'belegt', color: ['#38bdf8', '#34d399', '#fbbf24', '#fb7185'][i] }));
+    const ses = mods.map((m, i) => ({ id: 's' + i, moduleId: m.id, type: 'Vorlesung', date: t, start: `1${i}:00`, end: `1${i}:30` }));
+    await window.STUDYOS_ENV.save({ version: 3, settings: {}, meta: {}, modules: mods, sessions: ses, homework: [{ id: 'h', moduleId: 'tu', title: 'Blatt 1', due: t, status: 'ausgegeben' }], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await page.reload();
+  await nav(page, 'Module').click();
+  await expect(page.getByText('Gehören diese Module zusammen?')).toBeVisible();
+  await page.getByRole('button', { name: 'Zusammenführen …' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Module zusammenführen' });
+  await expect(dlg.getByRole('button', { name: 'Obermodul', exact: true })).toBeVisible();
+  // Vorgeschlagen ist „Diskrete Strukturen“; der Nutzer wählt bewusst ein anderes und dann wieder das richtige
+  await dlg.locator('.merge-row', { hasText: 'Tutorübungen' }).getByRole('button', { name: 'Als Obermodul' }).click();
+  await expect(dlg.locator('.merge-row', { hasText: 'Tutorübungen' }).getByRole('button')).toHaveText('Obermodul');
+  await dlg.locator('.merge-row').filter({ hasText: /^Diskrete Strukturen/ }).getByRole('button', { name: 'Als Obermodul' }).click();
+  await expect(dlg.getByText(/In Diskrete Strukturen landen: 2 Termine, 1 Hausaufgabe/)).toBeVisible();
+  await dlg.getByRole('button', { name: '3 Module zusammenführen' }).click();
+  await expect(page.getByText('3 Module zu „Diskrete Strukturen“ zusammengeführt.')).toBeVisible();
+  const state = () => page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); return { mods: d.modules.map((m) => m.name).sort(), ses: [...new Set(d.sessions.map((s) => s.moduleId))].sort(), hw: d.homework[0].moduleId }; });
+  await expect.poll(state).toEqual({ mods: ['Diskrete Strukturen', 'Lineare Algebra'], ses: ['ds', 'la'], hw: 'ds' });
+  await expect(page.getByText('Gehören diese Module zusammen?')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Rückgängig' }).first().click();
+  await expect.poll(async () => (await state()).mods.length).toBe(4);
+});
+
+test('Termin bearbeiten: Änderung auf alle folgenden gleichen Termine übertragen', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
+    const s = (id, n, extra = {}) => ({ id, moduleId: 'ds', type: 'Vorlesung', date: day(n), start: '10:15', end: '11:45', room: 'HS 1', feedKey: id + '|x', ...extra });
+    await window.STUDYOS_ENV.save({ version: 3, settings: {}, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
+      sessions: [s('a', 1), s('b', 8, { prepared: true }), s('c', 15), s('d', 9)], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Liste' }).click();
+  // ersten Termin der nächsten Tage öffnen (ggf. in der nächsten Woche)
+  for (let i = 0; i < 2 && !(await page.locator('.row-main', { hasText: 'Diskrete' }).count()); i++) await page.getByRole('button', { name: 'Nächste Woche' }).click();
+  await page.locator('.row-main', { hasText: 'Diskrete' }).first().click();
+  const dlg = page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ });
+  await expect(dlg.getByText('Änderungen auf alle folgenden gleichen Termine übertragen (2 weitere)')).toBeVisible();
+  await dlg.getByLabel('Raum').fill('Interims I');
+  await dlg.getByText(/Änderungen auf alle folgenden/).click();
+  await dlg.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Auch 2 folgende Termine geändert.')).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => Object.fromEntries((await window.STUDYOS_ENV.load()).sessions.map((s) => [s.id, [s.room, !!s.prepared, (s.locked || []).join()]])))).toEqual({ a: ['Interims I', false, 'room'], b: ['Interims I', true, 'room'], c: ['Interims I', false, 'room'], d: ['HS 1', false, ''] });
+});
+
+const seed = (page, extraFn) => page.evaluate(async (src) => {
+  const extra = new Function('return ' + src)();
+  const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
+  const base = { version: 3, settings: {}, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399', bonusPct: 50 }],
+    sessions: [], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] };
+  const d = { ...base, ...extra(day) };
+  await window.STUDYOS_ENV.save(d);
+}, extraFn.toString());
+
+test('Blatt-Serie anlegen, Bonus-Prognose und Workload im Modul', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
+    await window.STUDYOS_ENV.save({ version: 3, settings: {}, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399', bonusPct: 50, semesterStart: day(-14) }],
+      sessions: [], homework: [], topics: [], logs: [{ id: 'l', moduleId: 'ds', date: day(-1), minutes: 120 }], notes: [], cards: [], exams: [] });
+  });
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Als Nächstes' })).toBeVisible();
+  await page.locator('body').click({ position: { x: 5, y: 300 } });
+  await page.keyboard.press('h');
+  const dlg = page.getByRole('dialog');
+  await dlg.getByLabel('Titel').fill('Blatt 1');
+  await dlg.getByLabel('Maximale Punkte').fill('20');
+  await dlg.getByLabel('Abgabe').fill(await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toLocaleDateString('sv-SE'); }));
+  const until = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toLocaleDateString('sv-SE'); });
+  await dlg.getByLabel('Jede Woche ein neues Blatt bis (optional)').fill(until);
+  await dlg.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText(/Blätter angelegt\./)).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework.length)).toBeGreaterThanOrEqual(4);
+  const titles = await page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework.map((h) => h.title));
+  expect(titles.slice(0, 3)).toEqual(['Blatt 1', 'Blatt 2', 'Blatt 3']);
+  expect(titles.length).toBeGreaterThanOrEqual(4);
+
+  await nav(page, 'Module').click();
+  await page.getByText('Diskrete Strukturen').first().click();
+  await expect(page.getByText('Notenbonus (Hausaufgaben)')).toBeVisible();
+  await expect(page.getByText('Arbeitsaufwand')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('Altklausuren eintragen und im Lernplan', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ exams: [{ id: 'x', moduleId: 'ds', date: day(10), kind: 'Klausur' }] }));
+  await page.reload();
+  await page.goto('./?aktion=pruefungen');
+  await page.getByRole('button', { name: /Altklausuren eintragen/ }).click();
+  await page.getByLabel('Neue Altklausur').fill('WS 2024/25');
+  await page.getByRole('button', { name: 'Hinzufügen' }).click();
+  await page.getByRole('button', { name: 'Lernplan anzeigen' }).click();
+  await expect(page.getByText('Altklausur rechnen: WS 2024/25').first()).toBeVisible();
+  await page.getByRole('radiogroup', { name: 'Status WS 2024/25' }).getByRole('radio', { name: 'Gerechnet' }).click();
+  await page.getByLabel('Punkte WS 2024/25', { exact: true }).fill('45');
+  await page.getByLabel('Maximalpunkte WS 2024/25').fill('90');
+  await expect(page.getByRole('button', { name: /Altklausuren \(1 von 1 gerechnet, ⌀ 50 %\)/ })).toBeVisible();
+  await expect(page.getByText('Altklausur rechnen: WS 2024/25')).toHaveCount(0);
+});
+
+test('Karteikarten aus einer Notiz erzeugen', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ notes: [{ id: 'n', moduleId: 'ds', title: 'Graphen', date: day(0), text: 'Was ist ein Baum? :: Ein zusammenhängender, kreisfreier Graph\nEin {{c1::Blatt}} hat Grad 1.' }] }));
+  await page.reload();
+  await nav(page, 'Module').click();
+  await page.getByText('Diskrete Strukturen').first().click();
+  await page.getByRole('tab', { name: /Notizen/ }).click();
+  await page.getByText('Graphen').first().click();
+  await page.getByRole('button', { name: '2 Karteikarten erzeugen' }).click();
+  await expect(page.getByText('2 Karteikarten aus „Graphen“ erzeugt.')).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).cards.map((c) => c.front).sort())).toEqual(['Ein {{c1::Blatt}} hat Grad 1.', 'Was ist ein Baum?']);
+});
+
+test('Studienplan übernehmen und Semester archivieren', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, () => ({ modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 0, semester: 1, status: 'belegt', color: '#34d399' }] }));
+  await page.reload();
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: 'Studienplan TUM Informatik …' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Studienplan übernehmen' });
+  await dlg.getByRole('region', { name: 'Semester 1' }).getByRole('button', { name: '2 anlegen' }).click();
+  await expect(page.getByText('Semester 1: 2 Module angelegt, 1 ergänzt.')).toBeVisible();
+  await dlg.getByRole('region', { name: 'Semester 2' }).getByRole('button', { name: '5 anlegen' }).click();
+  await dlg.getByRole('button', { name: /Schließen/ }).click();
+  await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).modules.length)).toBe(8);
+  const mods = await page.evaluate(async () => (await window.STUDYOS_ENV.load()).modules);
+  expect(mods.find((m) => m.id === 'ds')).toMatchObject({ code: 'IN0015', ects: 8 });
+  expect(mods.find((m) => m.code === 'MA0901').status).toBe('geplant');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // Semester 1 archivieren → aus der Hauptliste ins Archiv
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Studienfortschritt' }).click();
+  await page.getByRole('button', { name: 'Archivieren' }).first().click();
+  await nav(page, 'Module').click();
+  await expect(page.getByRole('heading', { name: /Archiv/ })).toBeVisible();
+});

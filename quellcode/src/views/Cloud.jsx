@@ -1,0 +1,116 @@
+/* Cloud-Sync: Anmelden per E-Mail-Code, Passphrase festlegen, Status und Abmelden */
+import React, { useState } from "react";
+import { Card, ConfirmButton } from "../ui/primitives.jsx";
+import { btnGhost, btnPrimary, inputCls, inputFlex } from "../ui/styles.js";
+
+const fmtTime = (s) => (s ? new Date(s).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie");
+
+export function CloudCard({ cloud, settings = {}, patchSettings }) {
+  const [mail, setMail] = useState("");
+  const [code, setCode] = useState("");
+  const [pass, setPass] = useState("");
+  const [pass2, setPass2] = useState("");
+  if (!cloud || !cloud.available) return null;
+  const err = cloud.error && <p role="alert" className="mt-2 text-xs text-rose-400">{cloud.error}</p>;
+
+  return (
+    <Card title="Cloud-Sync">
+      {cloud.phase === "loading" && <p className="text-xs text-slate-400">Prüfe Anmeldung …</p>}
+
+      {cloud.phase === "signed-out" && (
+        <>
+          <p className="text-xs text-slate-400">Synchronisiert deine Daten verschlüsselt über alle Geräte. Du bekommst einen Anmeldecode per E-Mail, ein Passwort brauchst du nicht.</p>
+          <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); cloud.sendCode(mail); }}>
+            <input type="email" autoComplete="email" inputMode="email" aria-label="E-Mail-Adresse" placeholder="deine@mail.de" className={inputFlex} value={mail} onChange={(e) => setMail(e.target.value)} />
+            <button type="submit" className={btnPrimary} disabled={cloud.busy || !mail.trim()}>{cloud.busy ? "Sendet …" : "Code senden"}</button>
+          </form>
+          {err}
+        </>
+      )}
+
+      {cloud.phase === "code-sent" && (
+        <>
+          <p className="text-xs text-slate-400">Code an <b className="text-slate-200">{cloud.email}</b> geschickt. Gib ihn hier ein. Alternativ funktioniert der Link in der Mail, wenn du ihn im selben Browser öffnest.</p>
+          <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); cloud.verifyCode(code); }}>
+            <input autoComplete="one-time-code" inputMode="numeric" aria-label="Code aus der E-Mail" placeholder="123456" className={`${inputFlex} font-num tracking-widest`} value={code} onChange={(e) => setCode(e.target.value)} />
+            <button type="submit" className={btnPrimary} disabled={cloud.busy || !code.trim()}>{cloud.busy ? "Prüft …" : "Anmelden"}</button>
+            <button type="button" className={btnGhost} onClick={() => { setCode(""); cloud.backToEmail(); }}>Andere Adresse</button>
+          </form>
+          {err}
+        </>
+      )}
+
+      {cloud.phase === "need-key" && (
+        <>
+          <p className="text-xs text-slate-400">Angemeldet als <b className="text-slate-200">{cloud.user?.email}</b>.</p>
+          {cloud.remoteExists ? (
+            <p className="mt-1 text-xs text-slate-400">In der Cloud liegen schon Daten. Gib die Sync-Passphrase ein, die du auf deinem ersten Gerät festgelegt hast. Deine Daten auf diesem Gerät werden zusammengeführt, nicht überschrieben.</p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-400">Lege eine Sync-Passphrase fest. Sie verschlüsselt deine Daten, bevor sie das Gerät verlassen; Supabase kann sie nicht lesen. Du gibst sie auf jedem Gerät einmal ein. <b className="text-amber-300">Vergisst du sie, sind die Cloud-Daten verloren</b> (deine Geräte behalten ihre Daten).</p>
+          )}
+          <form className="mt-3 grid grid-cols-2 gap-2" onSubmit={(e) => { e.preventDefault(); cloud.setPassphrase(pass, pass2).then((ok) => ok && (setPass(""), setPass2(""))); }}>
+            <input type="password" autoComplete={cloud.remoteExists ? "current-password" : "new-password"} aria-label="Sync-Passphrase" placeholder={cloud.remoteExists ? "Sync-Passphrase" : "Passphrase (mind. 8 Zeichen)"} className={`${inputCls} col-span-2 ${cloud.remoteExists ? "" : "sm:col-span-1"}`} value={pass} onChange={(e) => setPass(e.target.value)} />
+            {!cloud.remoteExists && <input type="password" autoComplete="new-password" aria-label="Sync-Passphrase wiederholen" placeholder="Wiederholen" className={`${inputCls} col-span-2 sm:col-span-1`} value={pass2} onChange={(e) => setPass2(e.target.value)} />}
+            <div className="col-span-2 flex flex-wrap gap-2">
+              <button type="submit" className={btnPrimary} disabled={cloud.busy || !pass}>{cloud.busy ? "Leitet Schlüssel ab …" : cloud.remoteExists ? "Entsperren und synchronisieren" : "Festlegen und hochladen"}</button>
+              <button type="button" className={btnGhost} onClick={cloud.signOut}>Abmelden</button>
+            </div>
+          </form>
+          {err}
+        </>
+      )}
+
+      {cloud.phase === "ready" && (
+        <>
+          <p className="text-sm text-slate-300">
+            {cloud.status === "syncing" ? "Synchronisiert …" : cloud.status === "offline" ? "Offline: synchronisiert, sobald wieder Netz da ist." : cloud.status === "error" ? "Letzter Versuch fehlgeschlagen." : "Aktiv"}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">Angemeldet als {cloud.user?.email} · Letzter Abgleich: {fmtTime(cloud.lastSync)}</p>
+          {err}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className={btnGhost} onClick={cloud.syncNow} disabled={cloud.status === "syncing"}>Jetzt synchronisieren</button>
+            <ConfirmButton label="Abmelden" confirmLabel="Auf diesem Gerät abmelden?" className={btnGhost} onConfirm={cloud.signOut} />
+            <ConfirmButton label="Cloud-Daten löschen" confirmLabel="Cloud-Kopie wirklich löschen?" onConfirm={cloud.deleteCloud} />
+          </div>
+          <Reminders cloud={cloud} settings={settings} patchSettings={patchSettings} />
+          <p className="mt-2 text-[11px] text-slate-500">Abmelden lässt die Daten auf diesem Gerät. „Cloud-Daten löschen“ entfernt nur die Kopie in der Cloud; danach kannst du mit einer neuen Passphrase neu hochladen. Achtung: „Alle Daten löschen“ unten wird bei aktivem Sync auf allen Geräten wirksam.</p>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/* Push-Erinnerungen für Abgaben, Prüfungen und Anmeldeschlüsse */
+function Reminders({ cloud, settings, patchSettings }) {
+  const on = cloud.pushDevice === "on";
+  return (
+    <div className="mt-4 border-t border-slate-800 pt-4">
+      <h3 className="section-title">Erinnerungen</h3>
+      <p className="mt-1 text-xs text-slate-400">
+        Push-Nachricht am Vorabend und am Morgen einer Abgabe, eine Woche und einen Tag vor Prüfungen sowie vor Anmeldeschlüssen. Dafür liegen Titel und Datum dieser Fristen unverschlüsselt bei Supabase; alles andere bleibt verschlüsselt.
+      </p>
+      {cloud.pushBlocker && !on ? (
+        <p className="notice notice-warn mt-3">{cloud.pushBlocker}</p>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {on ? (
+            <>
+              <button className="btn btn-ghost" onClick={cloud.testPush} disabled={cloud.busy}>Testnachricht schicken</button>
+              <button className="btn btn-ghost" onClick={cloud.disablePush} disabled={cloud.busy}>Auf diesem Gerät ausschalten</button>
+            </>
+          ) : (
+            <button className="btn btn-primary" onClick={cloud.enablePush} disabled={cloud.busy}>{cloud.busy ? "Richtet ein …" : "Erinnerungen einschalten"}</button>
+          )}
+        </div>
+      )}
+      {on && patchSettings && (
+        <div className="mt-3 space-y-2 text-sm">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushReviews !== false} onChange={(e) => patchSettings({ pushReviews: e.target.checked })} /> Um 20 Uhr, wenn heutige Termine noch nicht nachbereitet sind</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushWeekly !== false} onChange={(e) => patchSettings({ pushWeekly: e.target.checked })} /> Sonntags um 18 Uhr ein Ausblick auf die nächste Woche</label>
+        </div>
+      )}
+      {cloud.pushStep && <p role="status" className="mt-2 text-xs text-slate-400">{cloud.pushStep}</p>}
+      {cloud.pushMsg && <p role="status" className="mt-2 text-xs text-emerald-300">{cloud.pushMsg}</p>}
+    </div>
+  );
+}
