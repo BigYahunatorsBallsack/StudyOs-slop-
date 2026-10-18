@@ -8,6 +8,7 @@
 import { dueReminders, pruneSent } from "./reminders.js";
 import { buildDeadlineIcs } from "./calendar.js";
 import { mvg } from "./mvg.js";
+import { commuteAlert } from "./commute.js";
 import { generateVapidKeys, sendPush } from "./webpush.js";
 
 const CORS = {
@@ -83,7 +84,13 @@ export async function runReminders({ q, cfg, now = new Date(), fetchImpl, subjec
   for (const row of rows) {
     let subs = Array.isArray(row.subscriptions) ? row.subscriptions : [];
     const sent = pruneSent(row.sent || {}, now);
-    const due = subs.length ? dueReminders(row.deadlines, sent, now, row.tz || "Europe/Berlin") : [];
+    const tz = row.tz || "Europe/Berlin";
+    const due = subs.length ? dueReminders(row.deadlines, sent, now, tz) : [];
+    /* Weg zur Uni: bei Verspätung früher Bescheid (nur Einträge, die die App bei eingeschalteter Option hochlädt) */
+    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "commute")) {
+      const alert = await commuteAlert(x, now, tz, fetchImpl).catch(() => null);
+      if (alert && !sent[alert.key]) due.push(alert);
+    }
     const gone = new Set();
     for (const r of due) {
       let delivered = false, allGone = true;

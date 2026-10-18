@@ -3,6 +3,7 @@ import { DONE_HW } from "./constants.js";
 import { addDays, fmtMin, iso, sum, wdIdx } from "./util.js";
 import { withoutArchived } from "./study.js";
 import { blockReminders } from "./blocks.js";
+import { commuteOf } from "./transit.js";
 
 export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
@@ -43,6 +44,18 @@ export function deadlinesFromData(all, today = iso()) {
     const cards = data.cards.filter((c) => (c.due || "") <= from).length;
     const back = [now ? `${fmtMin(now)} gelernt${prev ? ` (Vorwoche ${fmtMin(prev)})` : ""}` : "diese Woche noch nichts eingetragen", cards ? `${cards} ${cards === 1 ? "Karte" : "Karten"} fällig` : null].filter(Boolean);
     out.push({ id: `weekly-${sunday}`, kind: "weekly", title: "Wochenausblick", date: sunday, body: `Nächste Woche: ${parts.join(", ")}. Rückblick: ${back.join(", ")}.` });
+  }
+  /* Weg zur Uni: erste Veranstaltung der nächsten 7 Tage mit Haltestellen und Zeiten, damit der Server vor
+     der Abfahrt die Echtzeit prüfen kann (nur wenn eingeschaltet) */
+  const c = settings.pushCommute ? commuteOf(settings) : null;
+  if (c) {
+    const pick = (l) => ({ station: { id: l.station.id }, line: l.line || "", towards: l.towards || "", avoid: l.avoid || "", travel: Number(l.travel) || 0 });
+    const commute = { ...pick(c), walk: Number(c.walk) || 0, buffer: Number(c.buffer) || 0, feeder: c.feeder ? { ...pick(c.feeder), transfer: Number(c.feeder.transfer) || 0 } : null };
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(today, i);
+      const first = data.sessions.filter((s) => s.date === day && !s.cancelled && /^\d{2}:\d{2}$/.test(s.start || "")).sort((a, b) => a.start.localeCompare(b.start))[0];
+      if (first) out.push({ id: `weg-${day}`, kind: "commute", title: mod(first.moduleId) || first.type || "Vorlesung", date: day, time: first.start, commute });
+    }
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 }

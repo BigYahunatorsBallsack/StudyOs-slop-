@@ -51,11 +51,12 @@ export function queryOffset(session, c, now = new Date(), feeder = false) {
  * Empfehlung: späteste Verbindung, mit der man rechtzeitig ankommt.
  * Mit Zubringer: zum spätesten passenden Bus den spätesten Zubringer, der mit Umstiegszeit hinkommt;
  * reicht für einen Bus kein Zubringer, wird der nächstfrühere Bus versucht.
+ * startMs: Beginn der Veranstaltung in ms (Standard: Datum und Uhrzeit in der Zeitzone des Geräts; der Server rechnet selbst)
  * @returns null oder { dep, feederDep, leaveAt, changeAt, arriveAt, session } (Zeiten in ms)
  */
-export function recommend(departures, session, c, feederDeps = null) {
+export function recommend(departures, session, c, feederDeps = null, startMs = null) {
   if (!session) return null;
-  const deadline = at(session.date, session.start) - c.buffer * 60000;
+  const deadline = (startMs ?? at(session.date, session.start)) - c.buffer * 60000;
   const buses = departures.filter((d) => matches(d, c) && !d.cancelled && d.time + c.travel * 60000 <= deadline).sort((a, b) => b.time - a.time);
   for (const dep of buses) {
     if (!c.feeder || !feederDeps) return { dep, feederDep: null, session, leaveAt: dep.time - c.walk * 60000, arriveAt: dep.time + c.travel * 60000 };
