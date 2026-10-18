@@ -8,10 +8,11 @@
     "serve": "python3 -m http.server 8080 --directory dist",
     "lint": "eslint src tests build.mjs",
     "test": "TZ=Europe/Berlin vitest run",
-    "test:e2e": "node build.mjs && TZ=Europe/Berlin playwright test",
+    "test:e2e": "node build.mjs && TZ=Europe/Berlin playwright test --project=mobil",
     "test:function": "node build.mjs && node tests/deno/run-function.mjs node_modules/.bin/deno",
     "typecheck": "tsc -p .",
-    "check": "npm run lint && npm run typecheck && npm test && npm run test:function && npm run test:e2e"
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:function && npm run test:e2e",
+    "test:visual": "node build.mjs && TZ=Europe/Berlin playwright test --project=bilder"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
