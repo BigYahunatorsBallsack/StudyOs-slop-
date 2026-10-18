@@ -12,6 +12,8 @@ export default defineConfig({
     acceptDownloads: true,
     // Optional: eigenes Chromium verwenden (z. B. wenn `npx playwright install` nicht möglich ist)
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
+    // Volles Chromium statt „headless shell“: nur das hat Push-API und Notification (für die Erinnerungs-Tests)
+    ...(process.env.PW_CHROMIUM ? {} : { channel: 'chromium' }),
   },
   projects: [
     { name: 'mobil', use: { ...devices['Pixel 7'], userAgent: 'Mozilla/5.0 (X11; Linux x86_64) StudyOS-Test' } },
