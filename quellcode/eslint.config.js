@@ -22,5 +22,6 @@ export default [
     },
   },
   { files: ['src/server/deno-entry.js'], languageOptions: { globals: { Deno: 'readonly' } } },
+  { files: ['src/sw.template.js'], languageOptions: { globals: { __SHELL__: 'readonly' } } },
   { files: ['build.mjs', 'tests/**/*.{js,mjs}', '*.config.js'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node, ...globals.browser } } },
 ];

@@ -352,6 +352,8 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 
 /* Formeln und Code in Notizen/Karten */
 .md pre, .md code { background: var(--surface-2); border-color: var(--line-strong); color: var(--text); }
+.md a { color: var(--accent-text); }
+.md blockquote { border-left-color: var(--line-strong); color: var(--muted); }
 .md pre.code-block { position: relative; background: var(--bg); padding-top: 1.4rem; }
 .code-lang { position: absolute; top: .3rem; right: .6rem; font-size: .65rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .math-block { overflow-x: auto; overflow-y: hidden; padding: .35rem 0; margin: .5em 0; }

@@ -44,7 +44,7 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
       const time = typeof hm === "function" ? hm(x) : hm;
       const at = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
-      if (sent[key] || at > now2 || now2 - at > maxLate) return;
+      if (sent[key] || at > now2 || now2.getTime() - at.getTime() > maxLate) return;
       out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" ? "./?aktion=heute" : "./?aktion=pruefungen" });
     });
   }

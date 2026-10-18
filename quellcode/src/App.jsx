@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
 import { useCloudSync } from "./cloud/useCloudSync.js";
-import { COLL, COLLS, DATA_VERSION, DONE_HW, TIMER_KEY } from "./lib/constants.js";
-import { buildWeeklySeries, emptyData, migrate } from "./lib/data.js";
+import { COLL, COLLS, DATA_VERSION, DONE_HW } from "./lib/constants.js";
+import { buildWeeklySeries } from "./lib/data.js";
 import { ENV } from "./lib/env.js";
-import { loadTimer, remainingOf } from "./lib/timer.js";
 import { diffDays, iso, uid } from "./lib/util.js";
+import { usePersistence } from "./app/usePersistence.js";
+import { useTheme } from "./app/useTheme.js";
+import { useTimer } from "./app/useTimer.js";
+import { useFeeds } from "./app/useFeeds.js";
 import { FormModal } from "./ui/FormModal.jsx";
 import { Icon, Toasts } from "./ui/primitives.jsx";
 import { btnGhost, btnPrimary } from "./ui/styles.js";
@@ -25,36 +28,16 @@ const NoteViewer = named(() => import("./views/Search.jsx"), "NoteViewer");
 const SearchModal = named(() => import("./views/Search.jsx"), "SearchModal");
 const ShareImport = named(() => import("./views/Share.jsx"), "ShareImport");
 const Loading = () => <p className="py-10 text-center text-sm text-slate-500" role="status">Lädt …</p>;
-import { FEED_VERSION, applyFeed, resolveNewModules, unmappedSummaries } from "./lib/feed.js";
-import { parseICS } from "./lib/ics.js";
+
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries } from "./lib/study.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
-import { applyArtemis, applyMoodle, unmappedCourses } from "./lib/moodle.js";
-
-const FONT_CSS = `.font-ui{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-.font-num{font-family:var(--font-display);font-variant-numeric:tabular-nums}
-.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{scrollbar-width:none}
-.sheet{max-height:92vh;max-height:92dvh;padding-bottom:calc(1.25rem + env(safe-area-inset-bottom))}
-.safe-top{padding-top:env(safe-area-inset-top)}
-.safe-bottom{padding-bottom:env(safe-area-inset-bottom)}
-.toast-pos{bottom:calc(4.5rem + env(safe-area-inset-bottom))}
-.md h1,.md h2,.md h3{font-weight:600;margin:.9em 0 .35em}.md h1{font-size:1.15rem}.md h2{font-size:1.05rem}.md h3{font-size:.95rem}
-.md p{margin:.45em 0}.md ul{list-style:disc;padding-left:1.25rem;margin:.45em 0}.md ol{list-style:decimal;padding-left:1.25rem;margin:.45em 0}
-.md code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.85em;background:#1e293b;border-radius:.25rem;padding:.05em .3em}
-.md pre{background:#020617;border:1px solid #1e293b;border-radius:.5rem;padding:.75rem;overflow-x:auto;margin:.6em 0}.md pre code{background:none;padding:0}
-.md a{color:#7dd3fc;text-decoration:underline}.md blockquote{border-left:3px solid #334155;padding-left:.75rem;color:#94a3b8;margin:.5em 0}
-html{-webkit-tap-highlight-color:transparent}body{overscroll-behavior-y:none}
-@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}`;
 
 /* ---------------- App ---------------- */
 export default function App() {
-  const [data, setData] = useState(emptyData);
-  const [ready, setReady] = useState(!ENV);
-  const [loadError, setLoadError] = useState("");
-  const [saveState, setSaveState] = useState(ENV ? "saved" : "memory");
+  const { data, setData, dataRef, ready, loadError, saveState, saveNow, updateReady, installReady, setInstallReady } = usePersistence();
   const [tab, setTab] = useState("heute");
   const [moduleId, setModuleId] = useState(null);
   const [learnTab, setLearnTab] = useState("timer");
@@ -66,13 +49,6 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
-  const [updateReady, setUpdateReady] = useState(false);
-  const [installReady, setInstallReady] = useState(!!(ENV && ENV.pwa && ENV.pwa.isInstallable && ENV.pwa.isInstallable()));
-  const [, setClock] = useState(0);
-  const loadedRef = useRef(null);
-  const dataRef = useRef(data);
-  dataRef.current = data;
-  const audioRef = useRef(null);
 
   const toast = (text, action, ms = 5000) => {
     const id = uid();
@@ -81,74 +57,8 @@ export default function App() {
   };
   const closeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
 
-  /* Laden beim Start (nur installierte Version) */
-  useEffect(() => {
-    if (!ENV) return;
-    let alive = true;
-    ENV.load()
-      .then((stored) => {
-        if (!alive) return;
-        if (stored) {
-          const d = migrate(stored);
-          const sessionKeys = (items) => JSON.stringify((items || []).map((s) => [s.id, s.date, s.seriesId]));
-          loadedRef.current = d; setData(d);
-          if (sessionKeys(d.sessions) !== sessionKeys(stored.sessions)) {
-            setSaveState("saving");
-            ENV.save(d).then(() => { if (alive) { loadedRef.current = d; setSaveState("saved"); } }).catch(() => { if (alive) setSaveState("error"); });
-          }
-        } else {
-          /* Noch nichts gespeichert: der leere Anfangsstand gilt als gespeichert, damit beim Schließen
-             nichts Leeres über Daten geschrieben wird, die inzwischen anderswo angelegt wurden */
-          loadedRef.current = dataRef.current;
-        }
-        setReady(true);
-      })
-      .catch((e) => { if (alive) { setLoadError(String((e && e.message) || e)); setReady(true); } });
-    const offExt = ENV.onExternalChange ? ENV.onExternalChange((stored) => { const d = migrate(stored); loadedRef.current = d; setData(d); }) : null;
-    const offUpd = ENV.pwa && ENV.pwa.onUpdate ? ENV.pwa.onUpdate(() => setUpdateReady(true)) : null;
-    const offInstall = ENV.pwa && ENV.pwa.onInstallable ? ENV.pwa.onInstallable((v) => setInstallReady(v)) : null;
-    return () => { alive = false; offExt && offExt(); offUpd && offUpd(); offInstall && offInstall(); };
-  }, []);
-
-  /* Automatisch speichern, 400 ms nach der letzten Änderung */
-  useEffect(() => {
-    if (!ENV || !ready || loadError || data === loadedRef.current) return;
-    setSaveState("saving");
-    const id = setTimeout(() => {
-      ENV.save(data).then(() => { loadedRef.current = data; setSaveState("saved"); }).catch(() => setSaveState("error"));
-    }, 400);
-    return () => clearTimeout(id);
-  }, [data, ready, loadError]);
-
-  /* Beim Verlassen oder Wechsel in den Hintergrund sofort sichern; Datum aktuell halten */
-  useEffect(() => {
-    const flush = () => {
-      if (!ENV || !ready || loadError || dataRef.current === loadedRef.current) return;
-      const d = dataRef.current;
-      try { ENV.saveSync && ENV.saveSync(d); } catch {}
-      ENV.save(d).then(() => { loadedRef.current = d; setSaveState("saved"); }).catch(() => {});
-    };
-    const onVis = () => { if (document.visibilityState === "hidden") flush(); else setClock((c) => c + 1); };
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("pagehide", flush);
-    const id = setInterval(() => setClock((c) => c + 1), 60000);
-    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", flush); clearInterval(id); };
-  }, [ready, loadError]);
-
   /* Farbschema: dunkel, hell oder wie das System */
-  const theme = data.settings.theme || "dark";
-  useEffect(() => {
-    const root = document.documentElement;
-    const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
-    const apply = () => {
-      const light = theme === "light" || (theme === "system" && mq && mq.matches);
-      root.dataset.theme = light ? "light" : "dark";
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute("content", light ? "#f2f0fa" : "#1b1830");
-    };
-    apply();
-    if (theme === "system" && mq && mq.addEventListener) { mq.addEventListener("change", apply); return () => mq.removeEventListener("change", apply); }
-  }, [theme]);
+  useTheme(data.settings.theme || "dark");
 
   /* Geteilter Kartenstapel (?teilen=…#k=…) */
   const [shareIn, setShareIn] = useState(null);
@@ -271,65 +181,18 @@ export default function App() {
     return { ...d, sessions: d.sessions.filter((s) => !ids.has(s.id)), notes: d.notes.map((x) => (ids.has(x.sessionId) ? { ...x, sessionId: "" } : x)) };
   });
 
-  const signal = () => {
-    if (!data.settings.sound) return;
-    try { navigator.vibrate && navigator.vibrate([180, 90, 180]); } catch {}
-    const ctx = audioRef.current; if (!ctx) return;
-    try {
-      [0, 0.28, 0.56].forEach((t, i) => {
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.frequency.value = i === 2 ? 880 : 660; o.connect(g); g.connect(ctx.destination);
-        g.gain.setValueAtTime(0.0001, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.22);
-        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.25);
-      });
-    } catch {}
-  };
-
   const modMap = useMemo(() => Object.fromEntries(data.modules.map((m) => [m.id, m])), [data.modules]);
 
-  /* Timer (bleibt beim Tabwechsel aktiv) */
-  const [timer, setTimer] = useState(loadTimer);
-  useEffect(() => { try { localStorage.setItem(TIMER_KEY, JSON.stringify(timer)); } catch {} }, [timer]);
-  /* Ablauf per Einmal-Timeout statt Dauer-Intervall: Die App rendert nur beim Ende neu. */
-  const [expiry, setExpiry] = useState(0);
-  useEffect(() => {
-    if (!timer.running) return;
-    const id = setTimeout(() => setExpiry((x) => x + 1), Math.max(0, timer.endAt - Date.now()) + 60);
-    return () => clearTimeout(id);
-  }, [timer.running, timer.endAt]);
-  useEffect(() => {
-    const onVis = () => { if (document.visibilityState === "visible") setExpiry((x) => x + 1); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
-  useEffect(() => {
-    if (!timer.running || remainingOf(timer) > 0) return;
-    signal();
-    if (timer.mode === "focus") {
-      setTimer((t) => ({ ...t, running: false, mode: "break", remaining: t.brk * 60 }));
-      const init = { minutes: timer.length, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso() };
-      if (timer.blockId) { patch("blocks", timer.blockId, { done: true }); setTimer((t) => ({ ...t, blockId: null })); }
+  const { timer, timerApi } = useTimer({
+    sound: !!data.settings.sound,
+    onFocusDone: (init, blockId) => {
+      if (blockId) patch("blocks", blockId, { done: true });
       if (form) toast("Fokusphase beendet.", { label: "Eintragen", run: () => openForm("log", init, true) }, 15000);
       else openForm("log", init, true);
-    } else { setTimer((t) => ({ ...t, running: false, mode: "focus", remaining: t.length * 60 })); toast("Pause vorbei. Weiter geht's!"); }
-  }, [expiry, timer.running, timer.endAt]);
-  const timerApi = {
-    ...timer,
-    start: () => {
-      try { const AC = window.AudioContext || window.webkitAudioContext; if (AC && !audioRef.current) audioRef.current = new AC(); audioRef.current && audioRef.current.state === "suspended" && audioRef.current.resume(); } catch {}
-      setTimer((t) => ({ ...t, running: true, endAt: Date.now() + t.remaining * 1000 }));
     },
-    pause: () => setTimer((t) => ({ ...t, running: false, remaining: Math.max(0, Math.ceil((t.endAt - Date.now()) / 1000)) })),
-    reset: () => setTimer((t) => ({ ...t, running: false, remaining: (t.mode === "focus" ? t.length : t.brk) * 60 })),
-    setMode: (m) => setTimer((t) => ({ ...t, mode: m, running: false, remaining: (m === "focus" ? t.length : t.brk) * 60 })),
-    setLength: (n) => setTimer((t) => ({ ...t, length: n, ...(t.mode === "focus" && !t.running ? { remaining: n * 60 } : {}) })),
-    set: (p) => setTimer((t) => ({ ...t, ...p })),
-    stopAndLog: () => {
-      const mins = Math.round((timer.length * 60 - remainingOf(timer)) / 60);
-      setTimer((t) => ({ ...t, running: false, remaining: t.length * 60 }));
-      if (mins >= 1) openForm("log", { minutes: mins, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso() }, true);
-    },
-  };
+    onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
+    onLog: (init) => openForm("log", init, true),
+  });
 
   /* Ersetzen (Import, Wiederherstellen, Löschen, Beispieldaten): standardmäßig mit Zeitstempeln und Grabsteinen,
      damit das Ersetzen auch per Sync auf anderen Geräten ankommt. Beim Zusammenführen sind die Stempel schon richtig. */
@@ -348,92 +211,9 @@ export default function App() {
     setData((cur) => (cur === base || cur === merged ? merged : mergeData(cur, merged).data));
   }, []);
   const onPushEnabled = useCallback(() => change((d) => (d.settings.push ? d : { ...d, settings: { ...d.settings, push: true } })), []);
-  const syncFeedRef = useRef(null);
   const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled });
 
-  /* Ergebnis aus dem aktuellen Stand berechnen und übernehmen; hat sich der Stand inzwischen geändert, neu berechnen */
-  const commitFeed = (compute) => {
-    const base = dataRef.current, res = compute(base);
-    change((d) => (d === base ? res.next : compute(d).next));
-    return res.stats;
-  };
-  /* Stundenplan-Abo abrufen und abgleichen; automatisch, wenn der letzte Abruf über 6 Stunden her ist */
-  syncFeedRef.current = async ({ manual } = {}) => {
-    const feed = dataRef.current.settings.icsFeed;
-    if (!feed || !feed.url || cloud.phase !== "ready") return null;
-    try {
-      const events = parseICS(await cloud.fetchIcs(feed.url));
-      return commitFeed((d) => {
-        const r = applyFeed(d, events, d.settings.icsFeed.map);
-        return { stats: r.stats, next: { ...d, sessions: r.sessions, notes: r.notes, settings: { ...d.settings, icsFeed: { ...d.settings.icsFeed, v: FEED_VERSION, lastSync: new Date().toISOString(), pending: unmappedSummaries(events, d.settings.icsFeed.map), lastError: "" } } } };
-      });
-    } catch (e) {
-      if (manual) throw e;
-      change((d) => (d.settings.icsFeed ? { ...d, settings: { ...d.settings, icsFeed: { ...d.settings.icsFeed, lastError: e.message || String(e) } } } : d));
-      return null;
-    }
-  };
-  /* Moodle-Fristen: gleiches Muster wie das Stundenplan-Abo */
-  const syncMoodleRef = useRef(null);
-  syncMoodleRef.current = async ({ manual } = {}) => {
-    const feed = dataRef.current.settings.moodleFeed;
-    if (!feed || !feed.url || cloud.phase !== "ready") return null;
-    try {
-      const events = parseICS(await cloud.fetchIcs(feed.url));
-      return commitFeed((d) => {
-        const mf = d.settings.moodleFeed;
-        const r = applyMoodle(d, events, mf.map, iso(), mf.dismissed || []);
-        return { stats: r.stats, next: { ...d, homework: r.homework, settings: { ...d.settings, moodleFeed: { ...mf, lastSync: new Date().toISOString(), pending: unmappedCourses(events, mf.map), lastError: "" } } } };
-      });
-    } catch (e) {
-      if (manual) throw e;
-      change((d) => (d.settings.moodleFeed ? { ...d, settings: { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, lastError: e.message || String(e) } } } : d));
-      return null;
-    }
-  };
-  /* Artemis: ein Abo je Kurs */
-  const syncArtemisRef = useRef(null);
-  syncArtemisRef.current = async ({ manual } = {}) => {
-    const feeds = dataRef.current.settings.artemisFeeds || [];
-    if (!feeds.length || cloud.phase !== "ready") return null;
-    const total = { added: 0, updated: 0 };
-    for (const f of feeds) {
-      try {
-        const events = parseICS(await cloud.fetchIcs(f.url));
-        const st = commitFeed((d) => {
-          const cur = (d.settings.artemisFeeds || []).find((x) => x.id === f.id);
-          if (!cur) return { stats: { added: 0, updated: 0 }, next: d };
-          const r = applyArtemis(d, cur, events);
-          return { stats: r.stats, next: { ...d, homework: r.homework, settings: { ...d.settings, artemisFeeds: d.settings.artemisFeeds.map((x) => (x.id === f.id ? { ...x, lastSync: new Date().toISOString(), lastError: "" } : x)) } } };
-        });
-        total.added += st.added; total.updated += st.updated;
-      } catch (e) {
-        if (manual) throw e;
-        change((d) => ({ ...d, settings: { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).map((x) => (x.id === f.id ? { ...x, lastError: e.message || String(e) } : x)) } }));
-      }
-    }
-    return total;
-  };
-  const artemisDue = (data.settings.artemisFeeds || []).some((f) => !f.lastSync || Date.now() - new Date(f.lastSync).getTime() > 3 * 3600 * 1000);
-  useEffect(() => {
-    if (!ready || loadError || cloud.phase !== "ready" || !artemisDue) return;
-    const id = setTimeout(() => syncArtemisRef.current(), 8000);
-    return () => clearTimeout(id);
-  }, [ready, loadError, cloud.phase, artemisDue]);
-
-  const moodleDue = !!data.settings.moodleFeed?.url && (!data.settings.moodleFeed.lastSync || Date.now() - new Date(data.settings.moodleFeed.lastSync).getTime() > 3 * 3600 * 1000);
-  useEffect(() => {
-    if (!ready || loadError || cloud.phase !== "ready" || !moodleDue) return;
-    const id = setTimeout(() => syncMoodleRef.current(), 6000);
-    return () => clearTimeout(id);
-  }, [ready, loadError, cloud.phase, moodleDue]);
-
-  const feedDue = !!data.settings.icsFeed?.url && (!data.settings.icsFeed.lastSync || (data.settings.icsFeed.v || 1) < FEED_VERSION || Date.now() - new Date(data.settings.icsFeed.lastSync).getTime() > 6 * 3600 * 1000);
-  useEffect(() => {
-    if (!ready || loadError || cloud.phase !== "ready" || !feedDue) return;
-    const id = setTimeout(() => syncFeedRef.current(), 4000);
-    return () => clearTimeout(id);
-  }, [ready, loadError, cloud.phase, feedDue]);
+  const feeds = useFeeds({ ready, loadError, cloud, data, dataRef, change });
 
   const db = {
     data, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
@@ -460,52 +240,13 @@ export default function App() {
       withUndo(`${sourceIds.length + 1} Module zu „${name}“ zusammengeführt.`, (d) => mergeModules(d, targetId, sourceIds));
     },
     dismissMerge: (key) => change((d) => ({ ...d, settings: { ...d.settings, mergeDismissed: [...(d.settings.mergeDismissed || []), key] } })),
-    /* Stundenplan-Abo */
-    subscribeFeed: async (url, draftMap, events) => commitFeed((d) => {
-      const { modules, map } = resolveNewModules(d, draftMap);
-      const r = applyFeed({ ...d, modules }, events, map);
-      return { stats: r.stats, next: { ...d, modules, sessions: r.sessions, notes: r.notes, settings: { ...d.settings, icsFeed: { url, map, v: FEED_VERSION, lastSync: new Date().toISOString(), pending: [], lastError: "" } } } };
-    }),
-    mapFeed: async (extra) => {
-      const events = parseICS(await cloud.fetchIcs(dataRef.current.settings.icsFeed.url));
-      return commitFeed((d) => {
-        const { modules, map } = resolveNewModules(d, { ...d.settings.icsFeed.map, ...extra });
-        const r = applyFeed({ ...d, modules }, events, map);
-        return { stats: r.stats, next: { ...d, modules, sessions: r.sessions, notes: r.notes, settings: { ...d.settings, icsFeed: { ...d.settings.icsFeed, map, v: FEED_VERSION, pending: unmappedSummaries(events, map), lastSync: new Date().toISOString(), lastError: "" } } } };
-      });
-    },
-    syncFeed: (opts) => syncFeedRef.current(opts),
-    subscribeMoodle: async (url, draftMap, events) => commitFeed((d) => {
-      const { modules, map } = resolveNewModules(d, draftMap);
-      const r = applyMoodle({ ...d, modules }, events, map);
-      return { stats: r.stats, next: { ...d, modules, homework: r.homework, settings: { ...d.settings, moodleFeed: { url, map, dismissed: [], lastSync: new Date().toISOString(), pending: [], lastError: "" } } } };
-    }),
-    mapMoodle: async (extra) => {
-      const events = parseICS(await cloud.fetchIcs(dataRef.current.settings.moodleFeed.url));
-      return commitFeed((d) => {
-        const mf = d.settings.moodleFeed;
-        const { modules, map } = resolveNewModules(d, { ...mf.map, ...extra });
-        const r = applyMoodle({ ...d, modules }, events, map, iso(), mf.dismissed || []);
-        return { stats: r.stats, next: { ...d, modules, homework: r.homework, settings: { ...d.settings, moodleFeed: { ...mf, map, pending: unmappedCourses(events, map), lastSync: new Date().toISOString(), lastError: "" } } } };
-      });
-    },
-    syncMoodle: (opts) => syncMoodleRef.current(opts),
-    subscribeArtemis: async (url, moduleId, events, label) => commitFeed((d) => {
-      const feed = { id: uid(), url, moduleId, label, dismissed: [], lastSync: new Date().toISOString(), lastError: "" };
-      const r = applyArtemis(d, feed, events);
-      return { stats: r.stats, next: { ...d, homework: r.homework, settings: { ...d.settings, artemisFeeds: [...(d.settings.artemisFeeds || []), feed] } } };
-    }),
-    syncArtemis: (opts) => syncArtemisRef.current(opts),
-    removeArtemis: (id) => change((d) => ({ ...d, settings: { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).filter((f) => f.id !== id) } })),
-    unsubscribeMoodle: () => change((d) => { const { moodleFeed, ...settings } = d.settings; void moodleFeed; return { ...d, settings }; }),
-    unsubscribeFeed: () => change((d) => { const { icsFeed, ...settings } = d.settings; return { ...d, settings }; }),
+    ...feeds,
     mergeIn: (remote) => { const { data: merged, stats } = mergeData(dataRef.current, remote); replaceAll(merged, "Vor dem Zusammenführen", { stamp: false }); return stats; },
     cloud,
     markSaved: (snapshot) => {
       const next = snapshot || { ...dataRef.current, meta: { ...dataRef.current.meta, lastBackup: new Date().toISOString() } };
       dataRef.current = next; setData(next); setDirty(false);
-      if (ENV) { setSaveState("saving"); ENV.save(next).then(() => { loadedRef.current = next; setSaveState("saved"); }).catch(() => setSaveState("error")); }
-      else loadedRef.current = next;
+      saveNow(next);
     },
     openNote: (id) => setNoteView(id),
     openSearch: () => setSearchOpen(true),
@@ -513,12 +254,7 @@ export default function App() {
     applyUpdate: async () => { try { if (ENV) await ENV.save(dataRef.current); } catch {} ENV && ENV.pwa && ENV.pwa.applyUpdate(); },
     goModule: (id) => { setModuleId(id); setTab("module"); },
     /* Fokus-Timer für eine bestimmte Aufgabe starten (aus „Was jetzt?“ und Lernblöcken) */
-    focus: ({ moduleId = "", minutes = 25, kind = "Nacharbeiten", topicId = "", blockId = null }) => {
-      try { const AC = window.AudioContext || window.webkitAudioContext; if (AC && !audioRef.current) audioRef.current = new AC(); audioRef.current && audioRef.current.state === "suspended" && audioRef.current.resume(); } catch {}
-      const n = Math.max(5, Math.min(120, Math.round(minutes)));
-      setTimer((t) => ({ ...t, moduleId, topicId, kind, blockId, mode: "focus", length: n, remaining: n * 60, running: true, endAt: Date.now() + n * 60000 }));
-      setLearnTab("timer"); setTab("lernen");
-    },
+    focus: (opts) => { timerApi.focus(opts); setLearnTab("timer"); setTab("lernen"); },
     goLearn: (sub, mid) => { setLearnTab(sub); if (mid !== undefined) setCardFilter(mid); setTab("lernen"); },
     goMore: (sub) => { setMoreTab(sub); setTab("mehr"); },
   };
@@ -539,7 +275,6 @@ export default function App() {
   if (!ready) {
     return (
       <div className="font-ui flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
-        <style>{FONT_CSS}</style>
         <p className="text-sm">StudyOS wird geladen …</p>
       </div>
     );
@@ -547,7 +282,6 @@ export default function App() {
 
   return (
     <div className="font-ui min-h-screen">
-      <style>{FONT_CSS}</style>
       <header className="appbar safe-top sticky top-0 z-20">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
           <h1 className="brand">StudyOS</h1>
