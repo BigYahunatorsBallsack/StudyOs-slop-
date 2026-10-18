@@ -1,18 +1,19 @@
 # StudyOS – persönlicher Studienplaner
 
-StudyOS ist eine private, offlinefähige Progressive Web App fürs Studium. Sie hat keinen Server: Alle Einträge bleiben lokal im Browser bzw. in der installierten App. Zwischen Geräten werden Sicherungen exportiert und zusammengeführt.
+StudyOS ist eine private, offlinefähige Progressive Web App fürs Studium. Alle Einträge liegen lokal im Browser bzw. in der installierten App. Zwischen Geräten wird über einen optionalen, Ende-zu-Ende-verschlüsselten Cloud-Sync (Supabase) oder über exportierte Sicherungen abgeglichen.
 
 ## Inhalt
 
 | Pfad | Zweck |
 | --- | --- |
-| `dist/` | Fertige Website/PWA zum Hosten (Inhalt dieses Ordners hochladen) |
-| `src/App.jsx` | App-Rahmen: Zustand, Speichern, Navigation, Timer |
+| `dist/` | Fertige Website/PWA zum Hosten (wird von `npm run build` erzeugt, nicht im Repository) |
+| `src/App.jsx` | App-Rahmen: Navigation, Aktionen, Dialoge |
+| `src/app/` | Hooks der App: Laden/Speichern, Farbschema, Timer, Kalender-Abos |
 | `src/lib/` | Reine Logik ohne UI: Datenformat, Lernplan, Karteikarten, ICS, Sync, Verschlüsselung, Statistik |
 | `src/ui/` | Wiederverwendbare Bausteine (Karten, Formulare, Markdown, Timer-Anzeige) |
 | `src/views/` | Bildschirme: Heute, Module, Woche, Lernen, Mehr, Daten |
 | `src/cloud/` | Cloud-Sync: Supabase-Anbindung, Test-Backend, React-Hook |
-| `src/server/` | Quellcode der Supabase Edge Function (Erinnerungen, Kalender-Abruf) |
+| `src/server/` | Quellcode der Supabase Edge Function (Erinnerungen, Kalender-Abruf, MVG) |
 | `supabase/schema.sql` | Tabellen, Zugriffsregeln und Zeitplan |
 | `supabase/functions/studyos/index.ts` | Gebaute Edge Function zum Einfügen im Dashboard |
 | `supabase/EINRICHTUNG.md` | Einrichtung von Erinnerungen und Stundenplan-Abo |
@@ -20,7 +21,9 @@ StudyOS ist eine private, offlinefähige Progressive Web App fürs Studium. Sie 
 | `src/runtime.js` | Lokale Speicherung (IndexedDB + Notfallkopie), Wiederherstellungspunkte, PWA |
 | `src/style.css` | Utility-Klassen (Farben über Tokens) |
 | `tests/unit/` | Unit-Tests (Vitest) für `src/lib/` |
-| `tests/e2e/` | End-to-End-Tests (Playwright) gegen `dist/` |
+| `tests/e2e/` | End-to-End-Tests (Playwright) gegen `dist/`, inkl. Barrierefreiheit (axe) |
+| `tests/visual/` | Screenshot-Vergleich (Playwright-Projekt „bilder“) mit Referenzbildern |
+| `tsconfig.json` | Nur Typprüfung (`npm run typecheck`) für `src/lib/` und `src/server/` |
 | `ANLEITUNG.md` | Hosting, Installation, Datensicherung |
 | `CHANGELOG.md` | Änderungen je Version |
 
@@ -33,12 +36,13 @@ npm install
 npx playwright install chromium   # einmalig, für die E2E-Tests
 npm run build                     # baut dist/
 npm run serve                     # http://localhost:8080
-npm run check                     # Lint, Unit-Tests, Funktions-Test (Deno), E2E-Tests
+npm run check                     # Lint, Typen, Unit-Tests, Funktions-Test (Deno), E2E-Tests
+npm run test:visual               # Screenshot-Vergleich; neue Referenzbilder: npm run test:visual -- --update-snapshots
 ```
 
-**Veröffentlichen:** Im GitHub-Repository liegt dieser Ordner unter `quellcode/`, die gebaute App im Wurzelverzeichnis (dort liest GitHub Pages). Bei jedem Push auf `main`, der `quellcode/` ändert, läuft `.github/workflows/studyos.yml`: erst alle Prüfungen, dann `npm run build` und ein Commit der neuen Dateien ins Wurzelverzeichnis. Schlägt ein Test fehl, bleibt die Seite unverändert.
+**Veröffentlichen:** Im GitHub-Repository liegt dieser Ordner unter `quellcode/`. Bei jedem Push auf `main`, der `quellcode/` ändert, läuft `.github/workflows/studyos.yml`: erst alle Prüfungen (Audit, Lint, Typen, Unit, Deno, CSS, E2E), dann `npm run build` und ein Deployment von `dist/` auf GitHub Pages. Dafür muss unter **Settings → Pages → Source** „GitHub Actions“ gewählt sein. Schlägt ein Test fehl, bleibt die Seite unverändert. Der Screenshot-Vergleich läuft mit, blockiert aber nicht; bei Abweichungen liegen die Bilder im Artefakt „screenshot-abweichungen“. Dependabot schlägt wöchentlich Updates vor.
 
-`build.mjs` kopiert `public/` (index.html, Icons, Manifest) nach `dist/`, bündelt `src/` zu `dist/app.js`, kopiert das CSS und berechnet den Cache-Namen des Service Workers aus den Dateiinhalten. Dadurch kommen Updates sicher bei installierten Apps an.
+`build.mjs` kopiert `public/` (index.html, Icons, Manifest) nach `dist/`, setzt die Content-Security-Policy, bündelt `src/` zu `dist/app.js` plus Chunks in `dist/chunks/` (selten genutzte Bereiche und Supabase werden erst bei Bedarf geladen), kopiert das CSS und berechnet den Cache-Namen des Service Workers aus den Dateiinhalten. Dadurch kommen Updates sicher bei installierten Apps an.
 
 **Styling:** Komponenten-Klassen (`.row`, `.hero`, `.btn`, …) und alle Farben als Tokens stehen in `src/design.css`. `src/style.css` enthält Utility-Klassen ohne Tailwind; eine neue Utility im JSX braucht eine Regel. `python3 tools/css_check.py .` findet fehlende.
 
@@ -53,7 +57,7 @@ Die Verbindung steht in `src/lib/cloud-config.js` (Projekt-URL und Publishable K
 
 In der App: **Mehr → Daten & Einstellungen → Cloud-Sync** → E-Mail → Code → Sync-Passphrase. Auf jedem weiteren Gerät dieselbe E-Mail und Passphrase.
 
-Pro Eintrag gewinnt der zuletzt geänderte Stand, Löschungen werden übertragen. Gleichzeitige Änderungen am **selben** Eintrag werden nicht feldweise gemischt. Die Zeitstempel kommen von der Geräteuhr.
+Pro Eintrag gewinnt der zuletzt geänderte Stand, Löschungen werden übertragen. Gleichzeitige Änderungen am **selben** Eintrag werden nicht feldweise gemischt; wird dabei etwas überschrieben, das du auf diesem Gerät seit dem letzten Abgleich geändert hast, zeigt die App einen Hinweis mit **Meine behalten**. Die Zeitstempel kommen von der Geräteuhr. Zusätzlich legt die App einmal pro Woche eine verschlüsselte Cloud-Sicherung an (die letzten 8 Wochen).
 
 ## Zwei Geräte ohne Cloud
 
@@ -67,7 +71,7 @@ Pro Eintrag gewinnt der zuletzt geänderte Stand, Löschungen werden übertragen
 - Exportiere regelmäßig eine Sicherung und bewahre sie an einem zweiten Ort auf. Lokale Wiederherstellungspunkte ersetzen keine Datei.
 - Verschlüsselte Sicherungen: PBKDF2-SHA256 (600 000 Runden) und AES-256-GCM. Ohne Passphrase sind sie nicht wiederherstellbar.
 - Die Website-Dateien enthalten keine persönlichen Einträge. Bei GitHub Pages ist die Website öffentlich erreichbar.
-- `dist/_headers` (Sicherheits-Header) wirkt nur auf Netlify und Cloudflare Pages, nicht auf GitHub Pages.
+- Eine Content-Security-Policy in `index.html` erlaubt Verbindungen nur zur eigenen Seite, zu Supabase und zum Mensa-Speiseplan (GitHub Pages kann keine eigenen HTTP-Header setzen).
 
 ## Hilfsskripte (Python 3)
 

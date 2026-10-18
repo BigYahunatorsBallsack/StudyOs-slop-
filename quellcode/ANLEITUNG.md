@@ -34,6 +34,8 @@ Die App benötigt keine Build-Schritte auf GitHub: Die gebauten Dateien sind ber
 3. Wähle den Branch `main` und den Ordner `/(root)`, danach **Save**.
 4. Warte, bis GitHub die Seite veröffentlicht hat. Die Projekt-URL hat normalerweise die Form `https://DEIN-GITHUB-NAME.github.io/studyos/`.
 
+Im StudyOS-Repository selbst baut und veröffentlicht GitHub Actions die App: Dort unter **Build and deployment** als Quelle **GitHub Actions** wählen statt eines Branches (siehe README).
+
 Falls GitHub die Beschriftungen ändert, folge der verlinkten offiziellen Anleitung. Die Veröffentlichung ist öffentlich; poste die URL daher nicht, wenn du sie nicht teilen möchtest.
 
 ### 4. Am Handy oder Computer installieren

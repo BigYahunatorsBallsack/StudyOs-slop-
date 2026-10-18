@@ -1,5 +1,29 @@
 # Änderungen
 
+## 2.6.0
+
+### Neu
+- **Konflikthinweis beim Sync:** Hat ein anderes Gerät eine Notiz, Aufgabe o. Ä. überschrieben oder gelöscht, die du hier seit dem letzten Abgleich geändert hast, erscheint ein Hinweis mit **Meine behalten**.
+- **Cloud-Sicherung:** Einmal pro Woche ein verschlüsselter Schnappschuss im privaten Cloud-Speicher, die letzten 8 Wochen bleiben; je Woche wiederherstellbar (Mehr → Daten → Cloud-Sync). Nutzt den Speicher aus `anhaenge.sql`.
+- **Wochenrückblick:** Die Sonntagsnachricht um 18 Uhr nennt zusätzlich die Lernzeit der Woche (mit Vorwoche) und die fälligen Karten.
+- **Weg zur Uni:** Störungen und Baustellen der MVG zu deinen Linien auf „Heute“. Optional Push, wenn du wegen Verspätung oder Ausfall früher losmusst (ab 3 Minuten). Braucht die aktuelle Edge Function.
+- **Teilen an StudyOS:** Aus anderen Apps Text, Links, PDFs oder Fotos an StudyOS teilen (Android, Chrome am Desktop); daraus wird eine Notiz mit Anhang.
+
+### Behoben
+- Im hellen Farbschema waren Code-Blöcke in Notizen dunkelblau hinterlegt.
+- Zu schwacher Kontrast bei grauem Text (u. a. Navigation, Stundenraster, Statistiken) in beiden Farbschemata.
+- Kacheln, Wochenraster-Termine, Schalter und Raum-Links heißen für Screenreader und Sprachsteuerung so, wie sie beschriftet sind.
+- „1 Termine“ im Wochenausblick.
+
+### Technik
+- Start-Bundle von 644 auf 315 KB: Lernen, Module, Mehr, Suche als eigene Dateien; Supabase wird erst geladen, wenn der Cloud-Sync genutzt wird. Formeln und Code-Farben lädt der Service Worker erst beim ersten Gebrauch.
+- Content-Security-Policy in `index.html` (GitHub Pages ignoriert `_headers`, die Datei ist entfernt).
+- Veröffentlichen über **GitHub Pages Deployments** statt Commit ins Wurzelverzeichnis (Settings → Pages → Source: „GitHub Actions“).
+- CI: `npm audit`, Typprüfung (`tsc --checkJs` für `lib/` und `server/`), Deno fest auf 2.9.6, Dependabot.
+- KaTeX 0.19, Vitest 5, esbuild 0.28 (schließt gemeldete Sicherheitslücken).
+- `App.jsx` aufgeteilt: Speichern, Farbschema, Timer und Kalender-Abos als Hooks in `src/app/`.
+- Tests: Barrierefreiheit mit axe (alle Bereiche, hell und dunkel), Screenshot-Vergleich (`npm run test:visual`), Property-Tests mit fast-check für Zusammenführen und Migration; 152 Unit-, 51 Browser-Tests.
+
 ## 2.5.3
 - **Wochenraster:** Samstag und Sonntag erscheinen jetzt auch, wenn dort nur eine Abgabe oder ein Lernblock liegt (bisher nur bei Terminen und Prüfungen).
 
