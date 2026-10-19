@@ -42,6 +42,7 @@ const More = named(() => import("./views/More.jsx"), "More");
 const NoteViewer = named(() => import("./views/Search.jsx"), "NoteViewer");
 const SearchModal = named(() => import("./views/Search.jsx"), "SearchModal");
 const ShareImport = named(() => import("./views/Share.jsx"), "ShareImport");
+const OcclusionEditor = named(() => import("./ui/Occlusion.jsx"), "OcclusionEditor");
 const Loading = () => <p className="py-3 text-center text-sm text-slate-500" role="status">Lädt …</p>;
 
 import { mergeModules } from "./lib/modules.js";
@@ -262,7 +263,7 @@ export default function App() {
     { label: "Ansehen", run: () => { setMoreTab("erfolge"); setTab("mehr"); } }, 8000) });
 
   const db = {
-    data, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
+    data, getData: () => dataRef.current, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
     toggleSession: (id, key) => patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] })),
     setHwStatus: (id, status) => patch("homework", id, (h) => ({ status, doneAt: DONE_HW.has(status) ? h.doneAt || iso() : null })),
     patchSettings: (p) => change((d) => ({ ...d, settings: { ...d.settings, ...p } })),
@@ -421,7 +422,8 @@ export default function App() {
       {searchOpen && <SearchModal data={data} db={db} onPick={openResult} onClose={() => setSearchOpen(false)} />}
       {noteObj && !form && <NoteViewer note={noteObj} db={db} onClose={() => setNoteView(null)} onEdit={() => { setNoteView(null); openForm("note", noteObj); }} />}
       </Suspense>
-      {form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
+      {form?.kind === "card" && form.initial?.occ ? <Suspense fallback={null}><OcclusionEditor key={form.initial.id || "new"} db={db} initial={form.initial} onClose={() => setForm(null)} /></Suspense>
+        : form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
     </div>
   );
 }

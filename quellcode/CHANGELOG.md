@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Bild-Karteikarten mit Verdecken:** Unter Lernen → Karteikarten „+ Bild-Karte“ wählen, ein Foto, eine Folie oder ein Diagramm laden und Rechtecke über die Stellen ziehen, die du abfragen willst. Jedes Rechteck wird eine eigene Karte mit eigenem FSRS-Lernstand. Beim Lernen sind alle Bereiche verdeckt (oder nur der gesuchte), der gesuchte ist pink mit „?“ markiert und wird beim Aufdecken grün umrandet sichtbar. Antippen einer Bild-Karte in der Liste öffnet den Editor: Bereiche verschieben, hinzufügen oder löschen; der Lernstand der übrigen bleibt. Große Bilder werden auf höchstens 2000 px verkleinert. Das Bild liegt wie Anhänge auf dem Gerät und mit Cloud-Sync verschlüsselt im privaten Speicher, andere Geräte laden es beim ersten Anzeigen; ohne Sync angelegte Bilder werden nachgeladen, sobald der Sync entsperrt ist. Bild-Karten gehen nicht in CSV-Export und geteilte Links (das Bild ginge nicht mit).
 - **Weg zur Uni lädt schneller:** Der letzte Stand von Abfahrten, Störungen und Fahrzeit steht sofort da (bis 30 Minuten alt, mit „Stand HH:MM“) und wird im Hintergrund erneuert, auch der zuletzt bekannte Standort. Alle Abfahrten (jetzt und zur Vorlesung, Zubringer und Hauptlinie) kommen in einem Aufruf statt in bis zu drei Runden nacheinander, und die Funktion merkt sich die Anmeldung kurz, statt sie bei jeder Abfrage neu zu prüfen. Die Bündelung braucht die neue `index.ts`; ohne Update fragt die App wie bisher einzeln, aber parallel.
 
 ## 2.10.0
