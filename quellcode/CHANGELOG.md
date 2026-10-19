@@ -1,5 +1,11 @@
 # Änderungen
 
+## Unveröffentlicht
+- **Sync führt pro Feld zusammen:** Gleichzeitige Änderungen an verschiedenen Feldern desselben Eintrags (z. B. Titel am Handy, Status am Laptop) bleiben beide erhalten. Der Lernstand einer Karteikarte wird als Ganzes übernommen, Einstellungen pro Schlüssel. „Meine behalten“ stellt nur die überschriebenen Felder wieder her.
+- **Falsch gehende Geräteuhr verliert keine Daten mehr:** Zeitstempel sind immer jünger als der bearbeitete Stand und werden um den Versatz zur Serverzeit korrigiert (aus dem `Date`-Header der Supabase-Antwort, keine Datenbankänderung nötig).
+- **Behoben:** Zwei Fassungen mit gleichem Zeitstempel blieben auf beiden Geräten dauerhaft verschieden; jetzt entscheiden beide gleich, und der Fingerabdruck erkennt den Unterschied.
+- Kompatibel mit älteren App-Versionen: Sie ignorieren die neuen Feld-Zeitstempel (`fu`), ihre Änderungen zählen wie bisher für den ganzen Eintrag.
+
 ## 2.7.1
 - **Behoben:** Uhrzeiten bereits vergangener Termine im Tagesplan hatten zu wenig Kontrast (abgeblendet per Transparenz); jetzt gedämpfte Farbe mit mindestens 4,5:1.
 - **Retro mit Pixel-Details:** kleine Pixel-Icons für S-Bahn, Bus, Tram, Fußweg und Ziel bei „Weg zur Uni“, für Gerichte in der Mensa (Schüssel, Blatt für vegan/vegetarisch, Fisch, Fleisch); Sternenhimmel, Pixel-Pfeile vor Abschnittstiteln, blinkender Cursor am Seitentitel (ohne Animation bei „Bewegung reduzieren“), Sanduhr und Flamme bei Lernzeit und Serie, segmentierte Fortschrittsbalken, ein Space Invader bei leeren Listen und ein Pixel-Pfeil an der Jetzt-Linie. Grafiken aus `tools/retro_pixels.py`.

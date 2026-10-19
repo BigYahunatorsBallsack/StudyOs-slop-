@@ -20,7 +20,8 @@ function device(initial = emptyData()) {
   dev.opts = (remote, key) => ({ remote, key, getLocal: () => dev.data, applyLocal: (merged) => { dev.data = merged; } });
   return dev;
 }
-const addModule = (id, name) => (d) => ({ ...d, modules: [...d.modules, { id, name }] });
+/* mit den Standardfeldern, die migrate beim Entschlüsseln ergänzt (wie Einträge aus den Formularen der App) */
+const addModule = (id, name) => (d) => ({ ...d, modules: [...d.modules, { id, name, color: "#38bdf8", bonusPct: null }] });
 
 const ITER = 20000;
 const keyFor = async (pass = "geheim-123", salt) => deriveSyncKey(pass, salt || newSalt(), ITER);
