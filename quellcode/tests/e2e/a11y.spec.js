@@ -11,8 +11,8 @@ async function check(page, where) {
   return found;
 }
 
-for (const theme of ['dark', 'light']) {
-  test(`axe: keine Verstöße (${theme === 'dark' ? 'dunkel' : 'hell'})`, async ({ page }) => {
+for (const theme of ['dark', 'light', 'retro']) {
+  test(`axe: keine Verstöße (${{ dark: 'dunkel', light: 'hell', retro: 'retro' }[theme]})`, async ({ page }) => {
     test.setTimeout(90000);
     await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
     await page.goto('./');
@@ -21,9 +21,9 @@ for (const theme of ['dark', 'light']) {
     await page.getByRole('button', { name: 'Beispieldaten laden' }).click();
     await page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
     await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load())?.modules?.length ?? 0)).toBeGreaterThan(0);
-    if (theme === 'light') await page.evaluate(async () => {
-      const d = await window.STUDYOS_ENV.load(); d.settings.theme = 'light'; await window.STUDYOS_ENV.save(d);
-    });
+    if (theme !== 'dark') await page.evaluate(async (t) => {
+      const d = await window.STUDYOS_ENV.load(); d.settings.theme = t; await window.STUDYOS_ENV.save(d);
+    }, theme);
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     const all = [];

@@ -1,0 +1,205 @@
+/* ==== StudyOS Farbschema „Retro“ ====
+   Neon-Pixel, Stadt bei Nacht, wie ein Videospiel-Menü. Wird beim Build nach design.css angehängt und greift nur
+   unter :root[data-theme="retro"]; Dunkel und Hell bleiben unverändert. Keine Rundungen, Pixel-Ränder mit
+   ausgeschnittenen Ecken (box-shadow in 2-px-Stufen), harte Schatten ohne Weichzeichner.
+   Die Schriften stehen nur in diesem Block, darum lädt der Browser sie erst, wenn Retro aktiv ist. */
+
+@font-face { font-family: "Silkscreen"; font-style: normal; font-display: swap; font-weight: 400; src: url(./fonts/silkscreen-latin-400.woff2) format("woff2"); }
+@font-face { font-family: "Silkscreen"; font-style: normal; font-display: swap; font-weight: 700; src: url(./fonts/silkscreen-latin-700.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-display: swap; font-weight: 400; src: url(./fonts/jetbrains-mono-latin-400.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-display: swap; font-weight: 700; src: url(./fonts/jetbrains-mono-latin-700.woff2) format("woff2"); }
+@font-face { font-family: "VT323"; font-style: normal; font-display: swap; font-weight: 400; src: url(./fonts/vt323-latin-400.woff2) format("woff2"); }
+
+:root[data-theme="retro"] {
+  --font-display: "Silkscreen", ui-monospace, monospace;
+  --font-body: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-num: "VT323", ui-monospace, monospace;
+  --r-hero: 0; --r-group: 0; --r-row: 0; --r-field: 0;
+
+  /* Nachtviolett, Neon-Pink, Cyan; alle Textfarben ≥ 4,5:1 auf jeder Fläche */
+  --bg: #0d0221; --surface: #1a0b3d; --surface-2: #261251; --surface-3: #33196b;
+  --line: rgba(245, 233, 255, .1); --line-strong: rgba(245, 233, 255, .22);
+  --text: #f5e9ff; --text-2: #e0ccf7; --muted: #c8b3e8; --faint: #b39dd9;
+  --ink: #05d9e8; --on-ink: #0d0221;
+  --accent: #ff2a6d; --accent-strong: #ff4f86; --accent-text: #ff7aa8; --on-accent: #0d0221;
+  --accent-2: #05d9e8;
+  --warn: #ffd319; --warn-strong: #ffe066; --warn-text: #ffd319;
+  --danger: #ff5c5c; --danger-strong: #ff7a7a; --danger-text: #ff8f8f;
+  --ok: #00f5a0; --ok-strong: #4dffbf; --ok-text: #00f5a0;
+  --on-module: #0d0221;
+  --shadow: 4px 4px 0 0 rgba(0, 0, 0, .6);
+  --nav-bg: #1a0b3d;
+  --pxc: #3d1f7a;           /* Pixel-Rand */
+  --drop: rgba(0, 0, 0, .55); /* harter Schatten */
+  --hm0: #261251; --hm1: #5a1a5e; --hm2: #a01f66; --hm3: #e0266b; --hm4: #ff2a6d;
+  color-scheme: dark;
+}
+
+/* Keine Rundungen, nirgends */
+:root[data-theme="retro"] *, :root[data-theme="retro"] *::before, :root[data-theme="retro"] *::after { border-radius: 0 !important; }
+
+:root[data-theme="retro"] body { background: transparent; font-family: var(--font-body); letter-spacing: -.02em; } /* Mono läuft breit */
+/* .font-ui (App-Rahmen) und .font-num (kleine Zeiten) folgen der Mono-Schrift; große Zahlen bekommen VT323 (unten) */
+:root[data-theme="retro"] .font-ui, :root[data-theme="retro"] .font-num { font-family: var(--font-body); }
+:root[data-theme="retro"] ::selection { background: rgba(255, 42, 109, .45); color: #fff; }
+:root[data-theme="retro"] :focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
+:root[data-theme="retro"] input[type=checkbox] { accent-color: var(--accent); }
+
+/* Hintergrund: Pixel-Skyline bei Nacht mit Horizont-Glühen, fest unten hinter dem Inhalt */
+:root[data-theme="retro"] body::before {
+  content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 144px; z-index: -1; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 72' width='320' height='72' shape-rendering='crispEdges'%3E%3Crect x='0' y='38' width='320' height='34' fill='%23ff2a6d' fill-opacity='0.1'/%3E%3Crect x='0' y='44' width='320' height='28' fill='%23ff2a6d' fill-opacity='0.16'/%3E%3Crect x='0' y='50' width='320' height='22' fill='%23c81d77' fill-opacity='0.22'/%3E%3Crect x='0' y='56' width='320' height='16' fill='%237b1fa2' fill-opacity='0.3'/%3E%3Crect x='-5' y='46' width='12' height='26' fill='%2324104f'/%3E%3Crect x='1' y='49' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='1' y='53' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='-3' y='57' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.55'/%3E%3Crect x='-3' y='65' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='7' y='40' width='19' height='32' fill='%2324104f'/%3E%3Crect x='17' y='43' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='13' y='55' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='9' y='67' width='2' height='2' fill='%2305d9e8' fill-opacity='0.55'/%3E%3Crect x='28' y='56' width='19' height='16' fill='%2324104f'/%3E%3Crect x='34' y='63' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='50' y='56' width='11' height='16' fill='%2324104f'/%3E%3Crect x='56' y='63' width='2' height='2' fill='%2305d9e8' fill-opacity='0.55'/%3E%3Crect x='64' y='46' width='14' height='26' fill='%2324104f'/%3E%3Crect x='79' y='41' width='16' height='31' fill='%2324104f'/%3E%3Crect x='81' y='60' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.55'/%3E%3Crect x='98' y='41' width='22' height='31' fill='%2324104f'/%3E%3Crect x='116' y='44' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='116' y='52' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='100' y='64' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='120' y='42' width='22' height='30' fill='%2324104f'/%3E%3Crect x='130' y='45' width='2' height='2' fill='%2305d9e8' fill-opacity='0.55'/%3E%3Crect x='142' y='55' width='13' height='17' fill='%2324104f'/%3E%3Crect x='155' y='55' width='20' height='17' fill='%2324104f'/%3E%3Crect x='176' y='54' width='12' height='18' fill='%2324104f'/%3E%3Crect x='178' y='57' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.55'/%3E%3Crect x='190' y='41' width='12' height='31' fill='%2324104f'/%3E%3Crect x='196' y='44' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='203' y='47' width='10' height='25' fill='%2324104f'/%3E%3Crect x='214' y='58' width='19' height='14' fill='%2324104f'/%3E%3Crect x='220' y='65' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.55'/%3E%3Crect x='233' y='52' width='13' height='20' fill='%2324104f'/%3E%3Crect x='249' y='51' width='18' height='21' fill='%2324104f'/%3E%3Crect x='259' y='62' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='269' y='50' width='12' height='22' fill='%2324104f'/%3E%3Crect x='282' y='45' width='21' height='27' fill='%2324104f'/%3E%3Crect x='300' y='48' width='2' height='2' fill='%2305d9e8' fill-opacity='0.55'/%3E%3Crect x='284' y='52' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.55'/%3E%3Crect x='292' y='52' width='2' height='2' fill='%2305d9e8' fill-opacity='0.55'/%3E%3Crect x='284' y='60' width='2' height='2' fill='%2305d9e8' fill-opacity='0.55'/%3E%3Crect x='288' y='60' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='292' y='68' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='303' y='58' width='14' height='14' fill='%2324104f'/%3E%3Crect x='313' y='61' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='305' y='65' width='2' height='2' fill='%23ffd319' fill-opacity='0.55'/%3E%3Crect x='-4' y='46' width='21' height='26' fill='%23160733'/%3E%3Crect x='6' y='42' width='2' height='4' fill='%23160733'/%3E%3Crect x='14' y='57' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='-2' y='65' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='19' y='41' width='23' height='31' fill='%23160733'/%3E%3Crect x='25' y='48' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='29' y='48' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='37' y='48' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='25' y='56' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='29' y='56' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='21' y='64' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='25' y='64' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='21' y='68' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='29' y='68' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='43' y='21' width='13' height='51' fill='%23160733'/%3E%3Crect x='45' y='24' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='45' y='32' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='45' y='36' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='49' y='44' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='45' y='52' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='49' y='56' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='45' y='64' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='53' y='64' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='59' y='30' width='19' height='42' fill='%23160733'/%3E%3Crect x='68' y='26' width='2' height='4' fill='%23160733'/%3E%3Crect x='69' y='33' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='73' y='33' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='61' y='41' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='65' y='41' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='73' y='41' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='65' y='49' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='73' y='49' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='61' y='53' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='65' y='53' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='69' y='57' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='73' y='57' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='65' y='61' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='73' y='65' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='81' y='26' width='22' height='46' fill='%23160733'/%3E%3Crect x='95' y='29' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='99' y='29' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='87' y='33' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='91' y='41' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='95' y='41' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='83' y='45' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='87' y='49' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='87' y='53' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='87' y='57' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='91' y='65' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='95' y='65' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='106' y='33' width='26' height='39' fill='%23160733'/%3E%3Crect x='112' y='36' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='120' y='40' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='124' y='48' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='128' y='52' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='124' y='56' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='108' y='64' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='112' y='68' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='133' y='38' width='22' height='34' fill='%23160733'/%3E%3Crect x='143' y='41' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='147' y='45' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='139' y='53' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='151' y='53' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='143' y='57' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='139' y='61' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='135' y='65' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='157' y='42' width='24' height='30' fill='%23160733'/%3E%3Crect x='169' y='38' width='2' height='4' fill='%23160733'/%3E%3Crect x='159' y='53' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='163' y='53' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='171' y='53' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='175' y='57' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='159' y='65' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='175' y='65' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='183' y='32' width='13' height='40' fill='%23160733'/%3E%3Crect x='189' y='43' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='185' y='63' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='196' y='34' width='16' height='38' fill='%23160733'/%3E%3Crect x='206' y='41' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='198' y='45' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='206' y='65' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='215' y='44' width='24' height='28' fill='%23160733'/%3E%3Crect x='227' y='40' width='2' height='4' fill='%23160733'/%3E%3Crect x='217' y='47' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='217' y='51' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='225' y='51' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='225' y='55' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='229' y='59' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='221' y='67' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='240' y='48' width='22' height='24' fill='%23160733'/%3E%3Crect x='246' y='51' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='254' y='55' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='246' y='63' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='258' y='63' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='246' y='67' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='264' y='35' width='14' height='37' fill='%23160733'/%3E%3Crect x='271' y='31' width='2' height='4' fill='%23160733'/%3E%3Crect x='266' y='38' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='274' y='38' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='274' y='42' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='266' y='54' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='274' y='54' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='274' y='62' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='281' y='44' width='24' height='28' fill='%23160733'/%3E%3Crect x='293' y='40' width='2' height='4' fill='%23160733'/%3E%3Crect x='283' y='47' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='295' y='47' width='2' height='2' fill='%2305d9e8' fill-opacity='0.8'/%3E%3Crect x='299' y='51' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='299' y='55' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='291' y='59' width='2' height='2' fill='%23ff2a6d' fill-opacity='0.8'/%3E%3Crect x='295' y='59' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='287' y='67' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='295' y='67' width='2' height='2' fill='%23ffd319' fill-opacity='0.8'/%3E%3Crect x='306' y='52' width='12' height='20' fill='%23160733'/%3E%3C/svg%3E") repeat-x left bottom / auto 144px; image-rendering: pixelated; opacity: .6;
+}
+/* Scanlines: feine, feste Überlagerung */
+:root[data-theme="retro"] body::after {
+  content: ""; position: fixed; inset: 0; z-index: 100; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, .13) 2px 3px);
+}
+
+/* ---- Schrift: Pixel für Überschriften, Knöpfe, Tabs, Labels; Mono für Text; VT323 für große Zahlen ---- */
+:root[data-theme="retro"] :is(h1, h2, h3, .display, .page-title, .section-title, .brand, .hero-title, .tile-name, .popover-title,
+  .btn, .seg-item, .tab, .chip, .tri-btn, .pill-status, .stat-label, .hero-when, .grid-day, .link-btn, .whatnow, .merge-target,
+  .preview-chip, .ext-link, .code-lang, .tag-gop, .notice-title, .group-head .count, .quick .quick-plus) {
+  font-family: var(--font-display); font-weight: 400; letter-spacing: .02em; font-optical-sizing: none;
+}
+:root[data-theme="retro"] :is(.stat-value, .exam-chip-days, .minis b, .tl-time b, .grid-day b, [role="timer"], .font-num.text-3xl, .font-num.text-4xl, .font-num.text-5xl) {
+  font-family: var(--font-num); font-weight: 400; letter-spacing: .02em; font-variant-numeric: normal;
+}
+/* Feldbeschriftungen (label über dem Feld) in Pixel-Schrift; Checkbox-Texte bleiben Mono */
+:root[data-theme="retro"] label.block[for] { font-family: var(--font-display); font-weight: 400; font-size: .64rem; letter-spacing: .03em; line-height: 1.5; }
+:root[data-theme="retro"] .stat-value { font-size: 1.85rem; line-height: 1; }
+:root[data-theme="retro"] .exam-chip-days { font-size: 1.6rem; line-height: 1; }
+:root[data-theme="retro"] .minis b { font-size: 1.3rem; line-height: 1; }
+:root[data-theme="retro"] .tl-time b { font-size: 1.3rem; line-height: 1; }
+:root[data-theme="retro"] .grid-day b { font-size: 1.35rem; line-height: 1; }
+:root[data-theme="retro"] [role="timer"] { font-size: 5.5rem; line-height: .9; color: var(--accent-2); text-shadow: 3px 3px 0 #7a0f3a; }
+:root[data-theme="retro"] .font-num.text-3xl { font-size: 2.5rem; line-height: 1; }
+:root[data-theme="retro"] .font-num.text-4xl { font-size: 3.2rem; line-height: 1; }
+:root[data-theme="retro"] .font-num.text-5xl { font-size: 4.2rem; line-height: 1; }
+
+/* Seitentitel mit versetztem Cyan/Pink-Schatten und leichtem Glühen */
+:root[data-theme="retro"] .page-title { font-size: 1.7rem; line-height: 1.15; text-shadow: -2px 0 0 rgba(5, 217, 232, .7), 2px 0 0 rgba(255, 42, 109, .7), 0 0 10px rgba(255, 42, 109, .35); }
+:root[data-theme="retro"] .brand { font-size: 1rem; color: var(--accent-text); text-shadow: 2px 2px 0 #4a0e2a, 0 0 8px rgba(255, 42, 109, .45); }
+:root[data-theme="retro"] .section-title { font-size: .95rem; color: var(--accent-2); }
+:root[data-theme="retro"] .group-head .count { font-size: .8rem; }
+:root[data-theme="retro"] .tile-name, :root[data-theme="retro"] .popover-title { font-size: .95rem; line-height: 1.25; }
+
+/* ---- Pixel-Ränder mit ausgeschnittenen Ecken ---- */
+:root[data-theme="retro"] :is(.surface, .row, .stat, .todo, .tl-body, .quick, .notice, .popover, .toast, .exam-chip, .merge-row, .commute-plan, .tile, .empty) {
+  border: 0;
+  box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 5px 5px 0 0 var(--drop);
+}
+:root[data-theme="retro"] :is(.surface .row, .surface .stat, .surface .surface, .surface .todo, .surface .notice) {
+  box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc);
+}
+:root[data-theme="retro"] .empty { --pxc: #4a2a8a; background: transparent; }
+
+/* Knöpfe, Felder, Chips, Tabs: Rand ohne Weichzeichner, Drücken versetzt sie in den Schatten */
+:root[data-theme="retro"] :is(.btn, .field, .chip, .seg-item, .tri, .preview-chip, .merge-target, .whatnow, .quick .quick-plus, .pill-status) {
+  box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 3px 3px 0 0 var(--drop);
+}
+:root[data-theme="retro"] .btn { font-size: .72rem; padding: .55rem .9rem; transition: none; white-space: normal; text-align: center; } /* Pixel-Schrift ist breit: lieber umbrechen */
+:root[data-theme="retro"] .btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc); }
+:root[data-theme="retro"] .btn-primary { --pxc: #ff7aa8; --drop: #7a0f3a; }
+:root[data-theme="retro"] .btn-ghost { --pxc: #4a2a8a; }
+:root[data-theme="retro"] .btn-danger { --pxc: var(--danger); background: var(--surface); }
+:root[data-theme="retro"] .btn-icon { box-shadow: none; }
+:root[data-theme="retro"] .btn-icon:hover { background: var(--surface-2); }
+:root[data-theme="retro"] .btn-lg { font-size: .8rem; }
+:root[data-theme="retro"] .field { background: var(--bg); border-color: transparent; }
+:root[data-theme="retro"] .field:focus { --pxc: var(--accent-2); }
+:root[data-theme="retro"] .surface .field, :root[data-theme="retro"] .sheet-panel .field { background: var(--bg); }
+:root[data-theme="retro"] .seg { padding-top: 3px; padding-bottom: 6px; }
+:root[data-theme="retro"] .seg-item { font-size: .7rem; background: var(--surface); }
+:root[data-theme="retro"] .seg-item[aria-selected="true"] { background: var(--ink); color: var(--on-ink); --pxc: #8af3fa; }
+:root[data-theme="retro"] .chip { font-size: .68rem; }
+:root[data-theme="retro"] .chip[aria-pressed="true"] { background: var(--surface-3); color: var(--text); --pxc: var(--mod, var(--accent)); }
+:root[data-theme="retro"] .stats, :root[data-theme="retro"] .exam-chips { padding-top: 3px; padding-bottom: 7px; }
+:root[data-theme="retro"] .stat-label { font-size: .65rem; }
+:root[data-theme="retro"] .pill-status { font-size: .65rem; }
+:root[data-theme="retro"] kbd, :root[data-theme="retro"] .kbd { font-family: var(--font-body); box-shadow: 0 2px 0 0 var(--pxc); }
+
+/* ---- „Als Nächstes“: Neon-Rahmen in der Modulfarbe und Synthwave-Sonne aus Streifen ---- */
+:root[data-theme="retro"] .hero {
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 -3px 0 0 var(--mod, var(--accent)), 0 3px 0 0 var(--mod, var(--accent)), -3px 0 0 0 var(--mod, var(--accent)), 3px 0 0 0 var(--mod, var(--accent)), 7px 7px 0 0 var(--drop);
+}
+:root[data-theme="retro"] .hero > * { z-index: 1; }
+:root[data-theme="retro"] .hero::after {
+  right: -26px; bottom: -58px; width: 150px; height: 150px; opacity: .5; z-index: 0;
+  clip-path: polygon(70.0% 0.0%, 70.0% 8.3%, 83.1% 8.3%, 83.1% 16.7%, 90.6% 16.7%, 90.6% 25.0%, 95.5% 25.0%, 95.5% 33.3%, 98.4% 33.3%, 98.4% 41.7%, 99.8% 41.7%, 99.8% 50.0%, 99.8% 50.0%, 99.8% 58.3%, 98.4% 58.3%, 98.4% 66.7%, 95.5% 66.7%, 95.5% 75.0%, 90.6% 75.0%, 90.6% 83.3%, 83.1% 83.3%, 83.1% 91.7%, 70.0% 91.7%, 70.0% 100.0%, 30.0% 100.0%, 30.0% 91.7%, 16.9% 91.7%, 16.9% 83.3%, 9.4% 83.3%, 9.4% 75.0%, 4.5% 75.0%, 4.5% 66.7%, 1.6% 66.7%, 1.6% 58.3%, 0.2% 58.3%, 0.2% 50.0%, 0.2% 50.0%, 0.2% 41.7%, 1.6% 41.7%, 1.6% 33.3%, 4.5% 33.3%, 4.5% 25.0%, 9.4% 25.0%, 9.4% 16.7%, 16.9% 16.7%, 16.9% 8.3%, 30.0% 8.3%, 30.0% 0.0%);
+  background: linear-gradient(to bottom, #ffd319 0 24%, #ffa63a 24% 36%, transparent 36% 40%, #ff7a4a 40% 52%, transparent 52% 58%, #ff4f63 58% 68%, transparent 68% 76%, #ff2a6d 76% 84%, transparent 84% 92%, #ff2a6d 92%);
+}
+:root[data-theme="retro"] .hero-when { color: color-mix(in srgb, var(--mod, var(--accent)) 72%, #fff); opacity: 1; font-size: .8rem; }
+:root[data-theme="retro"] .hero-title { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem; line-height: 1.2; letter-spacing: .01em; text-shadow: 2px 2px 0 var(--bg); }
+:root[data-theme="retro"] .hero-meta { opacity: 1; color: var(--text-2); text-shadow: 1px 1px 0 var(--bg); }
+:root[data-theme="retro"] .hero .btn { background: var(--surface-2); color: var(--text); --pxc: #4a2a8a; }
+:root[data-theme="retro"] .hero .btn:hover { background: var(--surface-3); }
+:root[data-theme="retro"] .hero .btn-solid { background: var(--mod, var(--accent)); color: var(--on-module); --pxc: color-mix(in srgb, var(--mod, var(--accent)) 60%, #fff); }
+:root[data-theme="retro"] .hero-calm { box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 5px 5px 0 0 var(--drop); }
+
+/* ---- Modulfarben: Neon-Rand statt Vollfläche ---- */
+:root[data-theme="retro"] .tile { background: var(--surface); --pxc: var(--mod); transition: none; }
+:root[data-theme="retro"] .tile-swatch { height: .5rem; width: 1.5rem; }
+:root[data-theme="retro"] .exam-chip { background: var(--surface); --pxc: var(--mod, var(--accent)); }
+:root[data-theme="retro"] .commute-plan { background: var(--surface-2); --pxc: var(--mod, var(--accent)); }
+:root[data-theme="retro"] .merge-row.on { --pxc: var(--mod); }
+:root[data-theme="retro"] .row::before, :root[data-theme="retro"] .tl-body::before, :root[data-theme="retro"] .popover::before, :root[data-theme="retro"] .merge-row::before { width: 4px; filter: saturate(1.3); }
+:root[data-theme="retro"] .tl-live .tl-body { --pxc: var(--mod, var(--accent)); }
+:root[data-theme="retro"] .tl-live .tl-time b { color: var(--accent-2); }
+:root[data-theme="retro"] .todo-check { border-width: 2px; }
+:root[data-theme="retro"] .todo-row + .todo-row { border-top: 2px solid var(--surface-2); }
+:root[data-theme="retro"] .tri { background: var(--bg); padding: 2px; --pxc: #4a2a8a; }
+:root[data-theme="retro"] .surface .tri, :root[data-theme="retro"] .popover .tri { background: var(--bg); }
+:root[data-theme="retro"] .tri-btn { font-size: .66rem; transition: none; }
+:root[data-theme="retro"] .tri-btn[aria-pressed="true"] { filter: saturate(1.3); }
+:root[data-theme="retro"] .tri-compact .tri-btn { font-size: .62rem; }
+
+/* ---- Hinweise: Rand in der Signalfarbe statt getönter Fläche ---- */
+:root[data-theme="retro"] .notice { background: var(--surface); }
+:root[data-theme="retro"] .notice-warn { --pxc: var(--warn); }
+:root[data-theme="retro"] .notice-danger { --pxc: var(--danger); }
+:root[data-theme="retro"] .notice-info { --pxc: var(--accent-2); color: var(--text); }
+:root[data-theme="retro"] .notice-ok { --pxc: var(--ok); background: var(--surface); }
+:root[data-theme="retro"] .preview-chip.missing { background: var(--surface); --pxc: var(--warn); }
+:root[data-theme="retro"] .chip.chip-warn:not([aria-pressed="true"]), :root[data-theme="retro"] .surface .chip.chip-warn:not([aria-pressed="true"]) { background: var(--surface); --pxc: var(--warn); }
+
+/* ---- Kopf, Navigation, Dialoge: deckend statt Milchglas ---- */
+:root[data-theme="retro"] .appbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 2px 0 0 var(--pxc); }
+:root[data-theme="retro"] .tabbar {
+  -webkit-backdrop-filter: none; backdrop-filter: none; padding: .3rem;
+  box-shadow: 0 -2px 0 0 var(--accent), 0 2px 0 0 var(--accent), -2px 0 0 0 var(--accent), 2px 0 0 0 var(--accent), 5px 5px 0 0 var(--drop);
+}
+:root[data-theme="retro"] .tab { font-size: .6rem; color: var(--muted); transition: none; }
+:root[data-theme="retro"] .tab[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+:root[data-theme="retro"] .sheet-backdrop { background: rgba(13, 2, 33, .78); }
+:root[data-theme="retro"] .sheet-panel { box-shadow: 0 -3px 0 0 var(--accent), 0 -6px 0 0 var(--bg); }
+:root[data-theme="retro"] .sheet-panel::before { height: 4px; background: var(--pxc); }
+:root[data-theme="retro"] .popover { --pxc: var(--accent-2); }
+:root[data-theme="retro"] .toast { --pxc: #8af3fa; --drop: #035b61; }
+:root[data-theme="retro"] .toast .toast-action { color: var(--on-ink); text-decoration: underline; text-underline-offset: 3px; }
+:root[data-theme="retro"] .whatnow { font-weight: 400; font-size: .78rem; --pxc: #8af3fa; }
+:root[data-theme="retro"] .quick { color: var(--muted); }
+:root[data-theme="retro"] .quick .quick-plus { --pxc: #ff7aa8; font-size: 1rem; }
+
+/* ---- Wochenraster ---- */
+:root[data-theme="retro"] .grid-head { background: var(--bg); }
+:root[data-theme="retro"] .grid-day { font-size: .62rem; }
+:root[data-theme="retro"] .grid-day.today { background: var(--ink); color: var(--on-ink); }
+:root[data-theme="retro"] .grid-col { background: var(--surface); }
+:root[data-theme="retro"] .grid-col.today { background: var(--surface-2); box-shadow: inset 0 0 0 2px rgba(5, 217, 232, .5); }
+:root[data-theme="retro"] .grid-line { background: rgba(245, 233, 255, .08); }
+:root[data-theme="retro"] .grid-now, :root[data-theme="retro"] .grid-now::before { background: var(--accent); }
+:root[data-theme="retro"] .ev { filter: saturate(1.35); }
+:root[data-theme="retro"] .ev.ev-done { background: var(--surface-3); color: var(--text); box-shadow: inset 3px 0 0 0 var(--mod); filter: none; }
+:root[data-theme="retro"] .ev.ev-block { background: var(--bg); filter: none; }
+:root[data-theme="retro"] .allday .ad-hw { background: var(--surface-3); box-shadow: inset 2px 0 0 0 var(--mod); }
+:root[data-theme="retro"] .allday .ad-exam { background: var(--danger); color: var(--on-module); }
+
+/* ---- Fortschritt, Code ---- */
+:root[data-theme="retro"] .bar { background: var(--surface-3); height: .6rem; }
+:root[data-theme="retro"] .md pre.code-block { background: var(--bg); box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="retro"] *, :root[data-theme="retro"] *::before, :root[data-theme="retro"] *::after { animation: none !important; transition: none !important; }
+}

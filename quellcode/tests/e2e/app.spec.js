@@ -658,3 +658,34 @@ test('Teilen-Ziel: geteilte PDF wird zur Notiz mit Anhang', async ({ page }) => 
   await page.waitForTimeout(500);
   expect((await stored(page)).notes.length).toBe(1);
 });
+
+test('Farbschema Retro: alle Bereiche ohne horizontales Scrollen, Dunkel und Hell unverändert', async ({ page }) => {
+  await loadDemo(page);
+  await openData(page);
+  const darkBg = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+  await page.getByRole('tab', { name: 'Retro' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'retro');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0221');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe('#0d0221');
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.btn')).borderRadius)).toBe('0px');
+  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'], Woche: ['Raster', 'Liste'] };
+  for (const tab of ['Heute', 'Module', 'Woche', 'Lernen', 'Mehr']) {
+    await nav(page, tab).click();
+    for (const sub of subs[tab] || [null]) {
+      if (sub) await page.getByRole('tab', { name: sub }).click();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `Retro ${tab}/${sub}`).toBe(true);
+    }
+  }
+  await nav(page, 'Module').click();
+  await page.locator('.tile').first().click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Retro Modul').toBe(true);
+  // Pixel-Schriften sind geladen, Bricolage wird im Retro-Theme nicht gebraucht
+  expect(await page.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family).sort(); })).toEqual(expect.arrayContaining(['JetBrains Mono', 'Silkscreen']));
+  // bleibt nach dem Neuladen, und zurück auf Dunkel stellt die alten Farben wieder her
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'retro');
+  await openData(page);
+  await page.getByRole('tab', { name: 'Dunkel' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe(darkBg);
+});

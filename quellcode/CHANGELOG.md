@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2.7.0
+- **Farbschema „Retro“** (Mehr → Daten & Einstellungen → Darstellung): Neon-Pixel-Look wie ein Videospiel-Menü. Nachtviolett mit Neon-Pink und Cyan, Pixel-Schrift (Silkscreen) für Überschriften, Knöpfe und Tabs, JetBrains Mono für Text, VT323 für große Zahlen. Keine Rundungen, Pixel-Ränder mit ausgeschnittenen Ecken und harte Schatten, dezente Scanlines, eine Pixel-Skyline bei Nacht im Hintergrund und eine Synthwave-Sonne auf „Als Nächstes“. Modulfarben erscheinen als Neon-Rand statt als Fläche. Alle Texte erfüllen WCAG AA; Dunkel und Hell sind unverändert.
+- Die Schriften liegen in der App (kein externes CDN) und werden nur geladen, wenn Retro aktiv ist.
+- Tests: Retro in der axe-Prüfung, im Screenshot-Vergleich und in einem eigenen E2E-Test; `tools/overlap_check.py` nimmt ein Farbschema als Argument.
+
 ## 2.6.1
 - **Konflikthinweis** funktioniert jetzt auch beim ersten Abgleich nach dem Neuladen der App (die Zeitstempel des letzten Syncs bleiben pro Nutzer auf dem Gerät).
 - **Technik:** ESLint läuft ohne Warnungen (`--max-warnings 0`), ungenutzte Imports entfernt; 155 Unit-Tests.
