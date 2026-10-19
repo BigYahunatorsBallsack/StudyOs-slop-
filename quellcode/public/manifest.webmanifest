@@ -1,0 +1,107 @@
+{
+  "id": "./",
+  "name": "StudyOS – Informatik-Studienplaner",
+  "short_name": "StudyOS",
+  "description": "Persönlicher, offlinefähiger Studienplaner für dein Informatikstudium.",
+  "lang": "de-DE",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait-primary",
+  "background_color": "#1b1830",
+  "theme_color": "#1b1830",
+  "share_target": {
+    "action": "./teilen-ziel",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": ["application/pdf", "image/*", "text/plain", ".pdf", ".txt", ".md", ".java", ".py"]
+        }
+      ]
+    }
+  },
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Lerneinheit eintragen",
+      "short_name": "Lerneinheit",
+      "url": "./?aktion=lerneinheit",
+      "icons": [
+        {
+          "src": "./icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Fokus-Timer",
+      "short_name": "Timer",
+      "url": "./?aktion=timer",
+      "icons": [
+        {
+          "src": "./icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Karteikarten lernen",
+      "short_name": "Karten",
+      "url": "./?aktion=karten",
+      "icons": [
+        {
+          "src": "./icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Neue Notiz",
+      "short_name": "Notiz",
+      "url": "./?aktion=notiz",
+      "icons": [
+        {
+          "src": "./icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

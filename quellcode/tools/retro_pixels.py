@@ -1,0 +1,215 @@
+"""Pixel-Icons des Farbschemas „Retro“: kleine ASCII-Raster werden zu SVG-Daten-URIs (crispEdges) und als
+CSS-Variablen in src/retro.css zwischen den Markierungen PIXEL-ICONS eingesetzt. Dazu eine Kachel mit Sternen.
+
+Aufruf: python3 tools/retro_pixels.py src/retro.css"""
+import random, re, sys, urllib.parse
+
+COLORS = {
+    'c': '#05d9e8', 'p': '#ff2a6d', 'y': '#ffd319', 'g': '#00f5a0', 'w': '#f5e9ff', 'd': '#0d0221',
+    'o': '#ff9b3d', 's': '#b39dd9', 'k': '#3d1f7a', 'r': '#ff7aa8',
+}
+
+ICONS = {
+    'train': """
+..cccccccc..
+.cccccccccc.
+.cddddddddc.
+.cddddddddc.
+.cddddddddc.
+.cccccccccc.
+.cyccccccyc.
+.cccccccccc.
+..cc....cc..
+.cc......cc.
+cc........cc
+""",
+    'tram': """
+.....kk.....
+....k..k....
+.yyyyyyyyyy.
+.yddyddyddy.
+.yddyddyddy.
+.yyyyyyyyyy.
+.ywyyyyyywy.
+.yyyyyyyyyy.
+..kk....kk..
+kkkkkkkkkkkk
+""",
+    'bus': """
+.pppppppppp.
+pppppppppppp
+pddpddpddddp
+pddpddpddddp
+pppppppppppp
+pppppppppppp
+pyppppppppyp
+pppppppppppp
+.ww......ww.
+.ww......ww.
+""",
+    'walk': """
+.....ww.....
+.....ww.....
+............
+....wwww....
+...w.ww.w...
+..w..ww..w..
+.....ww.....
+....w..w....
+...w....w...
+...w.....w..
+..ww.....ww.
+""",
+    'flag': """
+.wgggggg....
+.wgggggggg..
+.wggggggg...
+.wgggg......
+.w..........
+.w..........
+.w..........
+.w..........
+www.........
+""",
+    'bowl': """
+...s..s..s..
+..s..s..s...
+...s..s..s..
+............
+yyyyyyyyyyyy
+.yyyyyyyyyy.
+.yyyyyyyyyy.
+..yyyyyyyy..
+...yyyyyy...
+....kkkk....
+""",
+    'leaf': """
+.........gg.
+.......gggg.
+.....gggggg.
+....gggggg..
+...ggggggg..
+...gggggg...
+..gg.ggg....
+..g.........
+.g..........
+g...........
+""",
+    'fish': """
+............
+....ccc.....
+..ccccccc..c
+.cdcccccc.cc
+cccccccccccc
+.ccccccc..cc
+..ccccccc..c
+....ccc.....
+""",
+    'meat': """
+.......ww...
+......wwww..
+.......ww...
+......o.....
+....ooo.....
+..ooooo.....
+.oooooo.....
+.ooooo......
+..ooo.......
+""",
+    'flame': """
+.....y......
+....yy......
+....yyy.....
+...yyoy..y..
+..yyoooy.y..
+..yooooyyy..
+.yooopooy...
+.yoopppoy...
+..yoppoy....
+...yyyy.....
+""",
+    'hourglass': """
+cccccccc
+.c....c.
+..cyyc..
+...yy...
+...yy...
+..c..c..
+.c.yy.c.
+cccccccc
+""",
+    'invader': """
+..p.....p..
+...p...p...
+..ppppppp..
+.pp.ppp.pp.
+ppppppppppp
+p.ppppppp.p
+p.p.....p.p
+...pp.pp...
+""",
+    'arrow': """
+p...
+pp..
+ppp.
+pppp
+ppp.
+pp..
+p...
+""",
+}
+
+
+def svg_uri(art):
+    rows = [r for r in art.strip('\n').split('\n')]
+    h, w = len(rows), max(len(r) for r in rows)
+    rects = []
+    for y, row in enumerate(rows):
+        x = 0
+        while x < len(row):
+            ch = row[x]
+            if ch == '.':
+                x += 1
+                continue
+            run = 1
+            while x + run < len(row) and row[x + run] == ch:
+                run += 1
+            rects.append(f"<rect x='{x}' y='{y}' width='{run}' height='1' fill='{COLORS[ch]}'/>")
+            x += run
+    svg = f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {w} {h}' width='{w}' height='{h}' shape-rendering='crispEdges'>{''.join(rects)}</svg>"
+    return "data:image/svg+xml," + urllib.parse.quote(svg, safe="/:=' ")
+
+
+def stars():
+    random.seed(11)
+    W = H = 200
+    rects = []
+    for _ in range(26):
+        x, y = random.randrange(W), random.randrange(H)
+        c = random.choice(['#f5e9ff', '#f5e9ff', '#05d9e8', '#ff7aa8'])
+        size = 2 if random.random() < .25 else 1
+        rects.append(f"<rect x='{x}' y='{y}' width='{size}' height='{size}' fill='{c}' fill-opacity='{random.choice([.35, .5, .7])}'/>")
+    svg = f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {W} {H}' width='{W}' height='{H}' shape-rendering='crispEdges'>{''.join(rects)}</svg>"
+    return "data:image/svg+xml," + urllib.parse.quote(svg, safe="/:=' ")
+
+
+def block():
+    lines = ['/* PIXEL-ICONS:START (erzeugt von tools/retro_pixels.py, nicht von Hand ändern) */', ':root[data-theme="retro"] {']
+    for name, art in ICONS.items():
+        lines.append(f'  --px-{name}: url("{svg_uri(art)}");')
+    lines.append(f'  --px-stars: url("{stars()}");')
+    lines.append('}')
+    lines.append('/* PIXEL-ICONS:END */')
+    return '\n'.join(lines)
+
+
+if __name__ == '__main__':
+    path = sys.argv[1]
+    css = open(path, encoding='utf-8').read()
+    new = block()
+    if '/* PIXEL-ICONS:START' in css:
+        css = re.sub(r'/\* PIXEL-ICONS:START.*?PIXEL-ICONS:END \*/', lambda _: new, css, flags=re.S)
+    else:
+        css = css.rstrip('\n') + '\n\n' + new + '\n'
+    open(path, 'w', encoding='utf-8').write(css)
+    print(f'{len(ICONS)} Icons und Sterne in {path} eingesetzt')

@@ -1,0 +1,99 @@
+# Prüft jede Änderung am Quellcode und veröffentlicht die gebaute App direkt auf GitHub Pages
+# (Einstellung: Settings → Pages → Source: „GitHub Actions“). Gebaute Dateien liegen nicht mehr im Repository.
+name: StudyOS
+
+on:
+  push:
+    branches: [main]
+    paths: ["quellcode/**", ".github/workflows/**"]
+  pull_request:
+    paths: ["quellcode/**", ".github/workflows/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: studyos-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: quellcode
+
+jobs:
+  pruefen:
+    name: Prüfen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: quellcode/package-lock.json
+      - run: npm ci
+      - name: Sicherheitslücken in Abhängigkeiten
+        run: npm audit --audit-level=moderate
+      - name: ESLint
+        run: npm run lint
+      - name: Typprüfung
+        run: npm run typecheck
+      - name: Unit-Tests
+        run: npm test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.6 # gleiche Version wie devDependencies.deno
+      - name: Edge Function in Deno
+        run: npm run build && node tests/deno/run-function.mjs deno
+      - name: CSS-Klassen
+        run: python3 tools/css_check.py .
+      - name: Playwright-Browser
+        run: npx playwright install --with-deps chromium
+      - name: E2E-Tests
+        run: npm run test:e2e
+      # Screenshot-Vergleich: blockiert vorerst nicht. Weichen die Bilder nur durch eine andere Chromium-Version ab,
+      # die Referenzbilder aus dem Artefakt „screenshot-abweichungen“ übernehmen (oder lokal --update-snapshots).
+      - name: Screenshot-Vergleich
+        id: visual
+        continue-on-error: true
+        run: npm run test:visual
+      - uses: actions/upload-artifact@v7
+        if: steps.visual.outcome == 'failure'
+        with:
+          name: screenshot-abweichungen
+          path: quellcode/test-results/
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-ergebnisse
+          path: quellcode/test-results/
+          retention-days: 7
+
+  veroeffentlichen:
+    name: Veröffentlichen
+    needs: pruefen
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: quellcode/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: touch dist/.nojekyll
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: quellcode/dist
+      - id: deploy
+        uses: actions/deploy-pages@v5
