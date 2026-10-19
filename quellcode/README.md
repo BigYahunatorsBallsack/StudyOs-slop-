@@ -18,6 +18,7 @@ StudyOS ist eine private, offlinefähige Progressive Web App fürs Studium. Alle
 | `supabase/functions/studyos/index.ts` | Gebaute Edge Function zum Einfügen im Dashboard |
 | `supabase/EINRICHTUNG.md` | Einrichtung von Erinnerungen und Stundenplan-Abo |
 | `src/design.css` | Designsystem (Tokens, Komponenten, hell/dunkel) |
+| `src/retro.css` | Farbschema „Retro“ (nur unter `data-theme="retro"`, eigene Schriften); Grafiken aus `tools/retro_skyline.py` |
 | `src/runtime.js` | Lokale Speicherung (IndexedDB + Notfallkopie), Wiederherstellungspunkte, PWA |
 | `src/style.css` | Utility-Klassen (Farben über Tokens) |
 | `tests/unit/` | Unit-Tests (Vitest) für `src/lib/` |
@@ -75,5 +76,7 @@ Pro Eintrag gewinnt der zuletzt geänderte Stand, Löschungen werden übertragen
 
 ## Hilfsskripte (Python 3)
 
+- `python3 tools/overlap_check.py [Farbschema]` sucht überlappende Elemente in allen Bildschirmen (App unter http://localhost:8099, z. B. `python3 -m http.server 8099 --directory dist`).
+- `python3 tools/retro_skyline.py` erzeugt Skyline und Sonne des Retro-Themes.
 - `python3 tools/css_check.py .` listet Utility-Klassen aus dem JSX, für die `src/style.css` keine Regel hat.
 - `python3 tools/tokens_css.py src/style.css` stellt Farb-Utilities (`bg-slate-900`, `text-sky-300` …) auf Design-Tokens um. Nach neuen Farb-Utilities ausführen.

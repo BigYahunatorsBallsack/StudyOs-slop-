@@ -219,7 +219,7 @@ export function DataView({ db }) {
           </div>
           <div className="col-span-2">
             <span className="mb-1 block text-xs text-slate-400">Darstellung</span>
-            <Tabs items={[["dark", "Dunkel"], ["light", "Hell"], ["system", "Wie System"]]} value={data.settings.theme || "dark"} onChange={(v) => db.patchSettings({ theme: v })} label="Darstellung" />
+            <Tabs items={[["dark", "Dunkel"], ["light", "Hell"], ["retro", "Retro"], ["system", "Wie System"]]} value={data.settings.theme || "dark"} onChange={(v) => db.patchSettings({ theme: v })} label="Darstellung" />
           </div>
           <div>
             <label htmlFor="st-ects" className="mb-1 block text-xs text-slate-400">ECTS-Ziel (Studiengang)</label>

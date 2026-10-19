@@ -30,9 +30,13 @@ const app = await build({
 const chunks = Object.keys(app.metafile.outputs).filter((f) => f.startsWith('dist/chunks/') && f.endsWith('.js')).map((f) => f.slice(5)).sort();
 
 // 2) CSS: Utilities + Designsystem; Schrift für den Offline-Betrieb mitliefern
-writeFileSync('dist/style.css', readFileSync('src/style.css', 'utf8') + '\n' + readFileSync('src/design.css', 'utf8'));
+// Farbschema „Retro“ (src/retro.css) kommt danach; seine Schriften lädt der Browser nur, wenn Retro aktiv ist
+writeFileSync('dist/style.css', ['src/style.css', 'src/design.css', 'src/retro.css'].map((f) => readFileSync(f, 'utf8')).join('\n'));
 mkdirSync('dist/fonts', { recursive: true });
 copyFileSync('node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2', 'dist/fonts/bricolage-grotesque-latin-wght.woff2');
+for (const [pkg, file] of [['silkscreen', 'silkscreen-latin-400'], ['silkscreen', 'silkscreen-latin-700'], ['jetbrains-mono', 'jetbrains-mono-latin-400'], ['jetbrains-mono', 'jetbrains-mono-latin-700'], ['vt323', 'vt323-latin-400']]) {
+  copyFileSync(`node_modules/@fontsource/${pkg}/files/${file}-normal.woff2`, `dist/fonts/${file}.woff2`);
+}
 
 // 2b) Formeln und Code-Farben als eigene Datei, wird nur bei Bedarf geladen
 await build({ entryPoints: ['src/vendor/extras.js'], bundle: true, minify: true, format: 'iife', target: 'es2020', outfile: 'dist/extras.js', legalComments: 'none' });
