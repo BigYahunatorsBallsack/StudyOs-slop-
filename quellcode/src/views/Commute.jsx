@@ -124,7 +124,7 @@ export function CommuteCard({ db, sessions }) {
   const options = c ? upcomingSessions(sessions) : [];
   const [pick, setPick] = useState("");
   const session = options.find((s) => s.id === pick) || options[0] || null;
-  const key = JSON.stringify(c);
+  const key = c ? JSON.stringify({ ...c, mode: undefined, car: undefined }) : ""; /* nur was die Öffis betrifft */
   /* Pixel-Fahrzeug fährt einmal durch die Karte: beim Aufklappen und beim Wechsel zwischen Öffis und Auto */
   const opens = useGroupOpens();
   const [switches, setSwitches] = useState(0);
