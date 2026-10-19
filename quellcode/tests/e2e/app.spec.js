@@ -691,3 +691,47 @@ test('Farbschema Retro: alle Bereiche ohne horizontales Scrollen, Dunkel und Hel
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe(darkBg);
 });
+
+test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; Retro-Animationen umschalten', async ({ page }) => {
+  await loadDemo(page);
+  await expect.poll(async () => (await stored(page))?.modules?.length ?? 0).toBeGreaterThan(0);
+  await page.evaluate(async () => {
+    const d = await window.STUDYOS_ENV.load();
+    d.modules = d.modules.map((m) => ({ ...m, liveUrl: 'https://live.rbg.tum.de/?kurs=' + m.id }));
+    await window.STUDYOS_ENV.save(d);
+  });
+  await page.reload();
+  await nav(page, 'Heute').click();
+  const review = page.locator('.todo-row', { hasText: 'Nachbereiten:' }).first();
+  await expect(review.getByRole('link', { name: /^Aufzeichnung von .+ öffnen/ })).toHaveAttribute('href', /^https:\/\/live\.rbg\.tum\.de\//);
+  await expect(page.locator('.todo-row', { hasText: 'Abgabe' }).first().getByRole('link', { name: /Aufzeichnung/ })).toHaveCount(0);
+  // Einklappen: nur die Überschrift bleibt, auch nach dem Neuladen
+  const toggle = page.getByRole('button', { name: /^Zu erledigen/ });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.todo-row').first()).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /^Zu erledigen/ })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.todo-row').first()).toBeHidden();
+  await page.getByRole('button', { name: /^Zu erledigen/ }).click();
+  await expect(page.locator('.todo-row').first()).toBeVisible();
+  // Retro: drei Animationsvarianten plus Aus; im Retro-Theme schließt sich ein Abschnitt erst nach seiner Animation
+  await openData(page);
+  await expect(page.getByRole('tablist', { name: 'Retro-Animationen' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Retro' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'arcade');
+  for (const [name, key] of [['Röhre', 'crt'], ['Glitch', 'glitch'], ['Aus', 'off'], ['Arcade', 'arcade']]) {
+    await page.getByRole('tablist', { name: 'Retro-Animationen' }).getByRole('tab', { name }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-motion', key);
+  }
+  await expect.poll(async () => (await stored(page)).settings.retroMotion).toBe('arcade');
+  await nav(page, 'Heute').click();
+  await page.getByRole('button', { name: /^Tagesplan/ }).click();
+  await expect(page.locator('#heute-plan')).toBeHidden();
+  await page.getByRole('button', { name: /^Tagesplan/ }).click();
+  await expect(page.locator('#heute-plan')).toBeVisible();
+  await openData(page);
+  await page.getByRole('tab', { name: 'Dunkel' }).click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-motion', /./);
+});

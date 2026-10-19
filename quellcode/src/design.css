@@ -223,7 +223,16 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
 @keyframes done-flash { 0% { box-shadow: inset 0 0 0 0 var(--ok); } 40% { box-shadow: inset 0 0 0 2px var(--ok); } 100% { box-shadow: inset 0 0 0 0 transparent; } }
 .flash-done { animation: done-flash .6s ease; }
-@media (prefers-reduced-motion: reduce) { .sheet-panel, .sheet-backdrop, .chip .chip-mark, .flash-done { animation: none !important; } }
+/* Einklappbare Abschnitte auf „Heute“: Überschrift als Schalter, Inhalt gleitet auf und zu */
+.group-body { min-width: 0; }
+.group-toggle { display: inline-flex; align-items: baseline; font: inherit; color: inherit; letter-spacing: inherit; text-align: left; }
+.group-caret { display: inline-block; flex-shrink: 0; width: .42em; height: .42em; margin-left: .55em; border-right: 2px solid var(--faint); border-bottom: 2px solid var(--faint); transform: translateY(-.18em) rotate(45deg); transition: transform .2s ease; }
+.group-toggle[aria-expanded="false"] .group-caret { transform: translateY(-.05em) rotate(-45deg); }
+.group-opening { animation: group-open .22s cubic-bezier(.2, .9, .3, 1); }
+.group-closing { animation: group-close .16s ease-in forwards; }
+@keyframes group-open { from { transform: translateY(-6px); opacity: 0; } }
+@keyframes group-close { to { transform: translateY(-6px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sheet-panel, .sheet-backdrop, .chip .chip-mark, .flash-done, .group-opening, .group-closing { animation: none !important; } .group-caret { transition: none; } }
 
 /* Platz für die schwebende Navigation */
 .pb-nav { padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)); }

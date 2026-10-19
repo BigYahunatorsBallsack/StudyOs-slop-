@@ -5,6 +5,13 @@
 - **Falsch gehende Geräteuhr verliert keine Daten mehr:** Zeitstempel sind immer jünger als der bearbeitete Stand und werden um den Versatz zur Serverzeit korrigiert (aus dem `Date`-Header der Supabase-Antwort, keine Datenbankänderung nötig).
 - **Behoben:** Zwei Fassungen mit gleichem Zeitstempel blieben auf beiden Geräten dauerhaft verschieden; jetzt entscheiden beide gleich, und der Fingerabdruck erkennt den Unterschied.
 - Kompatibel mit älteren App-Versionen: Sie ignorieren die neuen Feld-Zeitstempel (`fu`), ihre Änderungen zählen wie bisher für den ganzen Eintrag.
+- **Retro-Animationen in drei Varianten** (Mehr → Daten & Einstellungen → Retro-Animationen, nur bei Retro sichtbar):
+  - **Arcade:** Inhalte rasten beim Bereichswechsel in harten Pixel-Schritten nacheinander ein, Dialoge fahren stufig hoch, Meldungen federn, Auswahl und Tab-Symbole hüpfen wie Münzen, Fortschrittsbalken füllen sich in Segmenten, der Space Invader tippelt.
+  - **Röhre:** Der Bereich schaltet sich wie ein alter Röhrenmonitor ein (Lichtstreifen, der aufgeht, kurzes Nachleuchten), Dialoge und Meldungen ebenso; eingeklappte Abschnitte schalten sich wie ein Fernseher aus.
+  - **Glitch:** Inhalte erscheinen in versetzten Streifen mit Cyan/Pink-Farbversatz, Auswahl und Knöpfe zucken kurz, der Seitentitel stört ab und zu.
+  - **Aus:** nur der Retro-Look ohne Bewegung. Bei „Bewegung reduzieren“ am Gerät bleibt in jeder Variante alles still. Kein Text wird per Transparenz eingeblendet, der Kontrast bleibt in jedem Moment erhalten.
+- **Heute: Abschnitte einklappen** (alle Farbschemata): Ein Tipp auf „Tagesplan“, „Zu erledigen“ oder „Prüfungen“ klappt den Abschnitt bis auf die Überschrift (mit Anzahl) zu; der Zustand bleibt auf dem Gerät. Im Retro-Theme zeigt der Pixel-Pfeil die Richtung, Auf- und Zuklappen ist in allen drei Varianten animiert.
+- **Heute: Aufzeichnung direkt aus der Nachbereitung:** Einträge „Nachbereiten“ in „Zu erledigen“ haben einen Link „Aufzeichnung ↗“, wenn beim Modul ein TUM-Live-Link hinterlegt ist, auch für Termine vergangener Tage.
 
 ## 2.7.2
 - **Retro:** Pixel-Pfeil über dem aktiven Tab der Navigation.

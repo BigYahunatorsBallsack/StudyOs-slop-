@@ -221,6 +221,13 @@ export function DataView({ db }) {
             <span className="mb-1 block text-xs text-slate-400">Darstellung</span>
             <Tabs items={[["dark", "Dunkel"], ["light", "Hell"], ["retro", "Retro"], ["system", "Wie System"]]} value={data.settings.theme || "dark"} onChange={(v) => db.patchSettings({ theme: v })} label="Darstellung" />
           </div>
+          {data.settings.theme === "retro" && (
+            <div className="col-span-2">
+              <span className="mb-1 block text-xs text-slate-400">Retro-Animationen</span>
+              <Tabs items={[["arcade", "Arcade"], ["crt", "Röhre"], ["glitch", "Glitch"], ["off", "Aus"]]} value={data.settings.retroMotion || "arcade"} onChange={(v) => db.patchSettings({ retroMotion: v })} label="Retro-Animationen" />
+              <p className="mt-1.5 text-xs text-slate-400">{{ arcade: "8-Bit-Spielhalle: Inhalte rasten in Pixel-Schritten ein, Knöpfe springen wie Münzen.", crt: "Alter Röhrenmonitor: Inhalte schalten sich wie ein Bildschirm ein und aus und leuchten kurz nach.", glitch: "Digitale Störung: Inhalte erscheinen in versetzten Streifen mit Farbversatz.", off: "Keine Animationen, nur der Retro-Look." }[data.settings.retroMotion || "arcade"]} Ist am Gerät „Bewegung reduzieren“ eingeschaltet, bleibt alles still.</p>
+            </div>
+          )}
           <div>
             <label htmlFor="st-ects" className="mb-1 block text-xs text-slate-400">ECTS-Ziel (Studiengang)</label>
             <input id="st-ects" type="number" min="1" className={inputCls} value={data.settings.targetEcts} onChange={(e) => db.patchSettings({ targetEcts: Math.max(1, Number(e.target.value) || 1) })} />
