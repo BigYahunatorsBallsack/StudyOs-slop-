@@ -1,11 +1,12 @@
 # StudyOS online stellen und installieren
 
-Diese Anleitung bringt die fertige StudyOS-Web-App auf eine eigene URL und als App auf dein Handy. Du brauchst dafür keinen eigenen Server. Die App ist eine statische PWA: HTML, CSS und JavaScript werden gehostet; deine Studien-Daten bleiben lokal im Browser beziehungsweise in der installierten App.
+Diese Anleitung bringt die fertige StudyOS-Web-App auf eine eigene URL und als App auf dein Handy. Du brauchst dafür keinen eigenen Server. Die App ist eine statische PWA: HTML, CSS und JavaScript werden gehostet; deine Studien-Daten liegen zuerst lokal im Browser beziehungsweise in der installierten App. Wenn du möchtest, kannst du sie zusätzlich per Ende-zu-Ende-verschlüsseltem Cloud-Sync zwischen deinen Geräten abgleichen (siehe unten).
 
 ## Vor dem Start: wichtige Grenzen
 
-- Es gibt **keine automatische Synchronisierung** zwischen Handy, Laptop oder Browsern. Du kannst aber Sicherungen zweier Geräte zusammenführen (siehe unten).
-- Die App speichert Studien-Daten lokal auf dem jeweiligen Gerät. Exportiere regelmäßig unter **Mehr → Daten & Einstellungen → Als Datei herunterladen** eine JSON-Sicherung und bewahre sie zusätzlich an einem zweiten Ort auf.
+- Ohne Anmeldung bleiben deine Daten nur auf dem jeweiligen Gerät. Für den automatischen Abgleich zwischen Handy, Laptop und Browsern gibt es den optionalen **Cloud-Sync** unter **Mehr → Daten & Einstellungen** (siehe unten). Alternativ kannst du Sicherungen zweier Geräte von Hand zusammenführen.
+- Die **Sync-Passphrase** kann niemand wiederherstellen. Vergisst du sie, sind die Cloud-Daten verloren; die Daten auf deinen Geräten bleiben erhalten.
+- Die App speichert Studien-Daten immer auch lokal auf dem jeweiligen Gerät. Der Cloud-Sync ist keine Sicherung: Löschst du etwas, wird das auf allen verbundenen Geräten übernommen. Exportiere regelmäßig unter **Mehr → Daten & Einstellungen → Als Datei herunterladen** eine JSON-Sicherung und bewahre sie zusätzlich an einem zweiten Ort auf.
 - Die Website-Dateien sind bei GitHub Pages öffentlich erreichbar. Das ist unproblematisch, solange du keine persönlichen Daten oder Zugangsdaten in den Website-Dateien speicherst. Deine Einträge gehören nicht in das Repository.
 - Lokale Wiederherstellungspunkte auf dem Gerät sind praktisch, ersetzen aber keine exportierte Sicherungsdatei.
 
@@ -70,4 +71,33 @@ Für Installation und Offline-Betrieb muss die App über HTTPS oder `localhost` 
 3. StudyOS auf dem neuen Gerät öffnen und unter **Mehr → Daten & Einstellungen → Import** die Datei auswählen. Bei einer verschlüsselten Sicherung die Passphrase eingeben. Dann **Zusammenführen** wählen (behält, was auf dem Gerät schon vorhanden ist) oder **Daten ersetzen**.
 4. Nach dem Import prüfen, ob Module, Termine, Hausaufgaben, Notizen und Lernfortschritt vorhanden sind.
 
-GitHub Pages hostet nur die App-Dateien. Es synchronisiert deine Einträge nicht. Für automatische Gerätesynchronisierung wäre zusätzlich ein Backend mit Anmeldung und einer zentralen Datenbank nötig; das ist in dieser Version bewusst nicht enthalten.
+Dieser Weg funktioniert immer, auch ohne Anmeldung. Wenn du deine Geräte dauerhaft abgleichen willst, ist der Cloud-Sync bequemer.
+
+## Cloud-Sync zwischen Geräten
+
+GitHub Pages hostet nur die App-Dateien. Den Abgleich deiner Einträge übernimmt der Cloud-Sync von StudyOS. Er speichert eine verschlüsselte Kopie deiner Daten bei Supabase.
+
+### Einrichten auf dem ersten Gerät
+
+1. Öffne **Mehr → Daten & Einstellungen → Cloud-Sync**.
+2. Gib deine E-Mail-Adresse ein. Du bekommst einen Anmeldecode per E-Mail; ein Passwort brauchst du nicht.
+3. Trage den **Code aus der E-Mail** ein.
+4. Lege eine **Sync-Passphrase** fest und wiederhole sie. Sie verschlüsselt deine Daten auf dem Gerät, bevor sie es verlassen. Supabase sieht nur verschlüsselte Daten und kann sie nicht lesen.
+
+### Weitere Geräte verbinden
+
+1. Auf dem neuen Gerät ebenfalls mit derselben E-Mail-Adresse und einem neuen Code anmelden.
+2. Die Sync-Passphrase vom ersten Gerät eingeben und **Entsperren und synchronisieren** wählen.
+3. Was schon auf dem neuen Gerät liegt, wird mit den Cloud-Daten **zusammengeführt**, nicht überschrieben.
+
+Die Passphrase gibst du auf jedem Gerät nur einmal ein.
+
+### Im Alltag
+
+- Änderungen werden nach wenigen Sekunden automatisch hochgeladen, und die App prüft regelmäßig, ob ein anderes Gerät etwas geändert hat. Mit **Jetzt synchronisieren** stößt du den Abgleich sofort an.
+- Ohne Internet arbeitest du ganz normal weiter. Die App zeigt dann „Offline, synchronisiert später“ und gleicht ab, sobald wieder Netz da ist.
+- **Abmelden** lässt die Daten auf diesem Gerät unverändert.
+- **Cloud-Daten löschen** entfernt nur die Kopie in der Cloud. Danach kannst du mit einer neuen Passphrase neu hochladen, zum Beispiel wenn du die alte vergessen hast.
+- Achtung: **Alle Daten löschen** wird bei aktivem Sync auf allen Geräten wirksam.
+
+Exportiere trotz Sync weiterhin regelmäßig eine Sicherungsdatei, denn ein versehentliches Löschen wird ebenfalls synchronisiert.
