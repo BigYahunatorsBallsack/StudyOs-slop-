@@ -50,6 +50,7 @@ export function formDef(kind, d) {
       { k: "due", l: "Abgabe", t: "date", req: true, half: true },
       { k: "dueTime", l: "Uhrzeit (optional)", t: "time", half: true },
       { k: "status", l: "Status", t: "select", opts: opt(HW_STATUS), def: "ausgegeben" },
+      { k: "subtasks", l: "Teilaufgaben (optional)", t: "subtasks", hint: "Mit Enter hinzufügen. „a-d“ oder „Aufgabe 1-4“ legt mehrere auf einmal an." },
       { k: "points", l: "Erreichte Punkte", t: "decimal", min: 0, half: true },
       { k: "maxPoints", l: "Maximale Punkte", t: "decimal", min: 0, half: true },
       { k: "feedback", l: "Feedback / Notizen", t: "textarea", rows: 3 },

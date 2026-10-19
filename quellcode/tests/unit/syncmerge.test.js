@@ -131,3 +131,57 @@ describe("Stempeln", () => {
     expect(out.homework[0]).toBe(d.homework[0]);
   });
 });
+
+describe("Teilaufgaben pro Element", () => {
+  const sub = (id, title, done = false) => ({ id, title, done });
+  const base = edit(withHw([]), (d) => ({ ...d, homework: [{ id: "h1", title: "Blatt 5", status: "ausgegeben", subtasks: [sub("a", "a"), sub("b", "b"), sub("c", "c")] }] }), T(8));
+  const tick = (id, done = true) => (d) => ({ ...d, homework: d.homework.map((h) => ({ ...h, subtasks: h.subtasks.map((s) => (s.id === id ? { ...s, done } : s)) })) });
+  const subs = (d) => d.homework[0].subtasks;
+
+  it("behält Häkchen an verschiedenen Teilaufgaben von beiden Geräten", () => {
+    const a = edit(base, tick("a"), T(9));
+    const b = edit(base, tick("b"), T(10));
+    const m = both(a, b);
+    expect(subs(m).map((s) => [s.id, s.done])).toEqual([["a", true], ["b", true], ["c", false]]);
+    expect(findConflicts(a, m, stampMap(base))).toEqual([]);
+  });
+
+  it("bei derselben Teilaufgabe gewinnt die jüngere Änderung", () => {
+    const a = edit(base, tick("a"), T(9));
+    const b = edit(edit(base, tick("a"), T(9, 30)), tick("a", false), T(10));
+    expect(subs(both(a, b))[0].done).toBe(false);
+  });
+
+  it("neue Teilaufgaben von beiden Geräten bleiben erhalten, gelöschte bleiben weg", () => {
+    const a = edit(base, (d) => ({ ...d, homework: [{ ...d.homework[0], subtasks: [...subs(d), sub("d", "d")] }] }), T(9));
+    const b = edit(base, (d) => ({ ...d, homework: [{ ...d.homework[0], subtasks: subs(d).filter((s) => s.id !== "b").concat(sub("e", "e")) }] }), T(10));
+    const m = both(a, b);
+    expect(subs(m).map((s) => s.id)).toEqual(["a", "c", "e", "d"]);
+  });
+
+  it("Titel und Häkchen gleichzeitig, und ein anderes Feld bleibt unberührt", () => {
+    const a = edit(base, (d) => ({ ...tick("c")(d), homework: tick("c")(d).homework.map((h) => ({ ...h, title: "Blatt 5 (neu)" })) }), T(9));
+    const b = edit(base, (d) => ({ ...d, homework: d.homework.map((h) => ({ ...h, subtasks: h.subtasks.map((s) => (s.id === "a" ? { ...s, title: "a) Beweis" } : s)) })) }), T(10));
+    const m = both(a, b);
+    expect(m.homework[0].title).toBe("Blatt 5 (neu)");
+    expect(subs(m)).toEqual([sub("a", "a) Beweis"), sub("b", "b"), sub("c", "c", true)]);
+  });
+
+  it("stellt bei einem Konflikt nur die verlorene Teilaufgabe wieder her", () => {
+    const synced = stampMap(base);
+    const local = edit(base, tick("a"), T(9));
+    const remote = edit(edit(base, tick("a"), T(9, 30)), (d) => ({ ...tick("a", false)(d), homework: tick("b")(tick("a", false)(d)).homework }), T(10));
+    const merged = mergeData(local, remote).data;
+    const list = findConflicts(local, merged, synced);
+    expect(list.map((k) => k.fields)).toEqual([["subtasks:a"]]);
+    const restored = edit(merged, (d) => restoreConflicts(d, list), T(11));
+    expect(subs(restored).map((s) => s.done)).toEqual([true, true, false]);
+    expect(subs(both(restored, remote)).map((s) => s.done)).toEqual([true, true, false]);
+  });
+
+  it("ältere App-Versionen sehen weiter die ganze Liste mit aktuellem Zeitstempel", () => {
+    const a = edit(base, tick("a"), T(9));
+    expect(a.homework[0].fu.subtasks).toBe(a.homework[0].fu["subtasks:a"]);
+    expect(a.homework[0].subtasks).toEqual([sub("a", "a", true), sub("b", "b"), sub("c", "c")]);
+  });
+});
