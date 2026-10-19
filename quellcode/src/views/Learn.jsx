@@ -17,6 +17,8 @@ import { weakByTag, weakCards } from "../lib/progress.js";
 import { Select } from "../ui/select.jsx";
 import { AMBIENT_KINDS, ambientOf, ambientVolumeOf } from "../lib/ambient.js";
 import { ringBlocks } from "../lib/timer.js";
+import { isOcc, occLabel } from "../lib/occlusion.js";
+import { OcclusionImage } from "../ui/Occlusion.jsx";
 import { workload } from "../lib/study.js";
 
 /* ---------------- Lernen ---------------- */
@@ -143,7 +145,7 @@ function WeakSpots({ db, cards, onPractice }) {
           <li key={c.id}>
             <button className={`flex w-full items-center gap-2 rounded-md text-left text-sm ${focusRing}`} onClick={() => db.openForm("card", c)}>
               <Dot color={m?.color} />
-              <span className="min-w-0 flex-1 truncate">{plain(c.front) || "Ohne Vorderseite"}</span>
+              <span className="min-w-0 flex-1 truncate">{isOcc(c) ? occLabel(c) : plain(c.front) || "Ohne Vorderseite"}</span>
               <span className="font-num shrink-0 text-xs text-slate-400">{c.lapses ? `${c.lapses}× vergessen` : "schwer"}</span>
             </button>
           </li>
@@ -198,6 +200,7 @@ export function CardsView({ db, filter, setFilter }) {
   const byModule = data.cards.filter((c) => !filter || c.moduleId === filter);
   const tags = allTags(byModule);
   const pool = byModule.filter((c) => !tag || parseTags(c.tags).includes(tag));
+  const textCards = pool.filter((c) => !isOcc(c)); /* Bild-Karten gehen nicht in CSV und geteilte Links */
   const importCsv = (file) => {
     if (!file || !filter) return;
     const r = new FileReader();
@@ -213,8 +216,8 @@ export function CardsView({ db, filter, setFilter }) {
   };
   const exportCsv = async () => {
     const name = db.mod(filter)?.name || "alle";
-    const res = await saveFile(`studyos-karten-${name.replace(/[^\wäöüÄÖÜß-]+/g, "-")}.csv`, cardsToCsv(pool, (id) => db.mod(id)?.name || ""), "text/csv;charset=utf-8");
-    if (res !== "aborted") setCsvMsg(`${pool.length} Karten exportiert.`);
+    const res = await saveFile(`studyos-karten-${name.replace(/[^\wäöüÄÖÜß-]+/g, "-")}.csv`, cardsToCsv(textCards, (id) => db.mod(id)?.name || ""), "text/csv;charset=utf-8");
+    if (res !== "aborted") setCsvMsg(`${textCards.length} Karten exportiert.`);
   };
   const due = pool.filter((c) => c.due <= t);
   const q = queue ? queue.filter((id) => data.cards.some((c) => c.id === id)) : null;
@@ -262,7 +265,10 @@ export function CardsView({ db, filter, setFilter }) {
             </Select>
           </>
         )}
-        <button className={btnGhost} onClick={() => db.openForm("card", { moduleId: filter }, true)}>+ Karte</button>
+        <div className="card-add">
+          <button className={btnGhost} onClick={() => db.openForm("card", { moduleId: filter }, true)}>+ Karte</button>
+          <button className={btnGhost} onClick={() => db.openForm("card", { moduleId: filter, occ: {} }, true)}>+ Bild-Karte</button>
+        </div>
       </div>
 
       {current ? (
@@ -272,7 +278,8 @@ export function CardsView({ db, filter, setFilter }) {
             <span className="font-num">{done} gelernt · {q.length} übrig</span>
           </div>
           <div className="min-h-[140px] rounded-xl bg-slate-950 p-4">
-            <Markdown text={hasCloze(current.front) ? renderCloze(current.front, revealed) : current.front} />
+            {isOcc(current) ? <><p className="mb-2 text-sm font-semibold">{current.front}</p><OcclusionImage db={db} card={current} revealed={revealed} /></>
+              : <Markdown text={hasCloze(current.front) ? renderCloze(current.front, revealed) : current.front} />}
             {revealed && current.back && <><hr className="my-3 border-slate-800" /><div className="text-sky-100"><Markdown text={current.back} /></div></>}
           </div>
           {!revealed ? (
@@ -302,13 +309,13 @@ export function CardsView({ db, filter, setFilter }) {
           <p className="text-xs text-slate-400">Spalten: Vorderseite; Rückseite; Tags. Trennzeichen Semikolon, Komma oder Tab. Aus Anki: „Notizen als Klartext“ exportieren.</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <label className={`${btnGhost} ${filter ? "cursor-pointer" : "pointer-events-none opacity-40"}`} aria-disabled={!filter}>CSV importieren<input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" className="sr-only" disabled={!filter} onChange={(e) => { importCsv(e.target.files[0]); e.target.value = ""; }} /></label>
-            <button className={btnGhost} disabled={!pool.length} onClick={exportCsv}>CSV exportieren ({pool.length})</button>
+            <button className={btnGhost} disabled={!textCards.length} onClick={exportCsv}>CSV exportieren ({textCards.length})</button>
           </div>
           {!filter && <p className="mt-2 text-[11px] text-slate-500">Zum Importieren oben ein Modul wählen.</p>}
           {csvMsg && <p role="status" className="mt-2 text-xs text-emerald-300">{csvMsg}</p>}
         </Card>
       )}
-      {!current && filter && pool.length > 0 && db.cloud?.available && <ShareDeck db={db} moduleId={filter} cards={pool} tag={tag} />}
+      {!current && filter && textCards.length > 0 && db.cloud?.available && <ShareDeck db={db} moduleId={filter} cards={textCards} tag={tag} />}
       {!current && <CardList cards={pool} db={db} />}
     </div>
   );

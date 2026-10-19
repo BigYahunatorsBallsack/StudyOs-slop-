@@ -4,6 +4,7 @@ import { dueInfo } from "../lib/data.js";
 import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";
 import { Chip, Empty } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
+import { isOcc, occLabel } from "../lib/occlusion.js";
 import { SwipeRow } from "./swipe.jsx";
 import { WatchProgress } from "./links.jsx";
 import { SubtaskChecklist } from "./subtasks.jsx";
@@ -135,7 +136,7 @@ export function CardList({ cards, db }) {
       {[...cards].sort((a, b) => a.due.localeCompare(b.due)).map((c) => { const m = db.mod(c.moduleId); return (
         <li key={c.id} className="row" style={{ "--mod": m?.color }}>
           <button onClick={() => db.openForm("card", c)} className="row-main flex items-start gap-3">
-            <p className="min-w-0 flex-1 truncate text-sm">{hasCloze(c.front) ? renderCloze(c.front, true).replace(/\*\*/g, "") : c.front}{c.tags ? <span className="ml-2 text-[11px] text-slate-500">{parseTags(c.tags).map((t) => "#" + t).join(" ")}</span> : null}</p>
+            <p className="min-w-0 flex-1 truncate text-sm">{isOcc(c) ? <><span className="occ-tag">Bild</span>{occLabel(c)}</> : hasCloze(c.front) ? renderCloze(c.front, true).replace(/\*\*/g, "") : c.front}{c.tags ? <span className="ml-2 text-[11px] text-slate-500">{parseTags(c.tags).map((t) => "#" + t).join(" ")}</span> : null}</p>
             <span className={`shrink-0 text-xs font-semibold ${c.due <= t ? "text-amber-300" : "text-slate-500"}`}>{c.due <= t ? "fällig" : fmtShort(c.due)}</span>
           </button>
         </li>

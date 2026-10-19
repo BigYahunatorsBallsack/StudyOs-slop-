@@ -944,6 +944,73 @@ test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, 
   expect(await box.evaluate((el) => getComputedStyle(el).appearance)).toBe('none');
 });
 
+/* Testbild aus dem Browser (PNG, 400 × 300) */
+const testImage = async (page) => Buffer.from((await page.evaluate(() => {
+  const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 400, 300); x.fillStyle = '#05d9e8'; x.fillRect(40, 40, 120, 60); x.fillRect(240, 180, 120, 60);
+  return c.toDataURL('image/png');
+})).split(',')[1], 'base64');
+async function drawBox(page, stage, x0, y0, x1, y1) {
+  const r = await stage.boundingBox();
+  await page.mouse.move(r.x + r.width * x0, r.y + r.height * y0);
+  await page.mouse.down();
+  await page.mouse.move(r.x + r.width * ((x0 + x1) / 2), r.y + r.height * ((y0 + y1) / 2));
+  await page.mouse.move(r.x + r.width * x1, r.y + r.height * y1);
+  await page.mouse.up();
+}
+
+test('Bild-Karte: Rechtecke ziehen, verdeckt lernen, bearbeiten und löschen', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Lernen').click();
+  await page.getByRole('tab', { name: 'Karteikarten' }).click();
+  await page.getByRole('button', { name: '+ Bild-Karte' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Bild-Karte anlegen' });
+  await dlg.getByLabel('Bild wählen').setInputFiles({ name: 'osi_modell.png', mimeType: 'image/png', buffer: await testImage(page) });
+  await expect(dlg.getByLabel('Frage')).toHaveValue('osi modell');
+  const stage = dlg.locator('.occ-stage');
+  await drawBox(page, stage, 0.1, 0.13, 0.4, 0.33);
+  await drawBox(page, stage, 0.6, 0.6, 0.9, 0.8);
+  await drawBox(page, stage, 0.5, 0.5, 0.505, 0.505); /* nur angetippt: kein Bereich */
+  await expect(dlg.getByText('2 Bereiche')).toBeVisible();
+  await dlg.getByLabel('Tags').fill('bildtest');
+  await dlg.getByRole('button', { name: 'Speichern (2 Karten)' }).click();
+  await expect(page.getByText('2 Karten aus dem Bild angelegt.')).toBeVisible();
+  const cards = async () => (await stored(page)).cards.filter((c) => c.occ);
+  await expect.poll(async () => (await cards()).length).toBe(2);
+  const [c1] = await cards();
+  expect(c1.occ.boxes[0]).toMatchObject({ x: expect.closeTo(0.1, 1), y: expect.closeTo(0.13, 1) });
+  expect(await page.evaluate((id) => window.indexedDB && new Promise((res) => { const r = indexedDB.open('studyos-files-v1', 1); r.onsuccess = () => { const g = r.result.transaction('files').objectStore('files').get(id); g.onsuccess = () => res(!!g.result); }; }), c1.occ.img.id)).toBe(true);
+
+  // Lernen: alle Bereiche verdeckt, der gesuchte mit „?“; nach dem Aufdecken offen
+  await choose(page.getByLabel('Tag filtern'), 'bildtest');
+  await page.getByRole('button', { name: 'Lernen starten' }).click();
+  await expect(page.locator('.occ-img')).toBeVisible();
+  await expect(page.locator('.occ-box')).toHaveCount(2);
+  await expect(page.locator('.occ-box.is-target')).toHaveText('?');
+  await page.getByRole('button', { name: /Antwort zeigen/ }).click();
+  await expect(page.locator('.occ-box.is-open')).toHaveCount(1);
+  await page.getByRole('button', { name: /^Gut/ }).click();
+  await expect(page.locator('.occ-box.is-target')).toHaveText('?');
+  await page.getByRole('button', { name: /Antwort zeigen/ }).click();
+  await page.getByRole('button', { name: /^Leicht/ }).click();
+  await expect(page.getByText('Sitzung abgeschlossen: 2 Karten gelernt.')).toBeVisible();
+
+  // Bearbeiten: einen Bereich entfernen, nur den gesuchten verdecken
+  await page.getByRole('button', { name: /osi modell · Bereich 1 von 2/ }).click();
+  const edit = page.getByRole('dialog', { name: 'Bild-Karte bearbeiten' });
+  await edit.getByRole('button', { name: 'Bereich 2', exact: true }).focus();
+  await page.keyboard.press('Delete');
+  await edit.getByRole('tab', { name: 'Nur den gesuchten' }).click();
+  await edit.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await cards()).map((c) => [c.occ.boxes.length, c.occ.mode, c.reps])).toEqual([[1, 'one', 1]]);
+
+  // Löschen entfernt die Karte
+  await page.getByRole('button', { name: /osi modell · Bereich 1 von 1/ }).click();
+  await page.getByRole('dialog', { name: 'Bild-Karte bearbeiten' }).getByRole('button', { name: 'Löschen' }).click();
+  await page.getByRole('button', { name: 'Wirklich löschen?' }).click();
+  await expect.poll(async () => (await cards()).length).toBe(0);
+});
+
 test('Timer: Lernnotiz nach der Fokusphase, Lerntagebuch und ECTS-Soll im Modul', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-10-20T10:00:00') });
   await page.goto('./');

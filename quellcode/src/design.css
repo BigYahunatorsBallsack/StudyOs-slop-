@@ -403,6 +403,23 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .attachment { display: flex; align-items: center; gap: .65rem; }
 .attachment-thumb { width: 2.5rem; height: 2.5rem; border-radius: .5rem; object-fit: cover; flex-shrink: 0; }
 .attachment-icon { width: 2.5rem; height: 2.5rem; border-radius: .5rem; flex-shrink: 0; display: grid; place-items: center; font-size: .6rem; font-weight: 800; letter-spacing: .04em; background: var(--surface-2); color: var(--muted); }
+/* ---- Bild-Karteikarten mit Verdecken ---- */
+.occ-stage { position: relative; width: 100%; margin: 0 auto; background: var(--surface-2); border-radius: .5rem; overflow: hidden; user-select: none; -webkit-user-select: none; }
+.occ-edit { touch-action: none; cursor: crosshair; }
+.occ-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.occ-missing { position: absolute; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; font-size: .8125rem; color: var(--muted); }
+.occ-box { position: absolute; display: grid; place-items: center; background: var(--surface-3); border: 2px solid var(--line-strong); border-radius: 4px; color: var(--text); font-weight: 700; font-size: .875rem; line-height: 1; }
+.occ-box.is-target { background: var(--accent); border-color: var(--accent-strong); color: var(--on-accent); }
+.occ-box.is-open { background: transparent; border: 2px dashed var(--ok); }
+.occ-box.is-draft { background: color-mix(in srgb, var(--accent) 30%, transparent); border: 2px dashed var(--accent); }
+.occ-handle { cursor: move; opacity: .88; }
+.occ-handle.is-target { opacity: .92; }
+.occ-del { position: absolute; transform: translate(-50%, -50%); width: 1.75rem; height: 1.75rem; display: grid; place-items: center; border-radius: 999px; background: var(--danger); color: var(--bg); font-size: .75rem; font-weight: 800; z-index: 1; }
+/* Filter oben, die zwei Anlegen-Knöpfe auf dem Handy in einer eigenen Zeile */
+.card-add { display: flex; gap: .5rem; flex: 1 0 100%; }
+.card-add > .btn { flex: 1; }
+@media (min-width: 640px) { .card-add { flex: 0 0 auto; } .card-add > .btn { flex: none; } }
+.occ-tag { display: inline-block; margin-right: .4rem; padding: 0 .35rem; border-radius: .3rem; background: var(--surface-3); color: var(--muted); font-size: .625rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px; }
 .commute-steps { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .15rem; font-size: .85rem; }
 .commute-steps b { display: inline-block; min-width: 2.9rem; }
 .commute-leg { border-left: 3px solid var(--line-strong); padding-left: .85rem; }

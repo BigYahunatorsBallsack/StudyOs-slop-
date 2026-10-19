@@ -43,6 +43,7 @@ const More = named(() => import("./views/More.jsx"), "More");
 const NoteViewer = named(() => import("./views/Search.jsx"), "NoteViewer");
 const SearchModal = named(() => import("./views/Search.jsx"), "SearchModal");
 const ShareImport = named(() => import("./views/Share.jsx"), "ShareImport");
+const OcclusionEditor = named(() => import("./ui/Occlusion.jsx"), "OcclusionEditor");
 const Loading = () => <p className="py-3 text-center text-sm text-slate-500" role="status">Lädt …</p>;
 
 import { mergeModules } from "./lib/modules.js";
@@ -276,7 +277,7 @@ export default function App() {
     { label: "Ansehen", run: () => { setMoreTab("erfolge"); setTab("mehr"); } }, 8000) });
 
   const db = {
-    data, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
+    data, getData: () => dataRef.current, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
     toggleSession: (id, key) => patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] })),
     toggleSubtask: (id, sid) => {
       const h = dataRef.current.homework.find((x) => x.id === id);
@@ -447,7 +448,8 @@ export default function App() {
       </Suspense>
       {focusLog && !form && <FocusNote key={focusLog.id} log={focusLog} db={db} onClose={() => setFocusNoteId(null)}
         onDetails={(l) => { setFocusNoteId(null); openForm("log", l); }} onDiscard={() => { setFocusNoteId(null); removeEntity("log", focusLog.id); }} />}
-      {form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
+      {form?.kind === "card" && form.initial?.occ ? <Suspense fallback={null}><OcclusionEditor key={form.initial.id || "new"} db={db} initial={form.initial} onClose={() => setForm(null)} /></Suspense>
+        : form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
     </div>
   );
 }
