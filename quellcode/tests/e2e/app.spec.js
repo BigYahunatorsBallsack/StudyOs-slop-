@@ -977,7 +977,8 @@ test('Bild-Karte: Rechtecke ziehen, verdeckt lernen, bearbeiten und löschen', a
   await dlg.getByLabel('Tags').fill('bildtest');
   await dlg.getByRole('button', { name: 'Speichern (2 Karten)' }).click();
   await expect(page.getByText('2 Karten aus dem Bild angelegt.')).toBeVisible();
-  const cards = async () => (await stored(page)).cards.filter((c) => c.occ);
+  // gespeichert wird verzögert: bis dahin liefert load() noch null
+  const cards = async () => (await stored(page))?.cards?.filter((c) => c.occ) ?? [];
   await expect.poll(async () => (await cards()).length).toBe(2);
   const [c1] = await cards();
   expect(c1.occ.boxes[0]).toMatchObject({ x: expect.closeTo(0.1, 1), y: expect.closeTo(0.13, 1) });
