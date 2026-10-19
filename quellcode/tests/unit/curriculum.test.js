@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CURRICULA, applySemester, curriculumOf, gopCodes, previewSemester } from "../../src/lib/curriculum.js";
+import { CURRICULA, applySemester, curriculumOf, gopCodes, previewSemester, setupFromPlan } from "../../src/lib/curriculum.js";
 import { emptyData, migrate } from "../../src/lib/data.js";
 import { gopStatus } from "../../src/lib/tum.js";
 import { LEGACY_COMMUTE, commuteOf } from "../../src/lib/transit.js";
@@ -64,5 +64,21 @@ describe("Voreinstellungen", () => {
     expect(commuteOf(own)).toMatchObject({ line: "U6", feeder: null, station: { name: "Haar" }, car: { from: "Zorneding" } });
     expect(migrate({ modules: [], settings: { commute: null } }).settings.commute).toBe(null);
     expect(migrate(migrate(old)).settings).toEqual(s);
+  });
+});
+
+describe("Einrichtung beim ersten Start", () => {
+  const empty = { modules: [], settings: {} };
+  const plan = CURRICULA[0];
+  it("legt nur das laufende Semester als belegt an", () => {
+    const { data, added } = setupFromPlan(empty, plan, 2);
+    expect(added).toBe(plan.semesters[1].length);
+    expect(data.modules.every((m) => m.semester === 2 && m.status === "belegt")).toBe(true);
+    expect(data.settings).toMatchObject({ curriculum: plan.id, program: plan.program });
+  });
+  it("auf Wunsch auch frühere Semester als bestanden", () => {
+    const { data, added } = setupFromPlan(empty, plan, 2, true);
+    expect(added).toBe(plan.semesters[0].length + plan.semesters[1].length);
+    expect(data.modules.filter((m) => m.semester === 1).every((m) => m.status === "bestanden")).toBe(true);
   });
 });

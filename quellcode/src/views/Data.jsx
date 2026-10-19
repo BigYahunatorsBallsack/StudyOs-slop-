@@ -5,7 +5,7 @@ import { ENV } from "../lib/env.js";
 import { buildICS, guessType, parseICS } from "../lib/ics.js";
 import { iso, saveFile, uid } from "../lib/util.js";
 import { Card, ConfirmButton, Tabs } from "../ui/primitives.jsx";
-import { retroMotionOf } from "../app/useTheme.js";
+import { RETRO_PALETTES, UI_SIZES, retroMotionOf, retroPaletteOf, useUiSize } from "../app/useTheme.js";
 import { btnGhost, btnPrimary, inputBase, inputCls, inputFlex } from "../ui/styles.js";
 import { decryptBackup, encryptBackup, isEncryptedBackup } from "../lib/crypto.js";
 import { CloudCard } from "./Cloud.jsx";
@@ -17,6 +17,7 @@ import { Select } from "../ui/select.jsx";
 
 export function DataView({ db }) {
   const { data } = db;
+  const [uiSize, setUiSize] = useUiSize();
   const [msg, setMsg] = useState("");
   const [showJson, setShowJson] = useState(false);
   const [pasted, setPasted] = useState("");
@@ -226,6 +227,16 @@ export function DataView({ db }) {
               <option value="none">Keiner</option>
               {CURRICULA.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
+          </div>
+          <div className="col-span-2">
+            <span className="mb-1 block text-xs text-slate-400">Farbpalette</span>
+            <Tabs items={RETRO_PALETTES.map(([k, l]) => [k, l])} value={retroPaletteOf(data.settings.retroPalette)} onChange={(v) => db.patchSettings({ retroPalette: v })} label="Farbpalette" />
+            <p className="mt-1.5 text-xs text-slate-400">{{ synthwave: "Neon-Pink und Cyan über einer Stadt bei Nacht.", gameboy: "Vier Grüntöne wie auf dem Game Boy von 1989.", amber: "Bernstein auf Schwarz wie ein altes Terminal.", cga: "Magenta, Cyan und Gelb auf Schwarz wie frühe PC-Spiele." }[retroPaletteOf(data.settings.retroPalette)]} Pixel-Grafiken färben sich mit; die Modulfarben bleiben, wie du sie gewählt hast.</p>
+          </div>
+          <div className="col-span-2">
+            <span className="mb-1 block text-xs text-slate-400">Schriftgröße</span>
+            <Tabs items={UI_SIZES} value={uiSize} onChange={setUiSize} label="Schriftgröße" />
+            <p className="mt-1.5 text-xs text-slate-400">{{ compact: "Kleiner und dichter: mehr passt auf den Bildschirm.", normal: "Die Standardgröße.", large: "Größere Schrift und Knöpfe, angenehmer auf kleinen Handys." }[uiSize]} Gilt nur für dieses Gerät.</p>
           </div>
           <div className="col-span-2">
             <span className="mb-1 block text-xs text-slate-400">Animationen</span>

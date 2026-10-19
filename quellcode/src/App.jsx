@@ -50,7 +50,7 @@ import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries, toggleAttended, watchLog } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
-import { applySemester } from "./lib/curriculum.js";
+import { applySemester, setupFromPlan } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
 
@@ -80,7 +80,7 @@ export default function App() {
   const closeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
 
   /* Farbschema: dunkel, hell, retro oder wie das System */
-  useTheme(data.settings.retroMotion);
+  useTheme(data.settings.retroMotion, data.settings.retroPalette);
 
   /* Übrige Bereiche vorladen, sobald der Browser Luft hat */
   useEffect(() => {
@@ -305,6 +305,11 @@ export default function App() {
     applyCurriculum: (plan, sem, status) => {
       const res = applySemester(dataRef.current, plan, sem, status);
       withUndo(`Semester ${sem}: ${res.added} ${res.added === 1 ? "Modul" : "Module"} angelegt${res.updated ? `, ${res.updated} ergänzt` : ""}.`, () => res.data);
+    },
+    setupStudy: (plan, current, withPast, name) => {
+      const res = setupFromPlan(dataRef.current, plan, current, withPast);
+      const next = name ? { ...res.data, settings: { ...res.data.settings, name } } : res.data;
+      withUndo(`Eingerichtet: ${res.added} ${res.added === 1 ? "Modul" : "Module"} angelegt.`, () => next);
     },
     archiveSemester: (sem, on) => withUndo(on ? `Semester ${sem} archiviert.` : `Semester ${sem} zurückgeholt.`, (d) => ({ ...d, modules: d.modules.map((m) => ((m.semester || 0) === sem ? { ...m, archived: on } : m)) })),
     mergeModules: (targetId, sourceIds) => {

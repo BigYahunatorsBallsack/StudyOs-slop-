@@ -60,7 +60,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
   return (
     <Modal title={`${def.title} ${form.isNew ? "anlegen" : "bearbeiten"}`} onClose={onClose}>
       {needsModule ? (
-        <Empty>Lege zuerst ein Modul an. Danach kannst du Termine, Hausaufgaben, Themen und Karten zuordnen.</Empty>
+        <Empty art="book">Lege zuerst ein Modul an. Danach kannst du Termine, Hausaufgaben, Themen und Karten zuordnen.</Empty>
       ) : (
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-2 gap-3">

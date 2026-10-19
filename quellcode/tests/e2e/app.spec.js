@@ -367,6 +367,15 @@ test('Wochenraster auf dem Handy: Antippen öffnet die Karte statt des Formulars
   await page.locator('.ev.ev-review, .ev').first().tap();
   await expect(page.locator('.popover')).toBeVisible();
   await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toHaveCount(0);
+  // Die drei Schalter passen in die schmale Karte, auch angehakt, und haben je eine eigene Farbe
+  for (const name of ['Vorbereitet', 'Besucht', 'Nachbereitet']) {
+    const b = page.locator('.popover').getByRole('button', { name });
+    if ((await b.getAttribute('aria-pressed')) !== 'true') await b.click();
+    await expect(b).toHaveAttribute('aria-pressed', 'true');
+  }
+  const tri = await page.locator('.popover .tri-btn').evaluateAll((els) => els.map((el) => ({ fits: el.scrollWidth <= el.clientWidth, bg: getComputedStyle(el).backgroundColor })));
+  expect(tri.every((b) => b.fits)).toBe(true);
+  expect(new Set(tri.map((b) => b.bg)).size).toBe(3);
   await page.locator('.popover').getByRole('button', { name: 'Details' }).click();
   await expect(page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ })).toBeVisible();
 });
@@ -946,6 +955,28 @@ test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, 
   expect(await box.evaluate((el) => getComputedStyle(el).appearance)).toBe('none');
 });
 
+test('Farbpalette und Schriftgröße: wählen, bleibt nach Neuladen, Normal setzt zurück', async ({ page }) => {
+  await page.goto('./');
+  await openData(page);
+  const html = page.locator('html');
+  await page.getByRole('tablist', { name: 'Farbpalette' }).getByRole('tab', { name: 'Gameboy' }).click();
+  await expect(html).toHaveAttribute('data-palette', 'gameboy');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0b2a0b');
+  await expect.poll(async () => (await stored(page))?.settings?.retroPalette).toBe('gameboy');
+  await page.getByRole('tablist', { name: 'Schriftgröße' }).getByRole('tab', { name: 'Groß' }).click();
+  await expect(html).toHaveAttribute('data-size', 'large');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('18px');
+  await page.reload();
+  await expect(html).toHaveAttribute('data-palette', 'gameboy');
+  await expect(html).toHaveAttribute('data-size', 'large');
+  await openData(page);
+  await page.getByRole('tablist', { name: 'Farbpalette' }).getByRole('tab', { name: 'Synthwave' }).click();
+  await page.getByRole('tablist', { name: 'Schriftgröße' }).getByRole('tab', { name: 'Normal' }).click();
+  await expect(html).not.toHaveAttribute('data-palette', /./);
+  await expect(html).not.toHaveAttribute('data-size', /./);
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0221');
+});
+
 /* Testbild aus dem Browser (PNG, 400 × 300) */
 const testImage = async (page) => Buffer.from((await page.evaluate(() => {
   const c = document.createElement('canvas'); c.width = 400; c.height = 300;
@@ -1056,6 +1087,62 @@ test('Timer: „Nicht eintragen“ verwirft die Fokusphase', async ({ page }) =>
   await page.getByRole('dialog', { name: 'Fokusphase geschafft' }).getByRole('button', { name: 'Nicht eintragen' }).click();
   await expect.poll(async () => (await stored(page)).logs.length).toBe(0);
   await expect(page.getByText('Eintrag gelöscht.')).toBeVisible();
+});
+
+test('Heute anpassen: Bereich ausblenden, verschieben (Pfeil und Ziehen), Standard wiederherstellen', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await expect(page.locator('.group-plan')).toBeVisible();
+  await page.getByRole('button', { name: 'Heute anpassen' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Heute anpassen' });
+  await dlg.getByRole('checkbox', { name: 'Tagesplan' }).uncheck();
+  await expect(page.locator('.group-plan')).toHaveCount(0);
+  // „Zu erledigen“ mit dem Pfeil eins nach oben, dann „Prüfungen“ ganz nach oben ziehen
+  const before = await dlg.locator('.customize-row').allInnerTexts();
+  const todoIdx = before.findIndex((t) => t.includes('Zu erledigen'));
+  await dlg.getByRole('button', { name: 'Zu erledigen nach oben' }).click();
+  await expect(dlg.locator('.customize-row').nth(todoIdx - 1)).toContainText('Zu erledigen');
+  const grip = await dlg.getByRole('button', { name: 'Prüfungen ziehen' }).boundingBox();
+  const top = await dlg.locator('.customize-row').first().boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2, top.y + 4, { steps: 8 });
+  await page.mouse.up();
+  await expect(dlg.locator('.customize-row').first()).toContainText('Prüfungen');
+  await expect.poll(async () => (await stored(page))?.settings?.todayOrder?.[0]).toBe('exams');
+  await expect.poll(async () => (await stored(page))?.settings?.todayHidden).toEqual(['plan']);
+  await page.keyboard.press('Escape');
+  // Prüfungen stehen jetzt vor „Als Nächstes“
+  const order = await page.locator('section.hero, .group-exams').evaluateAll((els) => els.map((e) => (e.classList.contains('hero') ? 'next' : 'exams')));
+  expect(order[0]).toBe('exams');
+  await page.getByRole('button', { name: 'Heute anpassen' }).click();
+  await dlg.getByRole('button', { name: 'Standard wiederherstellen' }).click();
+  await expect(dlg.locator('.customize-row').first()).toContainText('Als Nächstes');
+  await expect(page.locator('.group-plan')).toBeVisible();
+});
+
+test('Einrichtung beim ersten Start: Studiengang und Semester wählen, Module werden angelegt', async ({ page }) => {
+  await page.goto('./');
+  const setup = page.getByRole('region', { name: 'Einrichtung' });
+  await expect(setup).toBeVisible();
+  await setup.getByLabel('Dein Vorname (optional)').fill('Walter');
+  await choose(setup.getByLabel('Aktuelles Semester'), '2');
+  await expect(setup.getByText('Grundlagen: Algorithmen und Datenstrukturen')).toBeVisible();
+  await setup.getByLabel('Frühere Semester als bestanden eintragen').check();
+  await setup.getByRole('button', { name: 'Module anlegen' }).click();
+  await expect(setup).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Heute anpassen' })).toBeVisible();
+  await expect.poll(async () => (await stored(page))?.modules?.length).toBeGreaterThan(5);
+  const d = await stored(page);
+  expect(d.settings).toMatchObject({ name: 'Walter', curriculum: 'tum-bsc-informatik-2026' });
+  expect(d.modules.filter((m) => m.semester === 2).every((m) => m.status === 'belegt')).toBe(true);
+  expect(d.modules.filter((m) => m.semester === 1).every((m) => m.status === 'bestanden')).toBe(true);
+});
+
+test('Einrichtung: „Anderer Studiengang“ zeigt die Schritte zum Selbst-Anlegen', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Anderer Studiengang' }).click();
+  await expect(page.getByRole('button', { name: 'Erstes Modul anlegen' })).toBeVisible();
 });
 
 test('Tab-Zeilen brechen am PC um, statt rechts abgeschnitten zu werden', async ({ page }) => {

@@ -17,6 +17,9 @@ import { WhatNowDialog } from "./WhatNow.jsx";
 import { withoutArchived } from "../lib/study.js";
 import { moduleGoals, weekCard } from "../lib/progress.js";
 import { burst } from "../ui/pixel.jsx";
+import { todayLayout } from "../lib/todayLayout.js";
+import { CustomizeToday } from "../ui/CustomizeToday.jsx";
+import { Setup } from "../ui/Setup.jsx";
 import { SubtaskProgress } from "../ui/subtasks.jsx";
 import { subProgress } from "../lib/subtasks.js";
 
@@ -27,6 +30,8 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const openCount = data.modules.length ? todoItems(data, t).length : 0;
   const prevOpen = useRef(openCount);
   const [cleared, setCleared] = useState(0);
+  const [customize, setCustomize] = useState(false);
+  const [manual, setManual] = useState(false);
   useEffect(() => { if (prevOpen.current > 0 && openCount === 0) setCleared((n) => n + 1); prevOpen.current = openCount; }, [openCount]);
 
   if (!data.modules.length) {
@@ -34,9 +39,10 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       <div className="space-y-4">
         <div>
           <h2 className="page-title">Willkommen{data.settings.name ? `, ${data.settings.name}` : ""}</h2>
-          <p className="page-sub">In fünf Schritten ist dein Semester eingerichtet.</p>
+          <p className="page-sub">{manual ? "In fünf Schritten ist dein Semester eingerichtet." : "Wähle Studiengang und Semester, die Module kommen aus dem Studienplan."}</p>
         </div>
-        <Card>
+        {!manual && <Setup db={db} onManual={() => setManual(true)} />}
+        {manual && <Card>
           <ol className="list-decimal space-y-1.5 pl-5 text-sm text-slate-300">
             <li>Module des Semesters anlegen (Name, ECTS, Status)</li>
             <li>Vorlesungen und Übungen als wöchentliche Serie eintragen, oder den TUMonline-Kalender abonnieren</li>
@@ -48,7 +54,8 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
             <button className={btnPrimary} onClick={() => db.openForm("module", null, true)}>Erstes Modul anlegen</button>
             <button className={btnGhost} onClick={() => db.goMore("daten")}>Sicherung importieren oder Beispiel ansehen</button>
           </div>
-        </Card>
+        </Card>}
+        {!manual && <p className="text-center text-sm"><button className="link-btn" onClick={() => db.goMore("daten")}>Sicherung importieren oder Beispiel ansehen</button></p>}
       </div>
     );
   }
@@ -74,15 +81,10 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const week = weekCard(data, t);
   const longDate = new Date(t + "T00:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long" });
 
-  return (
-    <div>
-      <div className="mb-4">
-        <h2 className="page-title">{WD_LONG[wdIdx(t)]}</h2>
-        <p className="page-sub">{longDate}, Woche {isoWeek(t)}</p>
-      </div>
-
-      <NextUp db={db} openReviews={openReviews} cardsDue={cardsDue} />
-
+  /* Bereiche der Seite; Reihenfolge und Sichtbarkeit wählt man unter „Heute anpassen“ */
+  const blocks = {
+    next: <NextUp db={db} openReviews={openReviews} cardsDue={cardsDue} />,
+    quick: (
       <div className="mt-3 flex gap-2">
         <button className="quick min-w-0 flex-1" onClick={onQuick}>
           <span>Was steht an?<span className="sr-only"> Schnelleingabe öffnen</span></span>
@@ -90,35 +92,32 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
         </button>
         <button className="whatnow" onClick={() => setNowOpen(true)}>Was jetzt?</button>
       </div>
-      {nowOpen && <WhatNowDialog db={db} onClose={() => setNowOpen(false)} />}
-
+    ),
+    minis: <>
       <div className="minis mt-3" aria-label="Lernzeit">
         <span><b>{fmtMin(minToday)}</b> heute</span>
         <span><b>{fmtMin(minWeek)}</b>{goalMin ? ` von ${fmtMin(goalMin)}` : ""} diese Woche</span>
         <span className="streak" data-tier={streak >= 30 ? 4 : streak >= 7 ? 3 : streak >= 3 ? 2 : streak >= 1 ? 1 : 0}><b>{streak}</b> {streak === 1 ? "Tag" : "Tage"} Serie</span>
       </div>
       {goalMin > 0 && <Bar value={minWeek} max={goalMin} label="Wochenziel Lernzeit" className="mt-2" />}
-
-      {notice && <div className="mt-4">{notice}</div>}
-
-      {week && <WeekCard db={db} w={week} />}
-
-      {goals.length > 0 && (
-        <Group id="ziele" title="Wochenziele" count={`${goals.filter((g) => g.done).length}/${goals.length}`}>
-          <ul className="goals">
-            {goals.map(({ m, minutes, goalMin, done }) => (
-              <li key={m.id} className={done ? "goal-done" : ""} style={{ "--mod": m.color }}>
-                <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
-                  <span className="truncate">{m.name}</span>
-                  <span className="font-num shrink-0 text-xs text-slate-400">{done && <span className="px-icon px-star goal-star" aria-hidden="true" />}{fmtMin(minutes)} von {fmtMin(goalMin)}{done ? <span className="sr-only">, erreicht</span> : ""}</span>
-                </div>
-                <Bar value={Math.min(minutes, goalMin)} max={goalMin} color={m.color} label={`Wochenziel ${m.name}`} />
-              </li>
-            ))}
-          </ul>
-        </Group>
-      )}
-
+    </>,
+    week: week && <WeekCard db={db} w={week} />,
+    ziele: goals.length > 0 && (
+      <Group id="ziele" title="Wochenziele" count={`${goals.filter((g) => g.done).length}/${goals.length}`}>
+        <ul className="goals">
+          {goals.map(({ m, minutes, goalMin, done }) => (
+            <li key={m.id} className={done ? "goal-done" : ""} style={{ "--mod": m.color }}>
+              <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+                <span className="truncate">{m.name}</span>
+                <span className="font-num shrink-0 text-xs text-slate-400">{done && <span className="px-icon px-star goal-star" aria-hidden="true" />}{fmtMin(minutes)} von {fmtMin(goalMin)}{done ? <span className="sr-only">, erreicht</span> : ""}</span>
+              </div>
+              <Bar value={Math.min(minutes, goalMin)} max={goalMin} color={m.color} label={`Wochenziel ${m.name}`} />
+            </li>
+          ))}
+        </ul>
+      </Group>
+    ),
+    plan: (
       <Group id="plan" title="Tagesplan" count={plan.length || undefined}>
         {plan.length ? (
           <ol className="timeline">
@@ -128,26 +127,43 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
           <p className="text-sm text-slate-400">Heute keine Lehrveranstaltungen.{nextDay ? ` Als nächstes: ${db.mod(nextDay.moduleId)?.name || nextDay.type}, ${fmtShort(nextDay.date)} um ${nextDay.start}.` : ""}</p>
         )}
       </Group>
-
+    ),
+    todo: (
       <Group id="todo" title="Zu erledigen" count={todo.length}>
         {todo.length ? <TodoList db={db} items={todo} /> : <AllDone key={cleared} shot={cleared > 0} />}
       </Group>
+    ),
+    exams: exams.length > 0 && (
+      <Group id="exams" title="Prüfungen" action={<button className="link-btn" onClick={() => db.goLearn("pruefungen")}>Lernplan</button>}>
+        <div className="exam-chips">
+          {exams.map(({ e, date, retake }) => { const m = db.mod(e.moduleId), n = diffDays(t, date); return (
+            <button key={e.id + retake} className="exam-chip" style={{ "--mod": m?.color }} onClick={() => db.goLearn("pruefungen")}>
+              <span className="exam-chip-days">{n === 0 ? "heute" : n === 1 ? "morgen" : `${n} Tage`}</span>
+              <span className="exam-chip-name">{retake ? "Wiederholung: " : ""}{m?.name || "Prüfung"}</span>
+            </button>
+          ); })}
+        </div>
+      </Group>
+    ),
+    commute: commuteOf(db.data.settings) && db.cloud?.available && <Group id="commute" title="Weg zur Uni" className="group-card"><CommuteCard db={db} sessions={data.sessions} /></Group>,
+    mensa: mensaOf(db.data.settings) && <Group id="mensa" title="Mensa" className="group-card"><MensaCard canteen={mensaOf(db.data.settings)} /></Group>,
+  };
 
-      {exams.length > 0 && (
-        <Group id="exams" title="Prüfungen" action={<button className="link-btn" onClick={() => db.goLearn("pruefungen")}>Lernplan</button>}>
-          <div className="exam-chips">
-            {exams.map(({ e, date, retake }) => { const m = db.mod(e.moduleId), n = diffDays(t, date); return (
-              <button key={e.id + retake} className="exam-chip" style={{ "--mod": m?.color }} onClick={() => db.goLearn("pruefungen")}>
-                <span className="exam-chip-days">{n === 0 ? "heute" : n === 1 ? "morgen" : `${n} Tage`}</span>
-                <span className="exam-chip-name">{retake ? "Wiederholung: " : ""}{m?.name || "Prüfung"}</span>
-              </button>
-            ); })}
-          </div>
-        </Group>
-      )}
-      {/* Karten mit eigener Überschrift: die Überschrift übernimmt hier der Abschnitt (zum Einklappen), die der Karte blendet design.css aus */}
-      {commuteOf(db.data.settings) && db.cloud?.available && <Group id="commute" title="Weg zur Uni" className="group-card"><CommuteCard db={db} sessions={data.sessions} /></Group>}
-      {mensaOf(db.data.settings) && <Group id="mensa" title="Mensa" className="group-card"><MensaCard canteen={mensaOf(db.data.settings)} /></Group>}
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="page-title">{WD_LONG[wdIdx(t)]}</h2>
+        <p className="page-sub">{longDate}, Woche {isoWeek(t)}</p>
+      </div>
+
+      {notice && <div className="mb-3">{notice}</div>}
+      {todayLayout(data.settings).filter((b) => !b.hidden).map((b) => <React.Fragment key={b.id}>{blocks[b.id]}</React.Fragment>)}
+
+      <div className="mt-6 text-center">
+        <button className="link-btn" onClick={() => setCustomize(true)}>Heute anpassen</button>
+      </div>
+      {customize && <CustomizeToday db={db} onClose={() => setCustomize(false)} />}
+      {nowOpen && <WhatNowDialog db={db} onClose={() => setNowOpen(false)} />}
     </div>
   );
 }
