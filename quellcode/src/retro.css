@@ -235,7 +235,10 @@
 :root[data-theme="retro"] .mensa-dish { align-items: center; }
 
 /* Sternenhimmel hinter allem (die Skyline liegt davor) */
-:root[data-theme="retro"] { background: var(--px-stars) 0 0 / 200px 200px repeat fixed, var(--bg); }
+/* Als eigene feste Ebene statt background-attachment: fixed. Ein fester Seitenhintergrund zwingt den Browser, bei jedem
+   Scroll-Bild die ganze Seite neu zu malen (ruckelt besonders bei 90/120 Hz); die Ebene schiebt nur die Grafikkarte. */
+:root[data-theme="retro"] { background: var(--bg); }
+:root[data-theme="retro"]::before { content: ""; position: fixed; inset: 0; z-index: -3; pointer-events: none; background: var(--px-stars) 0 0 / 200px 200px repeat; }
 
 /* Abschnittstitel mit Pixel-Pfeil; Weg zur Uni und Mensa mit eigenem Symbol */
 :root[data-theme="retro"] .section-title::before { content: ""; display: inline-block; width: 8px; height: 14px; margin-right: .55em; vertical-align: -1px; background: var(--px-arrow) center / 8px 14px no-repeat; image-rendering: pixelated; }

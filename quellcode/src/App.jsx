@@ -22,8 +22,19 @@ import { useAmbient } from "./ui/ambient.js";
 import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 
-/* Seltener genutzte Bereiche als eigene Dateien: werden beim ersten Öffnen geladen (offline über den Service Worker) */
-const named = (load, name) => lazy(() => load().then((m) => ({ default: m[name] })));
+/* Seltener genutzte Bereiche als eigene Dateien (offline über den Service Worker).
+   Nach dem Start werden sie im Leerlauf vorgeladen, damit der erste Wechsel nicht auf „Lädt …“ wartet: React zeigt einen
+   Platzhalter sonst mindestens 300 ms lang. Ist das Modul schon da, wird die Komponente direkt gerendert, ohne lazy(). */
+const preloads = [];
+const named = (load, name) => {
+  let Comp = null, promise = null;
+  const preload = () => (promise ||= load().then((m) => { Comp = m[name]; return m; }, (e) => { promise = null; throw e; }));
+  const Lazy = lazy(() => preload().then((m) => ({ default: m[name] })));
+  preloads.push(preload);
+  /* pro Instanz einmal festlegen, damit ein Wechsel von Lazy auf Comp den Inhalt nicht neu aufbaut */
+  return function Named(props) { const [C] = useState(() => Comp || Lazy); return <C {...props} />; };
+};
+const preloadViews = () => preloads.forEach((p) => p().catch(() => {}));
 const Learn = named(() => import("./views/Learn.jsx"), "Learn");
 const ModuleDetail = named(() => import("./views/Modules.jsx"), "ModuleDetail");
 const ModuleList = named(() => import("./views/Modules.jsx"), "ModuleList");
@@ -44,6 +55,8 @@ import { sharedNote, takeShared } from "./lib/shared.js";
 export default function App() {
   const { data, setData, dataRef, ready, loadError, saveState, saveNow, updateReady, installReady, setInstallReady } = usePersistence();
   const [tab, setTab] = useState("heute");
+  /* Bereich wechseln: sofort nach oben springen (nicht weich scrollen, das wirkt wie Laden) */
+  const goTab = (k) => { setTab(k); if (k === "module") setModuleId(null); window.scrollTo && window.scrollTo({ top: 0, behavior: "instant" }); };
   const [moduleId, setModuleId] = useState(null);
   const [learnTab, setLearnTab] = useState("timer");
   const [moreTab, setMoreTab] = useState("rueckblick");
@@ -64,6 +77,14 @@ export default function App() {
 
   /* Farbschema: dunkel, hell, retro oder wie das System */
   useTheme(data.settings.retroMotion);
+
+  /* Übrige Bereiche vorladen, sobald der Browser Luft hat */
+  useEffect(() => {
+    if (!ready) return;
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
+    const id = idle(preloadViews, { timeout: 3000 });
+    return () => (window.cancelIdleCallback || clearTimeout)(id);
+  }, [ready]);
 
   /* Geteilter Kartenstapel (?teilen=…#k=…) */
   const [shareIn, setShareIn] = useState(null);
@@ -109,7 +130,7 @@ export default function App() {
     whatNow: () => { setTab("heute"); setWhatNowOpen(true); },
     create: (kind) => openForm(kind, kind === "log" ? { date: iso() } : null, true),
     timer: () => { setLearnTab("timer"); setTab("lernen"); },
-    tab: (k) => { setTab(k); if (k === "module") setModuleId(null); window.scrollTo && window.scrollTo(0, 0); },
+    tab: goTab,
   };
   useEffect(() => {
     const handler = shortcutHandler(new Proxy({}, { get: (_, k) => (...a) => shortcutActs.current[k](...a) }));
@@ -380,7 +401,7 @@ export default function App() {
         <ul>
           {nav.map(([k, l, ic]) => (
             <li key={k}>
-              <button onClick={() => { setTab(k); if (k === "module") setModuleId(null); window.scrollTo && window.scrollTo(0, 0); }} aria-current={tab === k ? "page" : undefined}
+              <button onClick={() => goTab(k)} aria-current={tab === k ? "page" : undefined}
                 className="tab">
                 <Icon name={ic} />{l}
               </button>
