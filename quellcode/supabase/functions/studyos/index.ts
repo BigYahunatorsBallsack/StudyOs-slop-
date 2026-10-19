@@ -152,6 +152,68 @@ function lineMessages(raw, lines, now2 = Date.now()) {
   })).sort((a, b) => Number(b.incident) - Number(a.incident) || (a.from || 0) - (b.from || 0)).slice(0, 8);
 }
 
+// src/server/drive.js
+var COORD = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
+var geoCache = /* @__PURE__ */ new Map();
+var place = (s) => String(s || "").trim();
+var minutes = (sec) => Math.max(1, Math.round(Number(sec) / 60));
+function driveProvider(env2) {
+  if (env2.GOOGLE_MAPS_KEY) return "google";
+  if (env2.TOMTOM_KEY) return "tomtom";
+  return null;
+}
+async function getJson(fetchImpl, url, opts = {}) {
+  let res;
+  try {
+    res = await fetchImpl(url, { signal: AbortSignal.timeout(1e4), ...opts });
+  } catch {
+    return { error: "Der Kartendienst antwortet gerade nicht.", status: 502 };
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) return { error: res.status === 401 || res.status === 403 ? "Der Kartendienst lehnt den Schl\xFCssel ab. Ist die Routen-API daf\xFCr freigeschaltet?" : `Der Kartendienst meldet Fehler ${res.status}.`, status: 502 };
+  return { data };
+}
+async function google(from, to, key, fetchImpl) {
+  const r = await getJson(fetchImpl, "https://routes.googleapis.com/directions/v2:computeRoutes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters" },
+    body: JSON.stringify({ origin: { address: from }, destination: { address: to }, travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE", languageCode: "de-DE", regionCode: "de" })
+  });
+  if (r.error) return r;
+  const route = r.data?.routes?.[0];
+  if (!route || !route.duration) return { error: "Keine Route gefunden. Stimmen Start und Ziel?", status: 404 };
+  const now2 = parseFloat(route.duration), normal = parseFloat(route.staticDuration || route.duration);
+  return { data: { minutes: minutes(now2), normal: minutes(normal), km: Math.round((route.distanceMeters || 0) / 100) / 10, provider: "google" } };
+}
+async function geocode(q, key, fetchImpl) {
+  const m = COORD.exec(q);
+  if (m) return `${m[1]},${m[2]}`;
+  if (geoCache.has(q)) return geoCache.get(q);
+  const r = await getJson(fetchImpl, `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(q)}.json?key=${encodeURIComponent(key)}&limit=1&countrySet=DE&language=de-DE`);
+  const pos = r.data?.results?.[0]?.position;
+  if (!pos) return null;
+  const v = `${pos.lat},${pos.lon}`;
+  geoCache.set(q, v);
+  return v;
+}
+async function tomtom(from, to, key, fetchImpl) {
+  const [a, b] = await Promise.all([geocode(from, key, fetchImpl), geocode(to, key, fetchImpl)]);
+  if (!a || !b) return { error: `\u201E${!a ? from : to}\u201C wurde nicht gefunden.`, status: 404 };
+  const r = await getJson(fetchImpl, `https://api.tomtom.com/routing/1/calculateRoute/${a}:${b}/json?key=${encodeURIComponent(key)}&traffic=true&travelMode=car&routeType=fastest&computeTravelTimeFor=all`);
+  if (r.error) return r;
+  const s = r.data?.routes?.[0]?.summary;
+  if (!s) return { error: "Keine Route gefunden. Stimmen Start und Ziel?", status: 404 };
+  return { data: { minutes: minutes(s.travelTimeInSeconds), normal: minutes(s.noTrafficTravelTimeInSeconds ?? s.travelTimeInSeconds), km: Math.round((s.lengthInMeters || 0) / 100) / 10, provider: "tomtom" } };
+}
+async function drive(body, env2, fetchImpl) {
+  const from = place(body && body.from), to = place(body && body.to);
+  if (from.length < 2 || to.length < 2 || from.length > 120 || to.length > 120) return { error: "Bitte Start und Ziel angeben.", status: 400 };
+  const provider = driveProvider(env2);
+  if (provider === "google") return google(from, to, env2.GOOGLE_MAPS_KEY, fetchImpl);
+  if (provider === "tomtom") return tomtom(from, to, env2.TOMTOM_KEY, fetchImpl);
+  return { error: "F\xFCr Fahrzeiten mit Verkehr fehlt in der Supabase-Funktion ein Schl\xFCssel (GOOGLE_MAPS_KEY oder TOMTOM_KEY).", status: 501 };
+}
+
 // src/lib/transit.js
 var words = (s) => String(s || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
 function matches(d, leg) {
@@ -459,6 +521,13 @@ function createHandler({ env: env2, fetchImpl = fetch, now: now2 = () => /* @__P
         const user = await authUser(req, env2, fetchImpl);
         if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
         const r = await mvg(await req.json().catch(() => ({})), fetchImpl);
+        if (r.error) return fail(r.error, r.status);
+        return json(r.data);
+      }
+      if (action === "drive" && req.method === "POST") {
+        const user = await authUser(req, env2, fetchImpl);
+        if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
+        const r = await drive(await req.json().catch(() => ({})), env2, fetchImpl);
         if (r.error) return fail(r.error, r.status);
         return json(r.data);
       }

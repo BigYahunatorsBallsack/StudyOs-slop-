@@ -176,6 +176,7 @@ export function createSupabaseCloud() {
     calUrl: (token) => `${FN}?action=cal&token=${token}`,
     fetchIcs: async (url) => (await callFn("ics", { body: { url } })).text(),
     mvg: async (body) => (await callFn("mvg", { body })).json(),
+    drive: async (body) => (await callFn("drive", { body })).json(),
     async getUser() {
       if (!authP && !mayHaveSession()) return null;
       const { data } = await auth.getSession(); const u = toUser(data.session); uid = u?.id || null; return u;

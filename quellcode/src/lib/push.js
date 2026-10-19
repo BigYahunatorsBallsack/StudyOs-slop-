@@ -48,7 +48,7 @@ export function deadlinesFromData(all, today = iso()) {
   /* Weg zur Uni: erste Veranstaltung der nächsten 7 Tage mit Haltestellen und Zeiten, damit der Server vor
      der Abfahrt die Echtzeit prüfen kann (nur wenn eingeschaltet) */
   const c = settings.pushCommute ? commuteOf(settings) : null;
-  if (c) {
+  if (c && c.mode !== "car") { /* mit dem Auto gibt es keinen Fahrplan zu prüfen */
     const pick = (l) => ({ station: { id: l.station.id }, line: l.line || "", towards: l.towards || "", avoid: l.avoid || "", travel: Number(l.travel) || 0 });
     const commute = { ...pick(c), walk: Number(c.walk) || 0, buffer: Number(c.buffer) || 0, feeder: c.feeder ? { ...pick(c.feeder), transfer: Number(c.feeder.transfer) || 0 } : null };
     for (let i = 0; i < 7; i++) {

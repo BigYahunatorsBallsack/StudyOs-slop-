@@ -5,6 +5,8 @@ import { addDays, iso } from "./util.js";
 export const DEFAULT_COMMUTE = {
   station: { id: "de:09184:2140", name: "Haar" }, line: "230", towards: "Forschungszentrum", avoid: "", travel: 50, walk: 5, buffer: 10,
   feeder: { station: { id: "de:09175:4020", name: "Zorneding" }, line: "S6", towards: "", avoid: "Grafing, Ebersberg", travel: 8, transfer: 4 },
+  mode: "transit", /* oder "car" */
+  car: { from: "Zorneding", to: "Boltzmannstraße 15, 85748 Garching bei München", park: 10 },
 };
 
 /** Pendel-Einstellungen; ohne eigene Angaben S6 Zorneding → Haar → 230 */
@@ -12,8 +14,21 @@ export function commuteOf(settings = {}) {
   if (settings.commute === null) return null;
   const c = { ...DEFAULT_COMMUTE, ...(settings.commute || {}) };
   if (c.feeder) c.feeder = { ...DEFAULT_COMMUTE.feeder, ...c.feeder };
+  c.car = { ...DEFAULT_COMMUTE.car, ...(c.car || {}) };
+  if (c.mode !== "car") c.mode = "transit";
   return c;
 }
+
+/** Mit dem Auto: wann losfahren, damit man mit Parken und Fußweg (park) und Puffer rechtzeitig da ist? */
+export function carPlan(route, session, c, startMs = null) {
+  if (!route || !session) return null;
+  const start = startMs ?? at(session.date, session.start);
+  const leaveAt = start - (c.buffer + (Number(c.car.park) || 0) + route.minutes) * 60000;
+  return { leaveAt, arriveAt: leaveAt + route.minutes * 60000, session };
+}
+
+/** Route in Google Maps (geht ohne Schlüssel, auch mit Verkehrslage in der Maps-App) */
+export const mapsLink = (car) => `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(car.from)}&destination=${encodeURIComponent(car.to)}&travelmode=driving`;
 
 const words = (s) => String(s || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
 /** Passt eine Abfahrt zu Linie und Richtung (enthält / enthält nicht)? */

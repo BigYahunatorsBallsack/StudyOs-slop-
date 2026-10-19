@@ -15,6 +15,7 @@ function createBackend() {
       if (op === 'push.removeSubscription') { const r = pushRow(args[0]); r.subscriptions = r.subscriptions.filter((x) => x.endpoint !== args[1]); return true; }
       if (op === 'push.saveDeadlines') { const r = pushRow(args[0]); r.deadlines = args[1]; r.tz = args[2]; return true; }
       if (op === 'mvg') return this.mvg ? this.mvg(args[1]) : [];
+      if (op === 'drive') return this.drive ? this.drive(args[1]) : { error: 'kein Schlüssel' };
       if (op === 'files.put') { this.files.set(args[0] + '/' + args[1], args[2]); return true; }
       if (op === 'files.get') return this.files.get(args[0] + '/' + args[1]) ?? null;
       if (op === 'files.remove') { this.files.delete(args[0] + '/' + args[1]); return true; }
@@ -384,6 +385,18 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(card.getByText('Grafing')).toHaveCount(0);
   await expect(card.getByText('241')).toHaveCount(0);
   await expect(card.getByRole('list', { name: 'Störungen und Baustellen' }).getByText('Weichenstörung bei Haar')).toBeVisible();
+
+  // Umschalten aufs Auto: Fahrzeit mit Verkehr; 9:15 − 10 Puffer − 10 Parken − 47 Fahrt = 8:08 losfahren
+  const asked = [];
+  backend.drive = (body) => { asked.push(body); return { minutes: 47, normal: 36, km: 38.4, provider: 'google' }; };
+  await card.getByRole('tab', { name: 'Auto' }).click();
+  await expect(card.getByText(/47 Min\. mit dem Auto \(38,4 km\), 11 Min\. Verzögerung durch Verkehr/)).toBeVisible();
+  await expect(card.getByText(/08:08 losfahren in Zorneding, damit du morgen um 09:15 bei Diskrete Strukturen bist/)).toBeVisible();
+  await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&origin=Zorneding&destination=Boltzmannstra/);
+  expect(asked[0]).toEqual({ from: 'Zorneding', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
+  await expect(card.getByText('Weichenstörung bei Haar')).toHaveCount(0);
+  await card.getByRole('tab', { name: 'Öffis' }).click();
+  await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
 
   // Anhang: verschlüsselt hochgeladen
   await nav(A.page, 'Mehr').click();

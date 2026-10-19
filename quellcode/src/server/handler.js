@@ -3,11 +3,13 @@
      POST ?action=remind   fällige Erinnerungen verschicken (nur mit x-cron-secret, aufgerufen von pg_cron)
      GET  ?action=cal&token=…  Fristen als Kalender-Abo (iCal), Token statt Anmeldung
      POST ?action=mvg      Haltestellen und Abfahrten (MVG), nur angemeldet
+     POST ?action=drive    Fahrzeit mit dem Auto bei aktueller Verkehrslage (Google oder TomTom), nur angemeldet
      POST ?action=ics      Kalender-Abo (z. B. TUMonline) abrufen und mit CORS zurückgeben (nur angemeldet)
    Keine Fremdbibliotheken: Datenbank über die REST-API, Kryptografie über WebCrypto. */
 import { dueReminders, pruneSent } from "./reminders.js";
 import { buildDeadlineIcs } from "./calendar.js";
 import { mvg } from "./mvg.js";
+import { drive } from "./drive.js";
 import { commuteAlert } from "./commute.js";
 import { generateVapidKeys, sendPush } from "./webpush.js";
 
@@ -156,6 +158,13 @@ export function createHandler({ env, fetchImpl = fetch, now = () => new Date() }
         const user = await authUser(req, env, fetchImpl);
         if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
         const r = await mvg(await req.json().catch(() => ({})), fetchImpl);
+        if (r.error) return fail(r.error, r.status);
+        return json(r.data);
+      }
+      if (action === "drive" && req.method === "POST") {
+        const user = await authUser(req, env, fetchImpl);
+        if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
+        const r = await drive(await req.json().catch(() => ({})), env, fetchImpl);
         if (r.error) return fail(r.error, r.status);
         return json(r.data);
       }
