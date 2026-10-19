@@ -243,20 +243,20 @@
 .focus-within\:ring-sky-500:focus-within{--tw-ring-color:#0ea5e9}
 .focus\:border-sky-500:focus{border-color:#0ea5e9}
 .focus\:ring-sky-500:focus{--tw-ring-color:#0ea5e9}
-.hover\:bg-amber-500\/10:hover{background-color:rgba(245,158,11,0.1)}
-.hover\:bg-rose-500\/10:hover{background-color:rgba(244,63,94,0.1)}
-.hover\:bg-sky-400:hover{background-color:#38bdf8}
-.hover\:bg-sky-500\/25:hover{background-color:rgba(14,165,233,0.25)}
-.hover\:bg-slate-700:hover{background-color:#334155}
-.hover\:bg-slate-800:hover{background-color:#1e293b}
-.hover\:bg-slate-800\/50:hover{background-color:rgba(30,41,59,0.5)}
-.hover\:bg-slate-800\/60:hover{background-color:rgba(30,41,59,0.6)}
-.hover\:text-sky-300:hover{color:#7dd3fc}
-.hover\:text-slate-100:hover{color:#f1f5f9}
-.hover\:text-slate-200:hover{color:#e2e8f0}
-.hover\:text-slate-300:hover{color:#cbd5e1}
-.hover\:text-slate-400:hover{color:#94a3b8}
-.hover\:underline:hover{text-decoration-line:underline}
+@media (hover: hover) { .hover\:bg-amber-500\/10:hover {background-color:rgba(245,158,11,0.1)} }
+@media (hover: hover) { .hover\:bg-rose-500\/10:hover {background-color:rgba(244,63,94,0.1)} }
+@media (hover: hover) { .hover\:bg-sky-400:hover {background-color:#38bdf8} }
+@media (hover: hover) { .hover\:bg-sky-500\/25:hover {background-color:rgba(14,165,233,0.25)} }
+@media (hover: hover) { .hover\:bg-slate-700:hover {background-color:#334155} }
+@media (hover: hover) { .hover\:bg-slate-800:hover {background-color:#1e293b} }
+@media (hover: hover) { .hover\:bg-slate-800\/50:hover {background-color:rgba(30,41,59,0.5)} }
+@media (hover: hover) { .hover\:bg-slate-800\/60:hover {background-color:rgba(30,41,59,0.6)} }
+@media (hover: hover) { .hover\:text-sky-300:hover {color:#7dd3fc} }
+@media (hover: hover) { .hover\:text-slate-100:hover {color:#f1f5f9} }
+@media (hover: hover) { .hover\:text-slate-200:hover {color:#e2e8f0} }
+@media (hover: hover) { .hover\:text-slate-300:hover {color:#cbd5e1} }
+@media (hover: hover) { .hover\:text-slate-400:hover {color:#94a3b8} }
+@media (hover: hover) { .hover\:underline:hover {text-decoration-line:underline} }
 @media(min-width:640px){.sm\:col-span-1{grid-column:span 1 / span 1}}
 @media(min-width:640px){.sm\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(min-width:640px){.sm\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}}
@@ -355,19 +355,19 @@
 .focus-within\:ring-sky-500:focus-within{--tw-ring-color:var(--accent)}
 .focus\:border-sky-500:focus{border-color:var(--accent)}
 .focus\:ring-sky-500:focus{--tw-ring-color:var(--accent)}
-.hover\:bg-amber-500\/10:hover{background-color:color-mix(in srgb, var(--warn) 10%, transparent)}
-.hover\:bg-rose-500\/10:hover{background-color:color-mix(in srgb, var(--danger) 10%, transparent)}
-.hover\:bg-sky-400:hover{background-color:var(--accent)}
-.hover\:bg-sky-500\/25:hover{background-color:color-mix(in srgb, var(--accent) 25%, transparent)}
-.hover\:bg-slate-700:hover{background-color:var(--surface-3)}
-.hover\:bg-slate-800:hover{background-color:var(--surface-2)}
-.hover\:bg-slate-800\/50:hover{background-color:color-mix(in srgb, var(--surface-2) 50%, transparent)}
-.hover\:bg-slate-800\/60:hover{background-color:color-mix(in srgb, var(--surface-2) 60%, transparent)}
-.hover\:text-sky-300:hover{color:var(--accent-text)}
-.hover\:text-slate-100:hover{color:var(--text)}
-.hover\:text-slate-200:hover{color:var(--text)}
-.hover\:text-slate-300:hover{color:var(--text-2)}
-.hover\:text-slate-400:hover{color:var(--muted)}
+@media (hover: hover) { .hover\:bg-amber-500\/10:hover {background-color:color-mix(in srgb, var(--warn) 10%, transparent)} }
+@media (hover: hover) { .hover\:bg-rose-500\/10:hover {background-color:color-mix(in srgb, var(--danger) 10%, transparent)} }
+@media (hover: hover) { .hover\:bg-sky-400:hover {background-color:var(--accent)} }
+@media (hover: hover) { .hover\:bg-sky-500\/25:hover {background-color:color-mix(in srgb, var(--accent) 25%, transparent)} }
+@media (hover: hover) { .hover\:bg-slate-700:hover {background-color:var(--surface-3)} }
+@media (hover: hover) { .hover\:bg-slate-800:hover {background-color:var(--surface-2)} }
+@media (hover: hover) { .hover\:bg-slate-800\/50:hover {background-color:color-mix(in srgb, var(--surface-2) 50%, transparent)} }
+@media (hover: hover) { .hover\:bg-slate-800\/60:hover {background-color:color-mix(in srgb, var(--surface-2) 60%, transparent)} }
+@media (hover: hover) { .hover\:text-sky-300:hover {color:var(--accent-text)} }
+@media (hover: hover) { .hover\:text-slate-100:hover {color:var(--text)} }
+@media (hover: hover) { .hover\:text-slate-200:hover {color:var(--text)} }
+@media (hover: hover) { .hover\:text-slate-300:hover {color:var(--text-2)} }
+@media (hover: hover) { .hover\:text-slate-400:hover {color:var(--muted)} }
 .bg-emerald-500\/15{background-color:color-mix(in srgb, var(--ok) 15%, transparent)}
 .bg-rose-500\/20{background-color:color-mix(in srgb, var(--danger) 20%, transparent)}
 .border-rose-500\/30{border-color:color-mix(in srgb, var(--danger) 30%, transparent)}

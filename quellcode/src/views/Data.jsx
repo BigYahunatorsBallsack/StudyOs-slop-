@@ -227,16 +227,10 @@ export function DataView({ db }) {
             </select>
           </div>
           <div className="col-span-2">
-            <span className="mb-1 block text-xs text-slate-400">Darstellung</span>
-            <Tabs items={[["dark", "Dunkel"], ["light", "Hell"], ["retro", "Retro"], ["system", "Wie System"]]} value={data.settings.theme || "dark"} onChange={(v) => db.patchSettings({ theme: v })} label="Darstellung" />
+            <span className="mb-1 block text-xs text-slate-400">Animationen</span>
+            <Tabs items={[["pixel", "Pixel"], ["neon", "Neon"], ["scan", "Scan"], ["off", "Aus"]]} value={retroMotionOf(data.settings.retroMotion)} onChange={(v) => db.patchSettings({ retroMotion: v })} label="Retro-Animationen" />
+            <p className="mt-1.5 text-xs text-slate-400">{{ pixel: "Knackig wie ein 8-Bit-Menü: Knöpfe drücken sich in den Schatten, Auswahl springt kurz auf, Dialoge schnappen auf.", neon: "Leuchtreklame: Was du berührst oder auswählst, glüht kurz in Neon auf.", scan: "Röhrenmonitor: Beim Wechsel zieht eine Scanlinie über den Bildschirm, Knöpfe schimmern, Auswahl wird unterstrichen.", off: "Keine Animationen, nur der Retro-Look." }[retroMotionOf(data.settings.retroMotion)]} Der Inhalt ist immer sofort da, bewegt wird nur, was du antippst. Ist am Gerät „Bewegung reduzieren“ eingeschaltet, bleibt alles still.</p>
           </div>
-          {data.settings.theme === "retro" && (
-            <div className="col-span-2">
-              <span className="mb-1 block text-xs text-slate-400">Retro-Animationen</span>
-              <Tabs items={[["pixel", "Pixel"], ["neon", "Neon"], ["scan", "Scan"], ["off", "Aus"]]} value={retroMotionOf(data.settings.retroMotion)} onChange={(v) => db.patchSettings({ retroMotion: v })} label="Retro-Animationen" />
-              <p className="mt-1.5 text-xs text-slate-400">{{ pixel: "Knackig wie ein 8-Bit-Menü: Knöpfe drücken sich in den Schatten, Auswahl springt kurz auf, Dialoge schnappen auf.", neon: "Leuchtreklame: Was du berührst oder auswählst, glüht kurz in Neon auf.", scan: "Röhrenmonitor: Beim Wechsel zieht eine Scanlinie über den Bildschirm, Knöpfe schimmern, Auswahl wird unterstrichen.", off: "Keine Animationen, nur der Retro-Look." }[retroMotionOf(data.settings.retroMotion)]} Der Inhalt ist immer sofort da, bewegt wird nur, was du antippst. Ist am Gerät „Bewegung reduzieren“ eingeschaltet, bleibt alles still.</p>
-            </div>
-          )}
           <div>
             <label htmlFor="st-ects" className="mb-1 block text-xs text-slate-400">ECTS-Ziel (Studiengang)</label>
             <input id="st-ects" type="number" min="1" className={inputCls} value={data.settings.targetEcts} onChange={(e) => db.patchSettings({ targetEcts: Math.max(1, Number(e.target.value) || 1) })} />

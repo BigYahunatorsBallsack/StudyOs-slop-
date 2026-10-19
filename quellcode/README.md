@@ -8,7 +8,7 @@ StudyOS ist eine private, offlinefähige Progressive Web App fürs Studium. Alle
 | --- | --- |
 | `dist/` | Fertige Website/PWA zum Hosten (wird von `npm run build` erzeugt, nicht im Repository) |
 | `src/App.jsx` | App-Rahmen: Navigation, Aktionen, Dialoge |
-| `src/app/` | Hooks der App: Laden/Speichern, Farbschema, Timer, Kalender-Abos |
+| `src/app/` | Hooks der App: Laden/Speichern, Retro-Theme und Animationen, Timer, Kalender-Abos |
 | `src/lib/` | Reine Logik ohne UI: Datenformat, Lernplan, Karteikarten, ICS, Sync, Verschlüsselung, Statistik |
 | `src/ui/` | Wiederverwendbare Bausteine (Karten, Formulare, Markdown, Timer-Anzeige) |
 | `src/views/` | Bildschirme: Heute, Module, Woche, Lernen, Mehr, Daten |
@@ -17,8 +17,8 @@ StudyOS ist eine private, offlinefähige Progressive Web App fürs Studium. Alle
 | `supabase/schema.sql` | Tabellen, Zugriffsregeln und Zeitplan |
 | `supabase/functions/studyos/index.ts` | Gebaute Edge Function zum Einfügen im Dashboard |
 | `supabase/EINRICHTUNG.md` | Einrichtung von Erinnerungen und Stundenplan-Abo |
-| `src/design.css` | Designsystem (Tokens, Komponenten, hell/dunkel) |
-| `src/retro.css` | Farbschema „Retro“ (nur unter `data-theme="retro"`, eigene Schriften); Grafiken aus `tools/retro_skyline.py` |
+| `src/design.css` | Designsystem (Grund-Tokens und Komponenten) |
+| `src/retro.css` | Das Farbschema „Retro“ (einziges Theme; `data-theme="retro"` steht in `index.html`), eigene Schriften, Animationen; Grafiken aus `tools/retro_skyline.py` und `tools/retro_pixels.py` |
 | `src/runtime.js` | Lokale Speicherung (IndexedDB + Notfallkopie), Wiederherstellungspunkte, PWA |
 | `src/style.css` | Utility-Klassen (Farben über Tokens) |
 | `tests/unit/` | Unit-Tests (Vitest) für `src/lib/` |
@@ -76,7 +76,7 @@ Zusammengeführt wird pro Feld: Änderst du am Handy den Titel einer Aufgabe und
 
 ## Hilfsskripte (Python 3)
 
-- `python3 tools/overlap_check.py [Farbschema]` sucht überlappende Elemente in allen Bildschirmen (App unter http://localhost:8099, z. B. `python3 -m http.server 8099 --directory dist`).
+- `python3 tools/overlap_check.py` sucht überlappende Elemente in allen Bildschirmen (App unter http://localhost:8099, z. B. `python3 -m http.server 8099 --directory dist`).
 - `python3 tools/retro_skyline.py` erzeugt Skyline und Sonne des Retro-Themes.
 - `python3 tools/css_check.py .` listet Utility-Klassen aus dem JSX, für die `src/style.css` keine Regel hat.
 - `python3 tools/tokens_css.py src/style.css` stellt Farb-Utilities (`bg-slate-900`, `text-sky-300` …) auf Design-Tokens um. Nach neuen Farb-Utilities ausführen.

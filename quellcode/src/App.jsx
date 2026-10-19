@@ -59,7 +59,7 @@ export default function App() {
   const closeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
 
   /* Farbschema: dunkel, hell, retro oder wie das System */
-  useTheme(data.settings.theme || "dark", data.settings.retroMotion);
+  useTheme(data.settings.retroMotion);
 
   /* Geteilter Kartenstapel (?teilen=…#k=…) */
   const [shareIn, setShareIn] = useState(null);

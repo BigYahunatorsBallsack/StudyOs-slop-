@@ -5,8 +5,6 @@ import { test, expect } from '@playwright/test';
 const NOW = new Date('2026-10-20T09:30:00+02:00'); // Dienstag
 const nav = (page, name) => page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('button', { name });
 const STILL = `*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }`;
-/* Dunkel/Hell nutzen für Fließtext Systemschriften; Retro bringt alle Schriften selbst mit */
-const FONT = `*, *::before, *::after { font-family: "Bricolage Grotesque", sans-serif !important; }`;
 
 async function setup(page, theme) {
   await page.clock.setFixedTime(NOW);
@@ -19,13 +17,13 @@ async function setup(page, theme) {
   await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load())?.modules?.length ?? 0)).toBeGreaterThan(0);
   await page.evaluate(async (t) => { const d = await window.STUDYOS_ENV.load(); d.settings.theme = t; d.meta.lastBackup = new Date().toISOString(); await window.STUDYOS_ENV.save(d); }, theme);
   await page.reload();
-  await page.addStyleTag({ content: STILL + (theme === 'retro' ? '' : FONT) });
+  await page.addStyleTag({ content: STILL }); // Retro bringt alle Schriften selbst mit
   await page.evaluate(() => document.fonts.ready);
 }
 
-for (const theme of ['dark', 'light', 'retro']) {
+for (const theme of ['retro']) {
   for (const [view, tab] of [['heute', 'Heute'], ['woche', 'Woche'], ['module', 'Module']]) {
-    test(`${view} (${{ dark: 'dunkel', light: 'hell', retro: 'retro' }[theme]})`, async ({ page }) => {
+    test(`${view} (${theme})`, async ({ page }) => {
       await setup(page, theme);
       await nav(page, tab).click();
       await page.waitForTimeout(300);

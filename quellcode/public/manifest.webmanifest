@@ -12,8 +12,8 @@
     "minimal-ui"
   ],
   "orientation": "portrait-primary",
-  "background_color": "#1b1830",
-  "theme_color": "#1b1830",
+  "background_color": "#0d0221",
+  "theme_color": "#0d0221",
   "share_target": {
     "action": "./teilen-ziel",
     "method": "POST",

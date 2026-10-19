@@ -164,16 +164,12 @@ test('Prüfung: Anmeldeschluss erscheint als Frist, Lernplan zeigt Minuten und f
   await expect(page.getByText('Gesamtwiederholung und Probeklausur unter Zeitdruck').last()).toBeVisible();
 });
 
-test('helles Farbschema und Hochschule im Kopf', async ({ page }) => {
+test('Hochschule und Studiengang im Kopf', async ({ page }) => {
   await loadDemo(page);
   await openData(page);
   await page.getByLabel('Hochschule').fill('LMU');
   await page.getByLabel('Studiengang', { exact: true }).fill('Informatik');
-  await page.getByRole('tab', { name: 'Hell' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 240, 250)');
   await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.locator('header')).toContainText('Informatik, LMU'); // auf Handybreite ausgeblendet, aber gesetzt
 });
 
@@ -662,11 +658,10 @@ test('Teilen-Ziel: geteilte PDF wird zur Notiz mit Anhang', async ({ page }) => 
   expect((await stored(page)).notes.length).toBe(1);
 });
 
-test('Farbschema Retro: alle Bereiche ohne horizontales Scrollen, Dunkel und Hell unverändert', async ({ page }) => {
+test('Retro ist das einzige Farbschema: alle Bereiche ohne horizontales Scrollen', async ({ page }) => {
   await loadDemo(page);
   await openData(page);
-  const darkBg = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
-  await page.getByRole('tab', { name: 'Retro' }).click();
+  await expect(page.getByRole('tablist', { name: 'Darstellung' })).toHaveCount(0);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'retro');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0221');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe('#0d0221');
@@ -684,13 +679,22 @@ test('Farbschema Retro: alle Bereiche ohne horizontales Scrollen, Dunkel und Hel
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Retro Modul').toBe(true);
   // Pixel-Schriften sind geladen, Bricolage wird im Retro-Theme nicht gebraucht
   expect(await page.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family).sort(); })).toEqual(expect.arrayContaining(['JetBrains Mono', 'Silkscreen']));
-  // bleibt nach dem Neuladen, und zurück auf Dunkel stellt die alten Farben wieder her
+  // auch ein alter Datenstand mit „Hell“ bleibt Retro
+  await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); d.settings.theme = 'light'; await window.STUDYOS_ENV.save(d); });
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'retro');
-  await openData(page);
-  await page.getByRole('tab', { name: 'Dunkel' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe(darkBg);
+});
+
+test('Knopf auf „Als Nächstes“ bleibt nach dem Antippen in der Modulfarbe (kein hängendes Hover)', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-20T13:00:00+02:00')); // vor der Vorlesung um 14 Uhr
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  const btn = page.locator('.hero .btn-solid');
+  const before = await btn.evaluate((e) => getComputedStyle(e).backgroundColor);
+  await btn.hover(); // so verhält sich ein Touch-Gerät nach dem Antippen: :hover bleibt stehen
+  await btn.click();
+  await expect(btn).toHaveText('Vorbereitet ✓');
+  expect(await btn.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(before);
 });
 
 test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; Retro-Animationen umschalten', async ({ page }) => {
@@ -720,8 +724,6 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await expect(page.locator('.todo-row').first()).toBeVisible();
   // Retro: drei Animationsvarianten plus Aus; im Retro-Theme schließt sich ein Abschnitt erst nach seiner Animation
   await openData(page);
-  await expect(page.getByRole('tablist', { name: 'Retro-Animationen' })).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Retro' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-motion', 'pixel');
   for (const [name, key] of [['Neon', 'neon'], ['Scan', 'scan'], ['Aus', 'off'], ['Pixel', 'pixel']]) {
     await page.getByRole('tablist', { name: 'Retro-Animationen' }).getByRole('tab', { name }).click();
@@ -742,9 +744,6 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); d.settings.retroMotion = 'glitch'; await window.STUDYOS_ENV.save(d); });
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-motion', 'scan');
-  await openData(page);
-  await page.getByRole('tab', { name: 'Dunkel' }).click();
-  await expect(page.locator('html')).not.toHaveAttribute('data-motion', /./);
 });
 
 test('neuer Nutzer: keine fremden Vorgaben, Studienplan Pharmazeutische Bioprozesstechnik mit GOP in zwei Stufen', async ({ page }) => {

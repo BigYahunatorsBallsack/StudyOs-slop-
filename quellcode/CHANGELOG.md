@@ -1,6 +1,8 @@
 # Änderungen
 
-## Unveröffentlicht
+## 2.8.0
+- **Nur noch Retro:** Die Farbschemata Dunkel und Hell sind entfernt, StudyOS sieht immer im Retro-Look aus (auch beim Start, bevor die App geladen ist). In den Einstellungen bleibt die Wahl der Animationen (Pixel, Neon, Scan, Aus).
+- **Behoben:** Nach dem Antippen eines Knopfs auf dem Handy blieb er bis zum nächsten Tippen andersfarbig (z. B. „Vorbereitet“ auf „Als Nächstes“), weil der Hover-Zustand hängen blieb. Hover-Effekte gibt es jetzt nur noch auf Geräten mit Maus.
 - **Auch für andere Studiengänge:** Neue Nutzer starten ohne fremde Vorgaben, also ohne Studiengang, Mensa und Weg zur Uni. Die Mensa wählt man unter „Daten & Einstellungen“, Haltestellen bzw. Start und Ziel unter „Weg zur Uni“. Solange dort nichts eingetragen ist, zeigt „Heute“ nur einen Hinweis statt Abfahrten. Bestehende Daten behalten ihre bisherigen Einstellungen (Informatik, Mensa Garching, S6 Zorneding → Bus 230 nach Garching), auch eine Sicherung aus älteren Versionen.
 - **Studienplan wählbar:** Neben TUM Informatik gibt es jetzt TUM B.Sc. Pharmazeutische Bioprozesstechnik (FPSO ab WiSe 2022/23, Campus Freising-Weihenstephan) als Vorlage. Auswahl im Dialog „Aus Studienplan übernehmen“ oder unter „Daten & Einstellungen → Studienplan“.
 - **GOP nach der Regel des Studiengangs:** Informatik weiterhin 12 ECTS bis Ende des 1. Semesters, Pharmazeutische Bioprozesstechnik 10 ECTS bis Ende des 2. und 26 ECTS bis Ende des 3. Semesters (FPSO § 38). Ohne gewählten Studienplan zählt die Karte nur die bestandenen ECTS.
