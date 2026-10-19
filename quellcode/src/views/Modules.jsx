@@ -70,10 +70,10 @@ export function ModuleList({ db }) {
           <ul className="tiles">
             {list.map((m) => { const s = moduleStats(data, m.id); return (
               <li key={m.id} className="contents">
-                <button onClick={() => db.goModule(m.id)} className="tile" style={{ "--mod": m.color }} aria-label={`${m.name}, ${m.ects} ECTS, ${s.openReviews} Termine offen`}>
+                <button onClick={() => db.goModule(m.id)} className="tile" style={{ "--mod": m.color }}>
                   <div className="flex items-start justify-between gap-2">
                     <span className="tile-swatch" aria-hidden="true" />
-                    {m.status === "belegt" && <TriRing s={s} size={40} />}
+                    {m.status === "belegt" && <span aria-hidden="true"><TriRing s={s} size={40} /></span>}
                   </div>
                   <span className="tile-name">{m.name}</span>
                   <span className="tile-meta">

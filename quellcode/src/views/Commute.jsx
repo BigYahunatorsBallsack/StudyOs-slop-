@@ -30,6 +30,7 @@ export function CommuteCard({ db, sessions }) {
   const c = commuteOf(db.data.settings);
   const ready = db.cloud?.phase === "ready";
   const [state, setState] = useState({ main: null, feeder: null, plan: null, err: "" });
+  const [notes, setNotes] = useState([]); /* Störungsmeldungen der MVG zu den eigenen Linien */
   const [tick, setTick] = useState(0);
   const session = c ? nextFirstSession(sessions) : null;
   const key = JSON.stringify(c);
@@ -57,6 +58,14 @@ export function CommuteCard({ db, sessions }) {
     })();
     return () => { live = false; };
   }, [ready, tick, key, session?.id]);
+  /* Meldungen höchstens alle 15 Minuten abfragen; ältere Funktionen kennen die Abfrage nicht: dann einfach keine */
+  const lines = c ? [c.line, c.feeder?.line].filter(Boolean) : [];
+  useEffect(() => {
+    if (!ready || !lines.length) return;
+    let live = true;
+    db.cloud.mvg({ kind: "messages", lines }).then((l) => { if (live) setNotes(Array.isArray(l) ? l.filter((n) => n && n.title && Array.isArray(n.lines)) : []); }).catch(() => { if (live) setNotes([]); });
+    return () => { live = false; };
+  }, [ready, lines.join(","), Math.floor(tick / 15)]);
 
   if (!c) return null;
   const m = session ? db.mod(session.moduleId) : null;
@@ -80,6 +89,18 @@ export function CommuteCard({ db, sessions }) {
                 </ol>
               </div>
             ) : <p className="mt-2 text-sm text-slate-400">Für {m?.name || "die erste Vorlesung"} {dayWord(session.date)} um {session.start} keine passende Verbindung gefunden.</p>)}
+            {notes.length > 0 && (
+              <ul className="mt-3 space-y-2" aria-label="Störungen und Baustellen">
+                {notes.map((n, i) => (
+                  <li key={i} className={`notice ${n.incident ? "notice-warn" : "notice-plain"} text-sm`}>
+                    <details>
+                      <summary className="cursor-pointer"><b>{n.lines.join(", ")}</b>: {n.title}</summary>
+                      <p className="mt-1 whitespace-pre-line text-xs">{n.text}</p>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            )}
             {f && <DepList title={`${f.line || "Abfahrten"} ab ${f.station.name}`} deps={state.feeder || []} />}
             <DepList title={`${lineName(c.line)} ab ${c.station.name}${c.towards ? ` Richtung ${c.towards}` : ""}`} deps={state.main} />
           </>
@@ -162,6 +183,10 @@ export function CommuteSettings({ db }) {
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">{num(c, set, "walk", `Fußweg zur Haltestelle ${c.feeder ? c.feeder.station.name : c.station.name}`, 60)}</div>
+          <label className="mt-4 flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushCommute} onChange={(e) => db.patchSettings({ pushCommute: e.target.checked })} />
+            <span>Bei Verspätung oder Ausfall per Push sagen, wenn ich früher los muss<span className="block text-[11px] text-slate-500">Braucht eingeschaltete Erinnerungen. Dafür liegen Haltestellen, Linien und die Uhrzeit deiner ersten Veranstaltung je Tag unverschlüsselt bei Supabase.</span></span>
+          </label>
           <p className="mt-2 text-[11px] text-slate-500">Echtzeitdaten der MVG über deine Supabase-Funktion. Fahrplan: S6 Zorneding → Haar 8 Minuten, Bus 230 Haar (S) → Garching-Forschungszentrum etwa 50 Minuten. Bei Verspätung rechnet StudyOS mit der tatsächlichen Abfahrt.</p>
         </>
       )}

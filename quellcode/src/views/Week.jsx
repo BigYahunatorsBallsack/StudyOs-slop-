@@ -116,22 +116,25 @@ function WeekGrid({ db, days, weekSes }) {
               {d === t && nowMin >= startH * 60 && nowMin <= endH * 60 && <span className="grid-now" style={{ top: y(nowMin) }} aria-hidden="true" />}
               {items.map(({ ev, s, e, lane, lanes }) => {
                 const m = db.mod(ev.moduleId);
+                const tall = ((e - s) / 60) * HOUR_PX > 34;
+                /* Der Name beginnt mit dem sichtbaren Text (für Sprachsteuerung), danach die Einzelheiten */
+                const shown = (a, b) => (tall && b ? `${a} ${b}: ` : `${a}: `);
                 if (ev.isBlock) return (
-                  <button key={ev.id} className={`ev ev-block ${ev.done ? "ev-done" : ""}`} aria-label={`Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
+                  <button key={ev.id} className={`ev ev-block ${ev.done ? "ev-done" : ""}`} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
                     onClick={() => db.openForm("block", ev)}
                     style={{ "--mod": m?.color || "var(--accent)", top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto" }}>
                     <b>{shortName(ev.title)}</b>
-                    {((e - s) / 60) * HOUR_PX > 34 && <span>{m ? shortName(m.name) : "Lernen"}</span>}
+                    {tall && " "}{tall && <span>{m ? shortName(m.name) : "Lernen"}</span>}
                   </button>
                 );
                 const cls = ev.isExam ? "" : ev.cancelled ? "ev-cancelled" : ev.reviewed ? "ev-done" : isHeld(ev) ? "ev-review" : "";
-                const label = ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}`;
+                const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}`);
                 return (
                   <button key={ev.id} className={`ev ${cls} ${hover.card?.id === ev.id ? "ev-active" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
                     {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") } : hover.trigger(ev.id, () => db.openForm("session", ev)))}
                     style={{ "--mod": ev.isExam ? "var(--danger)" : m?.color, top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto", color: ev.isExam ? "#fff" : undefined }}>
                     <b>{ev.isExam ? "Prüfung" : shortName(m?.name)}</b>
-                    {((e - s) / 60) * HOUR_PX > 34 && <span>{ev.isExam ? shortName(m?.name) : ev.type}</span>}
+                    {tall && " "}{tall && <span>{ev.isExam ? shortName(m?.name) : ev.type}</span>}
                   </button>
                 );
               })}

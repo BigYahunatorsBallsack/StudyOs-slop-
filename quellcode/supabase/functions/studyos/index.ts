@@ -2,9 +2,9 @@
 // Einrichtung: siehe supabase/EINRICHTUNG.md
 // @ts-nocheck
 // src/server/reminders.js
-function zonedInstant(date, hm, tz = "Europe/Berlin") {
+function zonedInstant(date, hm2, tz = "Europe/Berlin") {
   const [y, mo, d] = date.split("-").map(Number);
-  const [h, mi] = (hm || "00:00").split(":").map(Number);
+  const [h, mi] = (hm2 || "00:00").split(":").map(Number);
   const guess = Date.UTC(y, mo - 1, d, h, mi);
   const offset = (t2) => {
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(t2)).map((p) => [p.type, p.value]));
@@ -29,8 +29,8 @@ var RULES = {
   /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
   block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 6e4]]
 };
-var minus = (hm, n) => {
-  const [h, m] = String(hm || "00:00").split(":").map(Number);
+var minus = (hm2, n) => {
+  const [h, m] = String(hm2 || "00:00").split(":").map(Number);
   const t = Math.max(0, h * 60 + m - n);
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 };
@@ -40,11 +40,11 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
   for (const x of deadlines || []) {
     const rules = RULES[x.kind];
     if (!rules || !/^\d{4}-\d{2}-\d{2}$/.test(x.date || "")) continue;
-    rules.forEach(([before, hm, title, body, maxLate = MAX_LATE_MS], i) => {
-      const time = typeof hm === "function" ? hm(x) : hm;
-      const at = zonedInstant(addDays(x.date, -before), time, tz);
+    rules.forEach(([before, hm2, title, body, maxLate = MAX_LATE_MS], i) => {
+      const time = typeof hm2 === "function" ? hm2(x) : hm2;
+      const at2 = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
-      if (sent[key] || at > now2 || now2 - at > maxLate) return;
+      if (sent[key] || at2 > now2 || now2.getTime() - at2.getTime() > maxLate) return;
       out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" ? "./?aktion=heute" : "./?aktion=pruefungen" });
     });
   }
@@ -52,7 +52,7 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
 }
 function pruneSent(sent = {}, now2 = /* @__PURE__ */ new Date()) {
   const limit = now2.getTime() - 60 * 864e5;
-  return Object.fromEntries(Object.entries(sent).filter(([, at]) => new Date(at).getTime() >= limit));
+  return Object.fromEntries(Object.entries(sent).filter(([, at2]) => new Date(at2).getTime() >= limit));
 }
 
 // src/server/calendar.js
@@ -111,6 +111,10 @@ async function mvg(body, fetchImpl) {
     const types = String(body.types || "BUS,REGIONAL_BUS");
     if (!TYPES.test(types)) return { error: "Ung\xFCltige Verkehrsmittel.", status: 400 };
     url = `${BASE}/departures?globalId=${id}&limit=${limit}&offsetInMinutes=${offset}&transportTypes=${types}`;
+  } else if (kind === "messages") {
+    const lines = Array.isArray(body.lines) ? body.lines.map((l) => String(l).trim()).filter(Boolean) : [];
+    if (!lines.length || lines.length > 6 || lines.some((l) => !/^[A-Za-z0-9]{1,6}$/.test(l))) return { error: "Ung\xFCltige Linien.", status: 400 };
+    url = `${BASE}/messages`;
   } else return { error: "Unbekannte Abfrage.", status: 400 };
   let res;
   try {
@@ -121,6 +125,7 @@ async function mvg(body, fetchImpl) {
   if (!res.ok) return { error: `Die MVG meldet Fehler ${res.status}.`, status: 502 };
   const raw = await res.json().catch(() => null);
   if (!Array.isArray(raw)) return { error: "Unerwartete Antwort der MVG.", status: 502 };
+  if (kind === "messages") return { data: lineMessages(raw, body.lines, Number(body.now) || Date.now()) };
   if (kind === "stations") return { data: raw.filter((s) => s.globalId).slice(0, 10).map((s) => ({ id: s.globalId, name: s.name, place: s.place || "", types: s.transportTypes || [] })) };
   return { data: raw.map((d) => ({
     line: String(d.label || ""),
@@ -133,6 +138,100 @@ async function mvg(body, fetchImpl) {
     cancelled: !!d.cancelled,
     platform: d.platform ? String(d.platform).slice(0, 8) : ""
   })).filter((d) => d.time) };
+}
+var plain = (html) => String(html || "").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/[ \t]+/g, " ").replace(/\n\s*/g, "\n").trim();
+function lineMessages(raw, lines, now2 = Date.now()) {
+  const want = new Set(lines.map((l) => String(l).toLowerCase()));
+  return raw.filter((m) => (m.lines || []).some((l) => want.has(String(l.label || "").toLowerCase()))).filter((m) => (Number(m.validTo) || Infinity) >= now2 && (Number(m.validFrom) || 0) <= now2 + 864e5).map((m) => ({
+    title: plain(m.title).slice(0, 200),
+    text: plain(m.description).slice(0, 800),
+    incident: m.type === "INCIDENT",
+    from: Number(m.validFrom) || null,
+    to: Number(m.validTo) || null,
+    lines: [...new Set((m.lines || []).map((l) => String(l.label || "")).filter((l) => want.has(l.toLowerCase())))]
+  })).sort((a, b) => Number(b.incident) - Number(a.incident) || (a.from || 0) - (b.from || 0)).slice(0, 8);
+}
+
+// src/lib/transit.js
+var words = (s) => String(s || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+function matches(d, leg) {
+  const dest = d.destination.toLowerCase();
+  if (leg.line && d.line.toLowerCase() !== String(leg.line).toLowerCase()) return false;
+  const want = words(leg.towards);
+  if (want.length && !want.some((w) => dest.includes(w))) return false;
+  return !words(leg.avoid).some((w) => dest.includes(w));
+}
+var at = (date, hm2) => {
+  const [y, m, d] = date.split("-").map(Number);
+  const [h, mi] = hm2.split(":").map(Number);
+  return new Date(y, m - 1, d, h, mi).getTime();
+};
+function recommend(departures, session, c, feederDeps = null, startMs = null) {
+  if (!session) return null;
+  const deadline = (startMs ?? at(session.date, session.start)) - c.buffer * 6e4;
+  const buses = departures.filter((d) => matches(d, c) && !d.cancelled && d.time + c.travel * 6e4 <= deadline).sort((a, b) => b.time - a.time);
+  for (const dep of buses) {
+    if (!c.feeder || !feederDeps) return { dep, feederDep: null, session, leaveAt: dep.time - c.walk * 6e4, arriveAt: dep.time + c.travel * 6e4 };
+    const f = c.feeder;
+    const fd = feederDeps.filter((d) => matches(d, f) && !d.cancelled && d.time + (f.travel + f.transfer) * 6e4 <= dep.time).sort((a, b) => b.time - a.time)[0];
+    if (fd) return { dep, feederDep: fd, session, leaveAt: fd.time - c.walk * 6e4, changeAt: fd.time + f.travel * 6e4, arriveAt: dep.time + c.travel * 6e4 };
+  }
+  return null;
+}
+
+// src/server/commute.js
+var TYPES2 = "BUS,REGIONAL_BUS,SBAHN,UBAHN,TRAM,BAHN";
+var MIN = 6e4;
+var EARLIER_MS = 3 * MIN;
+var hm = (ms, tz) => new Intl.DateTimeFormat("de-DE", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
+var lineName = (l) => /^\d/.test(l || "") ? `Bus ${l}` : l;
+function commuteWindow(x, tz = "Europe/Berlin") {
+  const c = x.commute;
+  const start = zonedInstant(x.date, x.time, tz).getTime();
+  const lead = (c.buffer + c.travel + c.walk + (c.feeder ? c.feeder.travel + c.feeder.transfer : 0)) * MIN;
+  return { start, from: start - lead - 75 * MIN, to: start - lead - 5 * MIN };
+}
+function reason(plan, main, feeder, tz) {
+  const find = (list, d) => (list || []).find((r) => r.line === d.line && r.planned === d.planned);
+  const out = [];
+  for (const [d, list] of [[plan.feederDep, feeder], [plan.dep, main]]) {
+    if (!d) continue;
+    const r = find(list, d);
+    if (r?.cancelled) out.push(`${lineName(d.line)} um ${hm(d.planned, tz)} f\xE4llt aus`);
+    else if (r && r.delay > 0) out.push(`${lineName(d.line)} um ${hm(d.planned, tz)} +${r.delay}`);
+  }
+  return out.join(", ");
+}
+async function commuteAlert(x, now2, tz, fetchImpl) {
+  const c = x.commute;
+  if (!c || !c.station || !c.station.id || !/^\d{2}:\d{2}$/.test(x.time || "")) return null;
+  const w = commuteWindow(x, tz), t = now2.getTime();
+  if (t < w.from || t > w.to) return null;
+  const offset = (ms) => Math.max(0, Math.round((ms - t) / MIN) - 45);
+  const mainLatest = w.start - (c.buffer + c.travel) * MIN;
+  const main = await mvg({ kind: "departures", station: c.station.id, types: TYPES2, offset: offset(mainLatest), limit: 60 }, fetchImpl);
+  if (main.error) return null;
+  let feeder = null;
+  if (c.feeder && c.feeder.station && c.feeder.station.id) {
+    const r = await mvg({ kind: "departures", station: c.feeder.station.id, types: TYPES2, offset: offset(mainLatest - (c.feeder.transfer + c.feeder.travel) * MIN), limit: 60 }, fetchImpl);
+    if (r.error) return null;
+    feeder = r.data;
+  }
+  const session = { date: x.date, start: x.time };
+  const byPlan = (list) => list && list.map((d) => ({ ...d, time: d.planned || d.time, cancelled: false }));
+  const plan = recommend(byPlan(main.data), session, c, byPlan(feeder), w.start);
+  if (!plan) return null;
+  const real = recommend(main.data, session, c, feeder, w.start);
+  if (real && plan.leaveAt - real.leaveAt < EARLIER_MS) return null;
+  const why = reason(plan, main.data, feeder, tz);
+  const what = `${x.title || "deine Vorlesung"} um ${x.time}`;
+  return {
+    key: `commute:${x.id}:${x.date}:${real ? hm(real.leaveAt, tz) : "keine"}`,
+    title: real ? `Fr\xFCher los: ${hm(real.leaveAt, tz)}` : "Keine passende Verbindung",
+    body: real ? `F\xFCr ${what} um ${hm(real.leaveAt, tz)} statt ${hm(plan.leaveAt, tz)} losgehen${why ? ` (${why})` : ""}.` : `F\xFCr ${what} passt laut Echtzeit keine Verbindung mehr${why ? ` (${why})` : ""}.`,
+    tag: `commute-${x.date}`,
+    url: "./?aktion=heute"
+  };
 }
 
 // src/server/webpush.js
@@ -272,7 +371,12 @@ async function runReminders({ q, cfg, now: now2 = /* @__PURE__ */ new Date(), fe
   for (const row of rows) {
     let subs = Array.isArray(row.subscriptions) ? row.subscriptions : [];
     const sent = pruneSent(row.sent || {}, now2);
-    const due = subs.length ? dueReminders(row.deadlines, sent, now2, row.tz || "Europe/Berlin") : [];
+    const tz = row.tz || "Europe/Berlin";
+    const due = subs.length ? dueReminders(row.deadlines, sent, now2, tz) : [];
+    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "commute")) {
+      const alert = await commuteAlert(x, now2, tz, fetchImpl).catch(() => null);
+      if (alert && !sent[alert.key]) due.push(alert);
+    }
     const gone = /* @__PURE__ */ new Set();
     for (const r of due) {
       let delivered = false, allGone = true;

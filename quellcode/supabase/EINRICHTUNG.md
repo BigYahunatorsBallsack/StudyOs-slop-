@@ -44,13 +44,18 @@ Die Funktion braucht keine eigenen Secrets. `SUPABASE_URL` und den Secret Key st
 | Prüfung | 7 Tage und 1 Tag vorher, jeweils 18:00 |
 | Anmeldeschluss | 3 Tage vorher 18:00 und am Tag um 8:00 |
 | Wiederholungsprüfung | 7 Tage und 1 Tag vorher, jeweils 18:00 |
+| Nachbereitung | 20:00, wenn heutige Termine offen sind (abschaltbar) |
+| Lernblock | 10 Minuten vorher (abschaltbar) |
+| Wochenrückblick und -ausblick | Sonntag 18:00: Lernzeit, fällige Karten, Abgaben und Termine der nächsten Woche (abschaltbar) |
+| Weg zur Uni (ab 2.6, optional) | Zwischen 75 und 5 Minuten vor dem Losgehen, wenn du wegen Verspätung oder Ausfall mindestens 3 Minuten früher los musst |
 
 Uhrzeiten in deiner Zeitzone. Der Zeitplan läuft alle 15 Minuten, eine Nachricht kann also bis zu 15 Minuten später kommen. Verpasste Erinnerungen (z. B. Projekt pausiert) werden höchstens 12 Stunden später nachgeholt, danach verworfen.
 
 ## Datenschutz
 
 - Bei Supabase liegen unverschlüsselt: E-Mail-Adresse, für Erinnerungen Titel/Modulname/Datum der Fristen, die Push-Adressen deiner Geräte und dein Kalender-Link (in den verschlüsselten Einstellungen; beim Abruf wird er an die Funktion geschickt, aber nicht gespeichert).
-- Alles andere (Notizen, Noten, Lernzeiten, Karten …) bleibt Ende-zu-Ende verschlüsselt.
+- Mit eingeschaltetem Wochenrückblick stehen die Lernzeit der Woche und die Zahl der fälligen Karten im (unverschlüsselten) Nachrichtentext. Mit „Bei Verspätung per Push“ zusätzlich Haltestellen, Linien und die Uhrzeit der ersten Veranstaltung je Tag.
+- Alles andere (Notizen, Noten, einzelne Lerneinheiten, Karten, Cloud-Sicherungen …) bleibt Ende-zu-Ende verschlüsselt.
 - Erinnerungen ausschalten auf allen Geräten = keine neuen Fristen mehr hochladen. Alte Fristen löschen: im Table Editor die Zeile in `studyos_push` löschen.
 
 ## Fehlersuche
@@ -75,3 +80,9 @@ Einmal im **SQL Editor** den Inhalt von `supabase/teilen.sql` ausführen (steht 
 
 1. Im **SQL Editor** `supabase/kalender.sql` (Kalender-Link der Fristen) und `supabase/anhaenge.sql` (privater Speicher für verschlüsselte Anhänge) ausführen. Beides steht auch am Ende von `schema.sql`.
 2. Die Edge Function **studyos** mit der aktuellen `supabase/functions/studyos/index.ts` ersetzen und deployen (neu: `?action=cal` für den Kalender-Link, `?action=mvg` für Abfahrten). Danach prüfen, dass **Enforce JWT Verification** aus ist.
+
+## Störungen, Verspätungs-Push, Cloud-Sicherung (ab 2.6)
+
+1. Die Edge Function **studyos** mit der aktuellen `supabase/functions/studyos/index.ts` ersetzen und deployen (neu: Störungsmeldungen über `?action=mvg` mit `kind: "messages"`, Verspätungsprüfung im Erinnerungslauf). Danach prüfen, dass **Enforce JWT Verification** aus ist. Ohne Update fehlen in der App nur die Störungsmeldungen und der Verspätungs-Push.
+2. Kein neues SQL: Die Cloud-Sicherung nutzt den privaten Speicher aus `anhaenge.sql` (Dateien `sicherung-JJJJ-WW` im Ordner deiner Nutzer-ID). Fehlt er, meldet die App das unter „Cloud-Sicherung“.
+3. Verspätungs-Push einschalten: **Mehr → Daten → Weg zur Uni → Bei Verspätung oder Ausfall per Push sagen** (Erinnerungen müssen auf mindestens einem Gerät eingeschaltet sein).

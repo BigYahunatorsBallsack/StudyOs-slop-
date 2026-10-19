@@ -25,7 +25,12 @@ describe("Erinnerungen: Nachbereitung und Wochenausblick", () => {
   });
   it("Wochenausblick für den kommenden Sonntag", () => {
     const w = deadlinesFromData(data(), T).find((x) => x.kind === "weekly");
-    expect(w).toMatchObject({ date: "2026-10-25", body: "Nächste Woche: 1 Abgabe, Prüfung: Diskrete Strukturen, 1 Termine." });
+    expect(w).toMatchObject({ date: "2026-10-25", body: "Nächste Woche: 1 Abgabe, Prüfung: Diskrete Strukturen, 1 Termin. Rückblick: diese Woche noch nichts eingetragen." });
+  });
+  it("Wochenrückblick mit Lernzeit, Vorwoche und fälligen Karten", () => {
+    const d = { ...data(), logs: [{ id: "l1", moduleId: "ds", date: "2026-10-19", minutes: 90 }, { id: "l2", moduleId: "ds", date: "2026-10-25", minutes: 45 }, { id: "l3", moduleId: "ds", date: "2026-10-14", minutes: 60 }],
+      cards: [{ id: "c1", moduleId: "ds", due: "2026-10-26" }, { id: "c2", moduleId: "ds", due: "2026-11-30" }, { id: "c3", moduleId: "ds", due: "2026-10-01" }] };
+    expect(deadlinesFromData(d, T).find((x) => x.kind === "weekly").body).toBe("Nächste Woche: 1 Abgabe, Prüfung: Diskrete Strukturen, 1 Termin. Rückblick: 2 h 15 min gelernt (Vorwoche 1 h), 2 Karten fällig.");
   });
   it("beides abschaltbar", () => {
     const kinds = deadlinesFromData(data({ pushReviews: false, pushWeekly: false }), T).map((x) => x.kind);

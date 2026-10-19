@@ -102,6 +102,7 @@ export function demoData() {
     { id: uid(), name: "Praktikum (Beispiel)", code: "", ects: 6, semester: 1, status: "bestanden", grade: 1.7, color: PALETTE[4] },
   ];
   d.modules = m;
+  /** @type {Array<[number, number, string, string, string]>} */
   const slots = [[0, 0, "Vorlesung", "10:00", "12:00"], [1, 1, "Vorlesung", "14:00", "16:00"], [2, 3, "Übung", "12:00", "14:00"], [0, 3, "Übung", "16:00", "18:00"]];
   [-7, 0, 7].forEach((w) => slots.forEach(([mi, day, type, start, end]) => {
     const date = addDays(ws, w + day), past = date < t;

@@ -9,7 +9,10 @@ export function pickCards(cards, n, rand = Math.random) {
 
 /**
  * Auswertung: answers = { cardId: 0 | 0.5 | 1 } (nicht gewusst, teilweise, gewusst)
- * @returns { score, total, pct, groups: [{ label, score, total, pct }] schwächste zuerst, wrong: [card] }
+ * Liefert `{ score, total, pct, groups, wrong }`; groups = [{ label, score, total, pct }], schwächste zuerst.
+ * @param {any[]} cards
+ * @param {Record<string, number>} answers
+ * @param {(topicId: string) => string} [topicName]
  */
 export function evaluate(cards, answers, topicName = () => "") {
   const groups = new Map();

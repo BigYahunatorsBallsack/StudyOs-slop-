@@ -7,7 +7,7 @@
 import { COLLS } from "./constants.js";
 import { decryptWithKey, encryptWithKey } from "./crypto.js";
 import { normalizeImport } from "./data.js";
-import { mergeData } from "./sync.js";
+import { findConflicts, mergeData, stampMap } from "./sync.js";
 
 /** Kurzer Fingerabdruck des synchronisierten Inhalts: ändert sich, sobald ein Eintrag, eine Löschung
     oder die Einstellungen sich ändern. */
@@ -21,25 +21,33 @@ export function fingerprint(d) {
 /* Nur synchronisierte Felder hochladen; gerätebezogene Metadaten bleiben lokal. */
 const forCloud = (d) => ({ ...d, meta: { settingsUpdated: d.meta?.settingsUpdated || null, lastBackup: d.meta?.lastBackup || null } });
 
-export async function syncOnce({ remote, key, getLocal, applyLocal, now = () => new Date().toISOString(), maxAttempts = 4 }) {
+/* synced: Zeitstempel nach dem letzten erfolgreichen Sync (stampMap); damit werden überschriebene lokale
+   Änderungen erkannt (conflicts). Das Ergebnis liefert die neuen Zeitstempel für den nächsten Lauf (stamps). */
+export async function syncOnce({ remote, key, getLocal, applyLocal, now = () => new Date().toISOString(), maxAttempts = 4, synced = null }) {
+  const conflicts = new Map();
+  let merged;
+  const done = (r) => ({ ...r, conflicts: [...conflicts.values()], stamps: stampMap(merged) });
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const row = await remote.get();
     const base = getLocal();
     let remoteData = null;
     if (row) remoteData = normalizeImport(await decryptWithKey(row.payload, key));
 
-    let merged = base, stats = { added: 0, updated: 0, removed: 0 };
+    merged = base;
+    let stats = { added: 0, updated: 0, removed: 0 };
     if (remoteData) ({ data: merged, stats } = mergeData(base, remoteData, now()));
 
     const pulled = !!remoteData && fingerprint(merged) !== fingerprint(base);
-    if (pulled) applyLocal(merged, base);
-    else merged = base;
+    if (pulled) {
+      for (const k of findConflicts(base, merged, synced)) conflicts.set(`${k.c}:${k.id}`, k);
+      applyLocal(merged, base);
+    } else merged = base;
 
-    if (remoteData && fingerprint(merged) === fingerprint(remoteData)) return { pulled, pushed: false, stats, fingerprint: fingerprint(merged) };
+    if (remoteData && fingerprint(merged) === fingerprint(remoteData)) return done({ pulled, pushed: false, stats, fingerprint: fingerprint(merged) });
 
     const payload = await encryptWithKey(forCloud(merged), key);
     const ok = row ? await remote.update(payload, row.version) : await remote.insert(payload);
-    if (ok) return { pulled, pushed: true, stats, fingerprint: fingerprint(merged) };
+    if (ok) return done({ pulled, pushed: true, stats, fingerprint: fingerprint(merged) });
     /* Konflikt: ein anderes Gerät war schneller. Neu holen und nochmals zusammenführen. */
   }
   throw new Error("Die Cloud wurde mehrfach gleichzeitig geändert. Bitte gleich nochmal versuchen.");

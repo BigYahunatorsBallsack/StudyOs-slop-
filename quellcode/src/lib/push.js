@@ -1,8 +1,9 @@
 /* Fristen für den Erinnerungsdienst. Nur Titel, Modulname und Datum verlassen das Gerät unverschlüsselt. */
 import { DONE_HW } from "./constants.js";
-import { addDays, iso, wdIdx } from "./util.js";
+import { addDays, fmtMin, iso, sum, wdIdx } from "./util.js";
 import { withoutArchived } from "./study.js";
 import { blockReminders } from "./blocks.js";
+import { commuteOf } from "./transit.js";
 
 export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
@@ -29,15 +30,32 @@ export function deadlinesFromData(all, today = iso()) {
       out.push({ id: `review-${date}`, kind: "review", title: `${list.length} ${list.length === 1 ? "Termin" : "Termine"}`, date, body: names.join(", ") });
     }
   }
-  /* Sonntags: Ausblick auf die kommende Woche */
+  /* Sonntags: Rückblick (Lernzeit, fällige Karten) und Ausblick auf die kommende Woche.
+     Lernzeit und Kartenzahl verlassen das Gerät dafür als Zahlen im Nachrichtentext. */
   if (settings.pushWeekly !== false) {
     const sunday = addDays(today, (7 - wdIdx(today) - 1 + 7) % 7);
     const from = addDays(sunday, 1), to = addDays(sunday, 7);
     const hw = data.homework.filter((h) => h.due && h.due >= from && h.due <= to && !DONE_HW.has(h.status)).length;
     const ex = data.exams.filter((e) => e.date >= from && e.date <= to).map((e) => mod(e.moduleId) || "Prüfung");
     const ses = data.sessions.filter((s) => !s.cancelled && s.date >= from && s.date <= to).length;
-    const parts = [hw ? `${hw} ${hw === 1 ? "Abgabe" : "Abgaben"}` : "keine Abgaben", ex.length ? `Prüfung: ${ex.join(", ")}` : null, ses ? `${ses} Termine` : null].filter(Boolean);
-    out.push({ id: `weekly-${sunday}`, kind: "weekly", title: "Wochenausblick", date: sunday, body: `Nächste Woche: ${parts.join(", ")}.` });
+    const parts = [hw ? `${hw} ${hw === 1 ? "Abgabe" : "Abgaben"}` : "keine Abgaben", ex.length ? `Prüfung: ${ex.join(", ")}` : null, ses ? `${ses} ${ses === 1 ? "Termin" : "Termine"}` : null].filter(Boolean);
+    const minutes = (a, b) => sum(data.logs.filter((l) => l.date >= a && l.date <= b), (l) => Number(l.minutes) || 0);
+    const now = minutes(addDays(sunday, -6), sunday), prev = minutes(addDays(sunday, -13), addDays(sunday, -7));
+    const cards = data.cards.filter((c) => (c.due || "") <= from).length;
+    const back = [now ? `${fmtMin(now)} gelernt${prev ? ` (Vorwoche ${fmtMin(prev)})` : ""}` : "diese Woche noch nichts eingetragen", cards ? `${cards} ${cards === 1 ? "Karte" : "Karten"} fällig` : null].filter(Boolean);
+    out.push({ id: `weekly-${sunday}`, kind: "weekly", title: "Wochenausblick", date: sunday, body: `Nächste Woche: ${parts.join(", ")}. Rückblick: ${back.join(", ")}.` });
+  }
+  /* Weg zur Uni: erste Veranstaltung der nächsten 7 Tage mit Haltestellen und Zeiten, damit der Server vor
+     der Abfahrt die Echtzeit prüfen kann (nur wenn eingeschaltet) */
+  const c = settings.pushCommute ? commuteOf(settings) : null;
+  if (c) {
+    const pick = (l) => ({ station: { id: l.station.id }, line: l.line || "", towards: l.towards || "", avoid: l.avoid || "", travel: Number(l.travel) || 0 });
+    const commute = { ...pick(c), walk: Number(c.walk) || 0, buffer: Number(c.buffer) || 0, feeder: c.feeder ? { ...pick(c.feeder), transfer: Number(c.feeder.transfer) || 0 } : null };
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(today, i);
+      const first = data.sessions.filter((s) => s.date === day && !s.cancelled && /^\d{2}:\d{2}$/.test(s.start || "")).sort((a, b) => a.start.localeCompare(b.start))[0];
+      if (first) out.push({ id: `weg-${day}`, kind: "commute", title: mod(first.moduleId) || first.type || "Vorlesung", date: day, time: first.start, commute });
+    }
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 }

@@ -18,6 +18,7 @@ function createBackend() {
       if (op === 'files.put') { this.files.set(args[0] + '/' + args[1], args[2]); return true; }
       if (op === 'files.get') return this.files.get(args[0] + '/' + args[1]) ?? null;
       if (op === 'files.remove') { this.files.delete(args[0] + '/' + args[1]); return true; }
+      if (op === 'files.list') return [...this.files.entries()].filter(([k]) => k.startsWith(args[0] + '/' + args[1])).map(([k, v]) => ({ id: k.slice(args[0].length + 1), created: new Date().toISOString(), size: v.length })).sort((a, b) => b.id.localeCompare(a.id));
       if (op === 'push.setCalToken') { pushRow(args[0]).cal_token = args[1]; return true; }
       if (op === 'push.test') { this.tests++; return { devices: pushRow(args[0]).subscriptions.length, sent: pushRow(args[0]).subscriptions.length }; }
       if (op === 'shares.create') { this.shares.set(args[1], { owner: args[0], blob: args[2] }); return true; }
@@ -345,6 +346,7 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   const backend = createBackend();
   backend.mvg = (body) => {
     if (body.kind === 'stations') return [{ id: 'de:09184:2222', name: 'Haar, Gymnasium', place: 'Haar (b München)', types: ['BUS'] }];
+    if (body.kind === 'messages') return [{ title: 'Weichenstörung bei Haar', text: 'Unregelmäßige Abstände.', incident: true, from: 0, to: null, lines: ['S6'] }];
     const base = new Date(); base.setHours(0, 0, 0, 0);
     const t = (d, hm) => base.getTime() + d * 86400000 + (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60000;
     if (body.station === 'de:09175:4020') return [0, 1].flatMap((d) => ['07:32', '07:52', '08:12'].flatMap((hm) => [
@@ -381,6 +383,7 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(card.getByText('08:15 Bus 230 ab Haar, Gymnasium (+2)')).toBeVisible();
   await expect(card.getByText('Grafing')).toHaveCount(0);
   await expect(card.getByText('241')).toHaveCount(0);
+  await expect(card.getByRole('list', { name: 'Störungen und Baustellen' }).getByText('Weichenstörung bei Haar')).toBeVisible();
 
   // Anhang: verschlüsselt hochgeladen
   await nav(A.page, 'Mehr').click();
@@ -422,6 +425,90 @@ test('Artemis: Abo auch ohne Abgaben, übernimmt sie später automatisch', async
   await A.page.getByRole('button', { name: 'Alle jetzt abrufen' }).click();
   await expect(A.page.getByText('Abgerufen: 1 neu, 0 geändert.')).toBeVisible();
   await expect.poll(() => A.page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework.map((h) => `${h.title}|${h.moduleId}`))).toEqual(['W01H01 - Hello World|eidi']);
+  expect(A.errors).toEqual([]);
+  await A.context.close();
+});
+
+test('Konflikt: Änderung von einem anderen Gerät überschrieben, „Meine behalten“ stellt sie wieder her', async ({ browser }) => {
+  test.setTimeout(90000);
+  const backend = createBackend();
+  const A = await newDevice(browser, backend);
+  const B = await newDevice(browser, backend);
+  const unlock = async (page, first) => {
+    await page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+    if (first) await page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+    await page.getByRole('button', { name: first ? 'Festlegen und hochladen' : 'Entsperren und synchronisieren' }).click();
+    await expect(page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+  };
+  const rename = async (page, from, to) => {
+    await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+    await page.getByPlaceholder(/Module, Hausaufgaben/).fill(from);
+    await page.getByRole('option', { name: new RegExp(from) }).click();
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByLabel('Titel').fill(to);
+    await page.getByRole('button', { name: 'Speichern' }).click();
+  };
+  await addNote(A.page, 'Gemeinsame Notiz');
+  await login(A.page); await unlock(A.page, true);
+  await login(B.page); await unlock(B.page, false);
+  await expect.poll(() => notes(B.page), { timeout: 15000 }).toEqual(['Gemeinsame Notiz']);
+  // A synchronisiert einmal (merkt sich den Stand) und geht dann offline
+  await openData(A.page);
+  await A.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect(A.page.getByText('Synchronisiert', { exact: true })).toBeVisible();
+  await A.context.setOffline(true);
+  await rename(A.page, 'Gemeinsame Notiz', 'Fassung von A');
+  await A.page.waitForTimeout(500);
+  await rename(B.page, 'Gemeinsame Notiz', 'Fassung von B');
+  await openData(B.page);
+  await B.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect(B.page.getByText('Synchronisiert', { exact: true })).toBeVisible();
+  // A wieder online: B's jüngere Fassung gewinnt, A bekommt den Hinweis
+  await A.context.setOffline(false);
+  await A.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect(A.page.getByText('Von einem anderen Gerät überschrieben: „Fassung von A“.')).toBeVisible({ timeout: 15000 });
+  await expect.poll(() => notes(A.page)).toEqual(['Fassung von B']);
+  const before = [...backend.rows.values()][0].version;
+  await A.page.getByRole('button', { name: 'Meine behalten' }).click();
+  await expect.poll(() => notes(A.page)).toEqual(['Fassung von A']);
+  await expect.poll(() => [...backend.rows.values()][0].version, { timeout: 15000 }).toBeGreaterThan(before); // A lädt hoch
+  await B.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect.poll(() => notes(B.page), { timeout: 15000 }).toEqual(['Fassung von A']);
+  expect(A.errors).toEqual([]);
+  expect(B.errors).toEqual([]);
+  await A.context.close(); await B.context.close();
+});
+
+test('Cloud-Sicherung: wöchentlich verschlüsselt, Wiederherstellen holt Gelöschtes zurück', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const A = await newDevice(browser, backend);
+  await addNote(A.page, 'Wichtige Notiz');
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  // Nach dem ersten Sync automatisch gesichert, verschlüsselt
+  await expect.poll(() => [...backend.files.keys()].filter((k) => k.includes('/sicherung-')).length, { timeout: 15000 }).toBe(1);
+  const blob = Buffer.from([...backend.files.entries()].find(([k]) => k.includes('/sicherung-'))[1]).toString('utf8');
+  expect(blob).not.toContain('Wichtige Notiz');
+  const list = A.page.getByRole('list', { name: 'Cloud-Sicherungen' });
+  await expect(list.getByText(/^KW \d+\/\d{4}/)).toHaveCount(1);
+
+  // Notiz löschen (auf allen Geräten), dann aus der Sicherung wiederherstellen
+  await A.page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  await A.page.getByPlaceholder(/Module, Hausaufgaben/).fill('Wichtige');
+  await A.page.getByRole('option', { name: /Wichtige Notiz/ }).click();
+  await A.page.getByRole('button', { name: 'Bearbeiten' }).click();
+  const dlg = A.page.getByRole('dialog', { name: /bearbeiten/ });
+  await dlg.getByRole('button', { name: 'Löschen', exact: true }).click();
+  await dlg.getByRole('button', { name: 'Wirklich löschen?' }).click();
+  await expect.poll(() => notes(A.page)).toEqual([]);
+  await openData(A.page);
+  await list.getByRole('button', { name: 'Wiederherstellen' }).click();
+  await list.getByRole('button', { name: /Stand aus KW \d+ laden\?/ }).click();
+  await expect(A.page.getByText(/wiederhergestellt/)).toBeVisible();
+  await expect.poll(() => notes(A.page)).toEqual(['Wichtige Notiz']);
   expect(A.errors).toEqual([]);
   await A.context.close();
 });

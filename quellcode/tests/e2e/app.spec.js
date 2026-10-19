@@ -515,7 +515,7 @@ test('Mensa, GOP-Karte, Raum-Link und FSRS-Vorschau', async ({ page }) => {
   await expect(page.getByRole('region', { name: 'Mensa' }).getByText('Testpasta mit Tomaten')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Mensa' }).getByText('0,90 €/100g')).toBeVisible();
   // Raum und Aufzeichnung im Tagesplan
-  await expect(page.getByRole('link', { name: 'Raum MI HS 1 (5602.EG.001) in NavigaTUM öffnen' }).first()).toHaveAttribute('href', 'https://nav.tum.de/room/5602.EG.001');
+  await expect(page.getByRole('link', { name: 'Raum finden: MI HS 1 (5602.EG.001) in NavigaTUM öffnen' }).first()).toHaveAttribute('href', 'https://nav.tum.de/room/5602.EG.001');
   await expect(page.getByRole('link', { name: 'Aufzeichnung ↗' }).first()).toHaveAttribute('href', /live\.rbg\.tum\.de/);
   // GOP
   await nav(page, 'Mehr').click();
@@ -629,4 +629,32 @@ test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({
   await expect(page.locator('.grid-day')).toHaveText(['Mo19', 'Di20', 'Mi21', 'Do22', 'Fr23', 'Sa24']);
   await expect(page.getByRole('button', { name: /Abgabe Blatt 3/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('Teilen-Ziel: geteilte PDF wird zur Notiz mit Anhang', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload(); // jetzt steuert der Service Worker die Seite
+  expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  const received = await page.evaluate(async () => {
+    const fd = new FormData();
+    fd.append('title', 'Skript Kapitel 3');
+    fd.append('text', 'Bitte bis Freitag lesen');
+    fd.append('url', 'https://www.moodle.tum.de/course/1');
+    fd.append('files', new File(['%PDF-1.4 Testinhalt'], 'skript.pdf', { type: 'application/pdf' }));
+    await fetch('./teilen-ziel', { method: 'POST', body: fd });
+    const inbox = await (await caches.open('studyos-share-inbox')).match('./geteilt.json');
+    return inbox ? (await inbox.json()).files.map((f) => f.name) : null;
+  });
+  expect(received).toEqual(['skript.pdf']); // vom Service Worker angenommen
+  await page.goto('./?aktion=geteilt');
+  await expect(page.getByText('Als Notiz mit 1 Anhang gespeichert.')).toBeVisible();
+  const dlg = page.getByRole('dialog', { name: /bearbeiten/ });
+  await expect(dlg.getByLabel('Titel')).toHaveValue('Skript Kapitel 3');
+  await expect(dlg.getByText('skript.pdf')).toBeVisible();
+  await expect.poll(async () => (await stored(page))?.notes?.map((n) => [n.title, n.text, n.files?.length])).toEqual([['Skript Kapitel 3', 'Bitte bis Freitag lesen\n\nhttps://www.moodle.tum.de/course/1', 1]]);
+  // ein zweites Öffnen legt nichts doppelt an
+  await page.goto('./?aktion=geteilt');
+  await page.waitForTimeout(500);
+  expect((await stored(page)).notes.length).toBe(1);
 });

@@ -13,7 +13,7 @@ export function isoWeek(dateStr) {
   d.setUTCDate(d.getUTCDate() - day + 3); /* Donnerstag derselben Woche */
   const year = d.getUTCFullYear();
   const jan4 = new Date(Date.UTC(year, 0, 4));
-  return { year, week: 1 + Math.round(((d - jan4) / 86400000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7) };
+  return { year, week: 1 + Math.round(((d.getTime() - jan4.getTime()) / 86400000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7) };
 }
 
 export const menuUrl = (canteen, dateStr) => { const { year, week } = isoWeek(dateStr); return `https://tum-dev.github.io/eat-api/${canteen}/${year}/${String(week).padStart(2, "0")}.json`; };

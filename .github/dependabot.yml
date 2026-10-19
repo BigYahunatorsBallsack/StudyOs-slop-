@@ -1,0 +1,21 @@
+# Wöchentliche Updates für npm-Pakete (gebündelt) und GitHub Actions
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /quellcode
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      laufzeit:
+        dependency-type: production
+        update-types: [minor, patch]
+      entwicklung:
+        dependency-type: development
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

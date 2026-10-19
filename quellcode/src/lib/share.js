@@ -16,7 +16,7 @@ export function deckFrom(cards, title, by = "") {
     cards: cards.slice(0, MAX_SHARE_CARDS).map((c) => ({ front: String(c.front || ""), back: String(c.back || ""), tags: String(c.tags || "") })) };
 }
 
-/** Verschlüsselt einen Stapel. @returns { token, key, blob } */
+/** Verschlüsselt einen Stapel. Liefert `{ token, key, blob }`. */
 export async function sealDeck(deck) {
   const raw = rand(16), iv = rand(12);
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await importKey(raw), enc.encode(JSON.stringify(deck))));

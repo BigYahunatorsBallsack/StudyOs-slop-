@@ -74,8 +74,8 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       <NextUp db={db} openReviews={openReviews} cardsDue={cardsDue} />
 
       <div className="mt-3 flex gap-2">
-        <button className="quick min-w-0 flex-1" onClick={onQuick} aria-label="Schnelleingabe öffnen">
-          <span>Was steht an?</span>
+        <button className="quick min-w-0 flex-1" onClick={onQuick}>
+          <span>Was steht an?<span className="sr-only"> Schnelleingabe öffnen</span></span>
           <span className="quick-plus" aria-hidden="true">+</span>
         </button>
         <button className="whatnow" onClick={() => setNowOpen(true)}>Was jetzt?</button>

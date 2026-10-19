@@ -31,9 +31,11 @@ const minus = (hm, n) => { const [h, m] = String(hm || "00:00").split(":").map(N
 export const MAX_LATE_MS = 12 * 3600 * 1000; /* verpasste Erinnerungen höchstens 12 h später nachholen */
 
 /**
- * @param deadlines [{ id, kind, title, module, date, time }]
- * @param sent      { [key]: ISO-Zeit } bereits verschickt
- * @returns [{ key, title, body, tag, url }]
+ * @param {Array<{ id: string, kind: string, title: string, module?: string, date: string, time?: string, body?: string }>} deadlines
+ * @param {Record<string, string>} [sent] bereits verschickt: Schlüssel → ISO-Zeit
+ * @param {Date} [now]
+ * @param {string} [tz]
+ * @returns {Array<{ key: string, title: string, body: string, tag: string, url: string }>}
  */
 export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europe/Berlin") {
   const out = [];
@@ -44,14 +46,14 @@ export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europ
       const time = typeof hm === "function" ? hm(x) : hm;
       const at = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
-      if (sent[key] || at > now || now - at > maxLate) return;
+      if (sent[key] || at > now || now.getTime() - at.getTime() > maxLate) return;
       out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" ? "./?aktion=heute" : "./?aktion=pruefungen" });
     });
   }
   return out;
 }
 
-/** Alte Einträge aus dem Versandprotokoll entfernen (älter als 60 Tage). */
+/** Alte Einträge aus dem Versandprotokoll entfernen (älter als 60 Tage). @param {Record<string, string>} [sent] @param {Date} [now] */
 export function pruneSent(sent = {}, now = new Date()) {
   const limit = now.getTime() - 60 * 86400000;
   return Object.fromEntries(Object.entries(sent).filter(([, at]) => new Date(at).getTime() >= limit));

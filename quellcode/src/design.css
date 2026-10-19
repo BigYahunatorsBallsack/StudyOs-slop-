@@ -20,7 +20,7 @@
   /* Dunkel: Pflaumen-Nachtblau statt Schiefergrau */
   --bg: #1b1830; --surface: #252140; --surface-2: #302b52; --surface-3: #3d3766;
   --line: rgba(236, 232, 255, .08); --line-strong: rgba(236, 232, 255, .16);
-  --text: #f4f1ff; --text-2: #d9d4f5; --muted: #aaa4cf; --faint: #827ca8;
+  --text: #f4f1ff; --text-2: #d9d4f5; --muted: #b3aed6; --faint: #9e98c6; /* faint ≥ 4.5:1 auf surface-2 (WCAG AA) */
   --ink: #f4f1ff; --on-ink: #1b1830;
   --accent: #a28fff; --accent-strong: #b9aaff; --accent-text: #cfc4ff; --on-accent: #17132c;
   --warn: #ffb547; --warn-strong: #ffc66e; --warn-text: #ffd894;
@@ -34,7 +34,7 @@
 :root[data-theme="light"] {
   --bg: #f2f0fa; --surface: #ffffff; --surface-2: #eae7f6; --surface-3: #dad5ef;
   --line: rgba(28, 24, 52, .08); --line-strong: rgba(28, 24, 52, .16);
-  --text: #1d1937; --text-2: #3b3560; --muted: #625c86; --faint: #8a84aa;
+  --text: #1d1937; --text-2: #3b3560; --muted: #524b77; --faint: #635d87;
   --ink: #1d1937; --on-ink: #f7f5ff;
   --accent: #6447f0; --accent-strong: #5233df; --accent-text: #4c30cf; --on-accent: #ffffff;
   --warn: #e39400; --warn-strong: #b06f00; --warn-text: #8a5600;
@@ -190,7 +190,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .tile { position: relative; display: flex; flex-direction: column; min-height: 8.5rem; padding: .9rem; border-radius: var(--r-group); text-align: left; background: color-mix(in srgb, var(--mod) 20%, var(--surface)); color: var(--text); overflow: hidden; transition: transform .15s; }
 .tile:active { transform: scale(.98); }
 .tile-name { font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; line-height: 1.15; letter-spacing: -.01em; }
-.tile-meta { margin-top: auto; font-size: .75rem; color: var(--muted); }
+.tile-meta { margin-top: auto; font-size: .75rem; color: var(--text-2); }
 .tile-swatch { width: 1.6rem; height: .35rem; border-radius: 999px; background: var(--mod); margin-bottom: .55rem; }
 
 /* ---- Wochenraster ---- */
@@ -318,7 +318,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .exam-chips::-webkit-scrollbar { display: none; }
 .exam-chip { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; max-width: 12rem; padding: .65rem .9rem; border-radius: var(--r-row); background: color-mix(in srgb, var(--mod, var(--accent)) 22%, var(--surface)); text-align: left; }
 .exam-chip-days { font-family: var(--font-display); font-weight: 750; font-size: 1.15rem; }
-.exam-chip-name { font-size: .75rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exam-chip-name { font-size: .75rem; color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .block { display: block; }
 .popover { width: 19.5rem; }
 .popover .tri { display: flex; width: 100%; }
@@ -352,6 +352,8 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 
 /* Formeln und Code in Notizen/Karten */
 .md pre, .md code { background: var(--surface-2); border-color: var(--line-strong); color: var(--text); }
+.md a { color: var(--accent-text); }
+.md blockquote { border-left-color: var(--line-strong); color: var(--muted); }
 .md pre.code-block { position: relative; background: var(--bg); padding-top: 1.4rem; }
 .code-lang { position: absolute; top: .3rem; right: .6rem; font-size: .65rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .math-block { overflow-x: auto; overflow-y: hidden; padding: .35rem 0; margin: .5em 0; }

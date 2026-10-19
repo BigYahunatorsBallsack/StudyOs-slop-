@@ -96,7 +96,7 @@ export function DataView({ db }) {
 
   return (
     <div className="space-y-4">
-      <CloudCard cloud={db.cloud} settings={data.settings} patchSettings={db.patchSettings} />
+      <CloudCard cloud={db.cloud} settings={data.settings} patchSettings={db.patchSettings} onRestore={(d, label) => db.replaceAll(d, `Vor dem Wiederherstellen (Cloud-Sicherung ${label})`)} />
 
       <FeedCard db={db} />
       <MoodleCard db={db} />

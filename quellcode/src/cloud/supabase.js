@@ -1,7 +1,6 @@
 /* Dünne Schicht über supabase-js: Login per E-Mail-Code und Lesen/Schreiben der einen Sync-Zeile. */
-/* Nur Auth und Datenbank-Client statt des ganzen supabase-js (Realtime, Storage, Functions braucht StudyOS nicht) */
-import { AuthClient } from "@supabase/auth-js";
-import { PostgrestClient } from "@supabase/postgrest-js";
+/* Nur Auth und Datenbank-Client statt des ganzen supabase-js (Realtime, Storage, Functions braucht StudyOS nicht).
+   Beide werden erst geladen, wenn sie gebraucht werden (ca. 120 KB weniger beim Start ohne Cloud-Sync). */
 import { SUPABASE_KEY, SUPABASE_URL, SYNC_TABLE } from "../lib/cloud-config.js";
 
 export class CloudError extends Error {}
@@ -19,25 +18,41 @@ function explain(error) {
   return new CloudError("Supabase-Fehler: " + msg);
 }
 
+const AUTH_KEY = "studyos-auth";
+let libs = null;
+const loadLibs = () => (libs ||= import("./supabase-libs.js").catch((e) => { libs = null; throw explain(e); }));
+
+/** Gibt es eine gespeicherte Anmeldung oder kommt gerade eine über den Mail-Link herein? Sonst bleibt Supabase ungeladen. */
+export function mayHaveSession(storage = globalThis.localStorage, hash = globalThis.location?.hash || "") {
+  try { return !!storage.getItem(AUTH_KEY) || /access_token=|error_description=/.test(hash); } catch { return true; }
+}
+
 export function createSupabaseCloud() {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
-  const auth = new AuthClient({
-    url: SUPABASE_URL + "/auth/v1", headers: { apikey: SUPABASE_KEY },
-    persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit", storageKey: "studyos-auth",
-  });
+  const toUser = (s) => (s?.user ? { id: s.user.id, email: s.user.email } : null);
+  let uid = null;
+  const authListeners = new Set();
+  let authP = null;
+  const getAuth = () => (authP ||= loadLibs().then(({ AuthClient }) => {
+    const a = new AuthClient({
+      url: SUPABASE_URL + "/auth/v1", headers: { apikey: SUPABASE_KEY },
+      persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit", storageKey: AUTH_KEY,
+    });
+    a.onAuthStateChange((_event, session) => { const u = toUser(session); uid = u?.id || null; authListeners.forEach((cb) => cb(u)); });
+    return a;
+  }, (e) => { authP = null; throw e; }));
+  const auth = { getSession: async () => (await getAuth()).getSession() };
   /* Datenbankzugriff immer mit dem aktuellen Zugangstoken des Nutzers (wird bei Bedarf erneuert) */
   const db = async () => {
     const { data } = await auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw new CloudError("Die Anmeldung ist abgelaufen. Bitte neu anmelden.");
+    const { PostgrestClient } = await loadLibs();
     return new PostgrestClient(SUPABASE_URL + "/rest/v1", { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
   };
-  const sb = { auth };
-  const toUser = (s) => (s?.user ? { id: s.user.id, email: s.user.email } : null);
-  let uid = null;
   const userId = async () => {
     if (uid) return uid;
-    const { data } = await sb.auth.getSession();
+    const { data } = await auth.getSession();
     uid = data.session?.user?.id || null;
     if (!uid) throw new CloudError("Nicht angemeldet.");
     return uid;
@@ -109,6 +124,7 @@ export function createSupabaseCloud() {
       },
       async get(token) {
         /* auch ohne Anmeldung: nur über die Funktion, die genau einen Eintrag nach Kennung liefert */
+        const { PostgrestClient } = await loadLibs();
         const anon = new PostgrestClient(SUPABASE_URL + "/rest/v1", { headers: { apikey: SUPABASE_KEY } });
         const { data, error } = await anon.rpc("studyos_get_share", { t: token });
         if (error) throw new CloudError(error.message);
@@ -132,25 +148,39 @@ export function createSupabaseCloud() {
         return new Uint8Array(await res.arrayBuffer());
       },
       async remove(id) { await storage("DELETE", id).catch(() => {}); },
+      /* Dateien im eigenen Ordner, deren Name mit `search` beginnt (für die Cloud-Sicherungen) */
+      async list(search) {
+        const { data } = await auth.getSession();
+        if (!data.session) throw new CloudError("Nicht angemeldet.");
+        let res;
+        try {
+          res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/studyos-files`, {
+            method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${data.session.access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ prefix: data.session.user.id + "/", search, limit: 100, sortBy: { column: "name", order: "desc" } }),
+          });
+        } catch (e) { throw explain(e); }
+        if (!res.ok) throw new CloudError(res.status === 404 || res.status === 400 ? "Cloud-Speicher ist noch nicht eingerichtet: Bitte supabase/anhaenge.sql im SQL-Editor ausführen." : `Liste der Sicherungen nicht verfügbar (${res.status}).`);
+        return (await res.json()).filter((o) => o.name && o.name.startsWith(search)).map((o) => ({ id: o.name, created: o.updated_at || o.created_at || null, size: Number(o.metadata?.size) || 0 }));
+      },
     },
     calUrl: (token) => `${FN}?action=cal&token=${token}`,
     fetchIcs: async (url) => (await callFn("ics", { body: { url } })).text(),
     mvg: async (body) => (await callFn("mvg", { body })).json(),
-    async getUser() { const { data } = await sb.auth.getSession(); const u = toUser(data.session); uid = u?.id || null; return u; },
-    onAuthChange(cb) {
-      const { data } = sb.auth.onAuthStateChange((_event, session) => { const u = toUser(session); uid = u?.id || null; cb(u); });
-      return () => data.subscription.unsubscribe();
+    async getUser() {
+      if (!authP && !mayHaveSession()) return null;
+      const { data } = await auth.getSession(); const u = toUser(data.session); uid = u?.id || null; return u;
     },
+    onAuthChange(cb) { authListeners.add(cb); return () => authListeners.delete(cb); },
     async sendCode(email) {
       const redirect = window.location.origin + window.location.pathname;
-      const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect, shouldCreateUser: true } });
+      const { error } = await (await getAuth()).signInWithOtp({ email, options: { emailRedirectTo: redirect, shouldCreateUser: true } });
       if (error) throw explain(error);
     },
     async verifyCode(email, token) {
-      const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+      const { error } = await (await getAuth()).verifyOtp({ email, token, type: "email" });
       if (error) throw explain(error);
     },
-    async signOut() { uid = null; await sb.auth.signOut({ scope: "local" }).catch(() => {}); },
+    async signOut() { uid = null; if (authP) await (await authP).signOut({ scope: "local" }).catch(() => {}); },
     remote: {
       async get() {
         const { data, error } = await (await db()).from(SYNC_TABLE).select("version,payload").eq("user_id", await userId()).maybeSingle();

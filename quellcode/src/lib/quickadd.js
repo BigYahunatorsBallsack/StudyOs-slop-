@@ -74,7 +74,7 @@ function parseDateToken(tokens, i, today) {
   if (m) return [w, 1];
   return null;
 }
-const diffWeeks = (a, b) => Math.floor((new Date(b) - new Date(a)) / (7 * 86400000));
+const diffWeeks = (a, b) => Math.floor((new Date(b).getTime() - new Date(a).getTime()) / (7 * 86400000));
 
 function parseTimeToken(tok) {
   const w = norm(tok).replace(/uhr$/, "");

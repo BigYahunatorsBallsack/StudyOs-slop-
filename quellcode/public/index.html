@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="__CSP__">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1b1830">
   <meta name="description" content="StudyOS: persönlicher Informatik-Studienplaner mit Offline-Speicherung, Aufgaben, Nachbereitung und Lernfortschritt.">
@@ -18,6 +19,6 @@
 </head>
 <body>
   <div id="root"><div class="boot">StudyOS wird geladen …</div></div>
-  <script src="./app.js" defer></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

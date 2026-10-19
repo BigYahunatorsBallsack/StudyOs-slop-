@@ -1,11 +1,12 @@
 /* Cloud-Sync: Anmelden per E-Mail-Code, Passphrase festlegen, Status und Abmelden */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { fmtSize } from "../lib/files.js";
 import { Card, ConfirmButton } from "../ui/primitives.jsx";
 import { btnGhost, btnPrimary, inputCls, inputFlex } from "../ui/styles.js";
 
 const fmtTime = (s) => (s ? new Date(s).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie");
 
-export function CloudCard({ cloud, settings = {}, patchSettings }) {
+export function CloudCard({ cloud, settings = {}, patchSettings, onRestore }) {
   const [mail, setMail] = useState("");
   const [code, setCode] = useState("");
   const [pass, setPass] = useState("");
@@ -73,11 +74,50 @@ export function CloudCard({ cloud, settings = {}, patchSettings }) {
             <ConfirmButton label="Cloud-Daten löschen" confirmLabel="Cloud-Kopie wirklich löschen?" onConfirm={cloud.deleteCloud} />
           </div>
           <Reminders cloud={cloud} settings={settings} patchSettings={patchSettings} />
+          {patchSettings && <CloudBackups cloud={cloud} settings={settings} patchSettings={patchSettings} onRestore={onRestore} />}
           {patchSettings && <CalendarFeed cloud={cloud} settings={settings} patchSettings={patchSettings} />}
           <p className="mt-2 text-[11px] text-slate-500">Abmelden lässt die Daten auf diesem Gerät. „Cloud-Daten löschen“ entfernt nur die Kopie in der Cloud; danach kannst du mit einer neuen Passphrase neu hochladen. Achtung: „Alle Daten löschen“ unten wird bei aktivem Sync auf allen Geräten wirksam.</p>
         </>
       )}
     </Card>
+  );
+}
+
+/* Wöchentliche, verschlüsselte Sicherungen in der Cloud (letzte 8 Wochen) */
+function CloudBackups({ cloud, settings, patchSettings, onRestore }) {
+  const [list, setList] = useState(null), [msg, setMsg] = useState(""), [err, setErr] = useState(""), [busy, setBusy] = useState("");
+  const on = settings.cloudBackup !== false;
+  const refresh = () => cloud.listBackups().then((l) => { setList(l); setErr(""); }).catch((e) => { setList([]); setErr(e.message); });
+  useEffect(() => { refresh(); }, [cloud.backupInfo]);
+  const now = async () => {
+    setBusy("now"); setMsg(""); setErr("");
+    try { await cloud.backupNow(); setMsg("Sicherung in der Cloud gespeichert."); await refresh(); } catch (e) { setErr(e.message); } finally { setBusy(""); }
+  };
+  const restore = async (f) => {
+    setBusy(f.id); setMsg(""); setErr("");
+    try { const d = await cloud.loadBackup(f.id); onRestore && onRestore(d, `KW ${f.week}/${f.year}`); setMsg(`Stand aus KW ${f.week}/${f.year} wiederhergestellt. Der vorherige Stand liegt unter „Wiederherstellungspunkte“.`); }
+    catch (e) { setErr(e.message || "Die Sicherung ließ sich nicht öffnen."); } finally { setBusy(""); }
+  };
+  return (
+    <div className="mt-4 border-t border-slate-800 pt-4">
+      <h3 className="section-title">Cloud-Sicherung</h3>
+      <p className="mt-1 text-xs text-slate-400">Einmal pro Woche ein verschlüsselter Schnappschuss deiner Daten im privaten Cloud-Speicher, die letzten 8 Wochen bleiben erhalten. Hilft, wenn etwas versehentlich auf allen Geräten gelöscht wurde.</p>
+      <label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={on} onChange={(e) => patchSettings({ cloudBackup: e.target.checked })} /> Jede Woche automatisch sichern</label>
+      <div className="mt-2 flex flex-wrap gap-2"><button className={btnGhost} onClick={now} disabled={!!busy}>{busy === "now" ? "Sichert …" : "Jetzt sichern"}</button></div>
+      {list && list.length > 0 && (
+        <ul className="mt-3 space-y-1" aria-label="Cloud-Sicherungen">
+          {list.map((f) => (
+            <li key={f.id} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1">KW {f.week}/{f.year}<span className="text-xs text-slate-500">{f.created ? `, ${fmtTime(f.created)}` : ""}{f.size ? `, ${fmtSize(f.size)}` : ""}</span></span>
+              <ConfirmButton label="Wiederherstellen" confirmLabel={`Stand aus KW ${f.week} laden?`} className={btnGhost} onConfirm={() => restore(f)} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {list && !list.length && !err && <p className="mt-2 text-xs text-slate-500">Noch keine Sicherung in der Cloud.</p>}
+      {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
+      {err && <p role="alert" className="mt-2 text-xs text-rose-400">{err}</p>}
+    </div>
   );
 }
 
@@ -108,7 +148,7 @@ function Reminders({ cloud, settings, patchSettings }) {
         <div className="mt-3 space-y-2 text-sm">
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushReviews !== false} onChange={(e) => patchSettings({ pushReviews: e.target.checked })} /> Um 20 Uhr, wenn heutige Termine noch nicht nachbereitet sind</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushBlocks !== false} onChange={(e) => patchSettings({ pushBlocks: e.target.checked })} /> 10 Minuten vor einem geplanten Lernblock</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushWeekly !== false} onChange={(e) => patchSettings({ pushWeekly: e.target.checked })} /> Sonntags um 18 Uhr ein Ausblick auf die nächste Woche</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushWeekly !== false} onChange={(e) => patchSettings({ pushWeekly: e.target.checked })} /> Sonntags um 18 Uhr Rückblick (Lernzeit, fällige Karten) und Ausblick auf die nächste Woche</label>
         </div>
       )}
       {cloud.pushStep && <p role="status" className="mt-2 text-xs text-slate-400">{cloud.pushStep}</p>}

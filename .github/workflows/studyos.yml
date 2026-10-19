@@ -1,5 +1,5 @@
-# Prüft jede Änderung am Quellcode und veröffentlicht die gebaute App ins Wurzelverzeichnis,
-# aus dem GitHub Pages liest. Ein Commit mit dem GITHUB_TOKEN löst keinen neuen Lauf aus.
+# Prüft jede Änderung am Quellcode und veröffentlicht die gebaute App direkt auf GitHub Pages
+# (Einstellung: Settings → Pages → Source: „GitHub Actions“). Gebaute Dateien liegen nicht mehr im Repository.
 name: StudyOS
 
 on:
@@ -31,13 +31,17 @@ jobs:
           cache: npm
           cache-dependency-path: quellcode/package-lock.json
       - run: npm ci
+      - name: Sicherheitslücken in Abhängigkeiten
+        run: npm audit --audit-level=moderate
       - name: ESLint
         run: npm run lint
+      - name: Typprüfung
+        run: npm run typecheck
       - name: Unit-Tests
         run: npm test
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: 2.9.6 # gleiche Version wie devDependencies.deno
       - name: Edge Function in Deno
         run: npm run build && node tests/deno/run-function.mjs deno
       - name: CSS-Klassen
@@ -46,6 +50,18 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: E2E-Tests
         run: npm run test:e2e
+      # Screenshot-Vergleich: blockiert vorerst nicht. Weichen die Bilder nur durch eine andere Chromium-Version ab,
+      # die Referenzbilder aus dem Artefakt „screenshot-abweichungen“ übernehmen (oder lokal --update-snapshots).
+      - name: Screenshot-Vergleich
+        id: visual
+        continue-on-error: true
+        run: npm run test:visual
+      - uses: actions/upload-artifact@v4
+        if: steps.visual.outcome == 'failure'
+        with:
+          name: screenshot-abweichungen
+          path: quellcode/test-results/
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -59,7 +75,12 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,13 +90,10 @@ jobs:
           cache-dependency-path: quellcode/package-lock.json
       - run: npm ci
       - run: npm run build
-      - name: Gebaute App ins Wurzelverzeichnis
-        run: cp -R dist/. ..
-      - name: Commit, falls sich etwas geändert hat
-        working-directory: .
-        run: |
-          git add -A -- . ':!quellcode'
-          if git diff --cached --quiet; then echo "Keine Änderungen an der gebauten App."; exit 0; fi
-          git -c user.name="github-actions[bot]" -c user.email="41898333+github-actions[bot]@users.noreply.github.com" \
-            commit -m "Veröffentlichen: $(node -p "require('./quellcode/package.json').version") (${GITHUB_SHA::7})"
-          git push
+      - run: touch dist/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: quellcode/dist
+      - id: deploy
+        uses: actions/deploy-pages@v4

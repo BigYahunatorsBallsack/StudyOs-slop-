@@ -16,6 +16,8 @@ import { clearKeys, loadKey, saveKey } from "../lib/keystore.js";
 import { getCloud } from "./index.js";
 import { openBytes, sealBytes } from "../lib/files.js";
 import { deadlinesFromData, deadlinesKey, keyBytes, pushBlocker } from "../lib/push.js";
+import { backupName, backupsToPrune, decodeBackup, encodeBackup, parseBackupName } from "../lib/backup.js";
+import { iso } from "../lib/util.js";
 
 const DEBOUNCE_MS = 3000;
 
@@ -26,8 +28,9 @@ function withTimeout(promise, ms, message) {
 }
 const INTERVAL_MS = 5 * 60 * 1000;
 const LAST_KEY = "studyos-cloud-last";
+const BACKUP_KEY = "studyos-cloud-backup"; /* Name der letzten Cloud-Sicherung dieses Geräts */
 
-export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled }) {
+export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict }) {
   const cloud = getCloud();
   const [phase, setPhase] = useState(cloud ? "loading" : "off");
   const [user, setUser] = useState(null);
@@ -40,6 +43,8 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   const keyRef = useRef(null);
   const running = useRef(false), again = useRef(false), lastFp = useRef(null);
   const enabledRef = useRef(enabled); enabledRef.current = enabled;
+  const syncedRef = useRef(null); /* Zeitstempel nach dem letzten erfolgreichen Sync, für den Konflikthinweis */
+  const onConflictRef = useRef(onConflict); onConflictRef.current = onConflict;
 
   /* Anmeldestatus und gespeicherten Schlüssel laden */
   const enterUser = useCallback(async (u) => {
@@ -60,6 +65,25 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     return () => { alive = false; off && off(); };
   }, [cloud, enterUser]);
 
+  /* Wöchentliche Cloud-Sicherung: einmal pro Kalenderwoche nach einem erfolgreichen Sync, alte löschen */
+  const [backupInfo, setBackupInfo] = useState(() => { try { return localStorage.getItem(BACKUP_KEY); } catch { return null; } });
+  const uploadBackup = useCallback(async () => {
+    if (!cloud || !keyRef.current || !cloud.files.list) throw new Error("Cloud-Sync ist nicht entsperrt.");
+    const name = backupName(iso());
+    await cloud.files.put(name, await sealBytes(keyRef.current.key, encodeBackup(getLocal())));
+    try { localStorage.setItem(BACKUP_KEY, name); } catch {}
+    setBackupInfo(name);
+    const old = backupsToPrune((await cloud.files.list("sicherung-")).map((f) => f.id));
+    await Promise.all(old.map((id) => cloud.files.remove(id)));
+    return name;
+  }, [cloud, getLocal]);
+  const weeklyBackup = useCallback(async () => {
+    if (getLocal().settings?.cloudBackup === false) return;
+    let last = null; try { last = localStorage.getItem(BACKUP_KEY); } catch {}
+    if (last === backupName(iso())) return;
+    await uploadBackup();
+  }, [getLocal, uploadBackup]);
+
   /* Ein Synchronisationslauf; gleichzeitige Anfragen werden zu einem Folgelauf zusammengefasst */
   const run = useCallback(async () => {
     if (!cloud || !keyRef.current || !enabledRef.current) return;
@@ -68,11 +92,13 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     running.current = true;
     setStatus("syncing");
     try {
-      const res = await syncOnce({ remote: cloud.remote, key: keyRef.current, getLocal, applyLocal });
-      lastFp.current = res.fingerprint;
+      const res = await syncOnce({ remote: cloud.remote, key: keyRef.current, getLocal, applyLocal, synced: syncedRef.current });
+      lastFp.current = res.fingerprint; syncedRef.current = res.stamps;
+      if (res.conflicts.length && onConflictRef.current) onConflictRef.current(res.conflicts);
       const at = new Date().toISOString();
       setLastSync(at); try { localStorage.setItem(LAST_KEY, at); } catch {}
       setStatus("idle"); setError("");
+      weeklyBackup().catch(() => {}); /* stört den Sync nicht, Fehler zeigt die Sicherungsliste */
     } catch (e) {
       if (e instanceof KeyMismatchError) {
         keyRef.current = null; await clearKeys(); setRemoteExists(true); setPhase("need-key");
@@ -82,7 +108,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       running.current = false;
       if (again.current) { again.current = false; setTimeout(run, 0); }
     }
-  }, [cloud, getLocal, applyLocal]);
+  }, [cloud, getLocal, applyLocal, weeklyBackup]);
 
   const active = phase === "ready" && ready && enabled;
 
@@ -242,6 +268,14 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       return openBytes(keyRef.current.key, await cloud.files.get(id));
     },
     removeFile: (id) => (cloud ? cloud.files.remove(id) : Promise.resolve()),
+    /* Cloud-Sicherungen: Liste (neueste zuerst), jetzt sichern, Inhalt laden */
+    backupInfo,
+    listBackups: async () => ((await cloud.files.list("sicherung-")) || []).map((f) => ({ ...f, ...parseBackupName(f.id) })).filter((f) => f.week).sort((a, b) => b.id.localeCompare(a.id)),
+    backupNow: () => uploadBackup(),
+    loadBackup: async (id) => {
+      if (!keyRef.current) throw new Error("Cloud-Sync ist nicht entsperrt.");
+      return decodeBackup(await openBytes(keyRef.current.key, await cloud.files.get(id)));
+    },
     /* Kalender-Abo der Fristen: Token auf dem Server setzen (null = widerrufen) */
     setCalToken: async (token) => {
       setBusy(true);
