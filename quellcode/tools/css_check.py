@@ -2,7 +2,7 @@
 import re, glob, sys
 
 root = sys.argv[1]
-css = open(f'{root}/src/style.css', encoding='utf-8').read() + open(f'{root}/src/design.css', encoding='utf-8').read()
+css = ''.join(open(f'{root}/src/{f}', encoding='utf-8').read() for f in ('style.css', 'design.css', 'retro.css'))
 own = set(re.findall(r'\.([a-zA-Z][\w-]*)', css))
 # Klassen, die per <style> in App.jsx definiert werden
 app = open(f'{root}/src/App.jsx', encoding='utf-8').read()

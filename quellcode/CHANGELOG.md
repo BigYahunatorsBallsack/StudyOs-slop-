@@ -1,5 +1,9 @@
 # Änderungen
 
+## 2.7.1
+- **Retro mit Pixel-Details:** kleine Pixel-Icons für S-Bahn, Bus, Tram, Fußweg und Ziel bei „Weg zur Uni“, für Gerichte in der Mensa (Schüssel, Blatt für vegan/vegetarisch, Fisch, Fleisch); Sternenhimmel, Pixel-Pfeile vor Abschnittstiteln, blinkender Cursor am Seitentitel (ohne Animation bei „Bewegung reduzieren“), Sanduhr und Flamme bei Lernzeit und Serie, segmentierte Fortschrittsbalken, ein Space Invader bei leeren Listen und ein Pixel-Pfeil an der Jetzt-Linie. Grafiken aus `tools/retro_pixels.py`.
+- **Weg zur Uni, verständlicher formuliert** (alle Farbschemata): „um 07:47 losgehen, 5 Min. zu Fuß zur Haltestelle“, „Abfahrt mit der S6 in Zorneding, Gleis 5“, „Ankunft in Haar, dort umsteigen“, „voraussichtliche Ankunft am Ziel“; Abfahrten „S6 nach …“, Verspätung als „2 Min. später“.
+
 ## 2.7.0
 - **Farbschema „Retro“** (Mehr → Daten & Einstellungen → Darstellung): Neon-Pixel-Look wie ein Videospiel-Menü. Nachtviolett mit Neon-Pink und Cyan, Pixel-Schrift (Silkscreen) für Überschriften, Knöpfe und Tabs, JetBrains Mono für Text, VT323 für große Zahlen. Keine Rundungen, Pixel-Ränder mit ausgeschnittenen Ecken und harte Schatten, dezente Scanlines, eine Pixel-Skyline bei Nacht im Hintergrund und eine Synthwave-Sonne auf „Als Nächstes“. Modulfarben erscheinen als Neon-Rand statt als Fläche. Alle Texte erfüllen WCAG AA; Dunkel und Hell sind unverändert.
 - Die Schriften liegen in der App (kein externes CDN) und werden nur geladen, wenn Retro aktiv ist.

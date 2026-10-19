@@ -1,24 +1,26 @@
 /* Weg zur Uni: z. B. S6 Zorneding → Haar, Umstieg in den Bus 230 Richtung Forschungszentrum.
    Zeigt die nächsten Abfahrten und welche Verbindung für die erste Lehrveranstaltung reicht. */
 import React, { useEffect, useState } from "react";
-import { commuteOf, DEFAULT_COMMUTE, hhmm, matches, nextFirstSession, queryOffset, recommend } from "../lib/transit.js";
+import { commuteOf, DEFAULT_COMMUTE, hhmm, matches, nextFirstSession, queryOffset, recommend, vehicle } from "../lib/transit.js";
 import { fmtShort, iso } from "../lib/util.js";
-import { Card } from "../ui/primitives.jsx";
+import { Card, PxIcon } from "../ui/primitives.jsx";
 
 const dayWord = (date) => (date === iso() ? "heute" : date === iso(new Date(Date.now() + 86400000)) ? "morgen" : fmtShort(date));
 const lineName = (l) => (/^\d/.test(l || "") ? `Bus ${l}` : l || "Abfahrten");
 const TYPES = "BUS,REGIONAL_BUS,SBAHN,UBAHN,TRAM,BAHN";
 
-function DepList({ title, deps }) {
+const later = (d) => (d.delay > 0 ? ` (${d.delay} Min. später)` : "");
+
+function DepList({ title, deps, icon }) {
   return (
     <div className="mt-3">
-      <p className="text-xs font-semibold text-slate-400">{title}</p>
+      <p className="flex items-center gap-2 text-xs font-semibold text-slate-400">{icon && <PxIcon name={icon} />}{title}</p>
       <ul className="mt-1 space-y-1">
         {deps.length ? deps.map((d, i) => (
           <li key={i} className={`flex items-center gap-3 text-sm ${d.cancelled ? "line-through opacity-60" : ""}`}>
             <span className="font-num w-12 shrink-0">{hhmm(d.time)}</span>
-            <span className="min-w-0 flex-1 truncate text-slate-300">{d.line} {d.destination}{d.platform ? `, Gleis ${d.platform}` : ""}</span>
-            <span className={`font-num shrink-0 text-xs ${d.cancelled ? "text-rose-300" : d.delay > 0 ? "text-amber-300" : "text-slate-500"}`}>{d.cancelled ? "fällt aus" : d.delay > 0 ? `+${d.delay}` : d.realtime ? "pünktlich" : "Plan"}</span>
+            <span className="min-w-0 flex-1 truncate text-slate-300">{d.line} nach {d.destination}{d.platform ? `, Gleis ${d.platform}` : ""}</span>
+            <span className={`font-num shrink-0 text-xs ${d.cancelled ? "text-rose-300" : d.delay > 0 ? "text-amber-300" : "text-slate-500"}`}>{d.cancelled ? "fällt aus" : d.delay > 0 ? `${d.delay} Min. später` : d.realtime ? "pünktlich" : "laut Fahrplan"}</span>
           </li>
         )) : <li className="text-sm text-slate-400">In nächster Zeit keine Abfahrt.</li>}
       </ul>
@@ -80,12 +82,12 @@ export function CommuteCard({ db, sessions }) {
           <>
             {session && (p ? (
               <div className="commute-plan mt-2" style={{ "--mod": m?.color }}>
-                <p>Für <b>{m?.name || "deine Vorlesung"}</b> {dayWord(session.date)} um {session.start}: <b>los um {hhmm(p.leaveAt)}</b></p>
+                <p>Für <b>{m?.name || "deine Vorlesung"}</b> {dayWord(session.date)} um {session.start}: <b>um {hhmm(p.leaveAt)} losgehen</b>{c.walk ? `, ${c.walk} Min. zu Fuß zur Haltestelle` : ""}</p>
                 <ol className="commute-steps mt-1.5">
-                  {p.feederDep && <li><b className="font-num">{hhmm(p.feederDep.time)}</b> {p.feederDep.line} ab {f.station.name}{p.feederDep.platform ? `, Gleis ${p.feederDep.platform}` : ""}{p.feederDep.delay > 0 ? ` (+${p.feederDep.delay})` : ""}</li>}
-                  {p.feederDep && <li><b className="font-num">{hhmm(p.changeAt)}</b> an {c.station.name}, umsteigen</li>}
-                  <li><b className="font-num">{hhmm(p.dep.time)}</b> {lineName(p.dep.line)} ab {c.station.name}{p.dep.delay > 0 ? ` (+${p.dep.delay})` : ""}</li>
-                  <li><b className="font-num">{hhmm(p.arriveAt)}</b> an, etwa</li>
+                  {p.feederDep && <li><PxIcon name={vehicle(p.feederDep).icon} /><span><b className="font-num">{hhmm(p.feederDep.time)}</b> Abfahrt {vehicle(p.feederDep).with} in {f.station.name}{p.feederDep.platform ? `, Gleis ${p.feederDep.platform}` : ""}{later(p.feederDep)}</span></li>}
+                  {p.feederDep && <li><PxIcon name="walk" /><span><b className="font-num">{hhmm(p.changeAt)}</b> Ankunft in {c.station.name}, dort umsteigen</span></li>}
+                  <li><PxIcon name={vehicle(p.dep).icon} /><span><b className="font-num">{hhmm(p.dep.time)}</b> Abfahrt {vehicle(p.dep).with} in {c.station.name}{later(p.dep)}</span></li>
+                  <li><PxIcon name="flag" /><span><b className="font-num">{hhmm(p.arriveAt)}</b> voraussichtliche Ankunft am Ziel</span></li>
                 </ol>
               </div>
             ) : <p className="mt-2 text-sm text-slate-400">Für {m?.name || "die erste Vorlesung"} {dayWord(session.date)} um {session.start} keine passende Verbindung gefunden.</p>)}
@@ -101,8 +103,8 @@ export function CommuteCard({ db, sessions }) {
                 ))}
               </ul>
             )}
-            {f && <DepList title={`${f.line || "Abfahrten"} ab ${f.station.name}`} deps={state.feeder || []} />}
-            <DepList title={`${lineName(c.line)} ab ${c.station.name}${c.towards ? ` Richtung ${c.towards}` : ""}`} deps={state.main} />
+            {f && <DepList icon={vehicle({ line: f.line, type: state.feeder?.[0]?.type }).icon} title={`Nächste Abfahrten: ${f.line || "Bahn"} in ${f.station.name}`} deps={state.feeder || []} />}
+            <DepList icon={vehicle({ line: c.line, type: state.main?.[0]?.type }).icon} title={`Nächste Abfahrten: ${lineName(c.line)} in ${c.station.name}${c.towards ? ` Richtung ${c.towards}` : ""}`} deps={state.main} />
           </>
         )}
     </section>
