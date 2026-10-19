@@ -20,7 +20,7 @@ export const DONE_HW = new Set(["bearbeitet", "abgegeben", "bewertet"]);
 
 export const TOPIC_STATES = ["nicht begonnen", "gelernt", "geübt", "sicher"];
 
-export const LOG_KINDS = ["Nacharbeiten", "Vorbereiten", "Übung/Hausaufgabe", "Klausurvorbereitung", "Karteikarten", "Sonstiges"];
+export const LOG_KINDS = ["Nacharbeiten", "Vorbereiten", "Übung/Hausaufgabe", "Klausurvorbereitung", "Karteikarten", "Aufzeichnung", "Besucht", "Sonstiges"];
 
 export const COLLS = ["modules", "sessions", "homework", "topics", "logs", "notes", "cards", "exams", "blocks"];
 

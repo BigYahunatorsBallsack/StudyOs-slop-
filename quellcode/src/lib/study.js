@@ -1,6 +1,7 @@
 /* Studienalltag: Übungsblatt-Serien, Notenbonus-Prognose, Workload nach ECTS, Archiv */
 import { DONE_HW } from "./constants.js";
-import { addDays, diffDays, isHeld, iso, uid } from "./util.js";
+import { addDays, diffDays, fmtShort, isHeld, iso, uid } from "./util.js";
+import { fmtWatch, parseWatch, watchProgress } from "./tum.js";
 
 /* ---------------- Übungsblätter als Serie ---------------- */
 
@@ -22,7 +23,8 @@ export function buildHomeworkSeries(base, until) {
     const issued = base.issued ? addDays(base.issued, 7 * i) : null;
     const due = addDays(base.due, 7 * i);
     if ((issued || due) > until) break;
-    out.push({ ...base, id: uid(), seriesId, title: i ? nextTitle(base.title, i) : base.title, issued, due, status: i ? "ausgegeben" : base.status || "ausgegeben", points: i ? null : base.points ?? null, doneAt: null });
+    out.push({ ...base, id: uid(), seriesId, title: i ? nextTitle(base.title, i) : base.title, issued, due, status: i ? "ausgegeben" : base.status || "ausgegeben", points: i ? null : base.points ?? null, doneAt: null,
+      ...(Array.isArray(base.subtasks) && { subtasks: i ? base.subtasks.map((s) => ({ ...s, id: uid(), done: false })) : base.subtasks }) });
   }
   return out;
 }
@@ -82,7 +84,8 @@ export function workload(data, moduleId, today = iso()) {
   const elapsed = Math.min(weeks, (diffDays(start, today) + 1) / 7);
   const totalH = ects * HOURS_PER_ECTS;
   const sollH = (totalH * elapsed) / weeks;
-  const selfMin = data.logs.filter((l) => l.moduleId === moduleId && l.date >= start && l.date <= today).reduce((s, l) => s + (Number(l.minutes) || 0), 0);
+  /* „Besucht“-Einheiten nicht doppelt: Präsenz kommt unten direkt aus den Terminen */
+  const selfMin = data.logs.filter((l) => l.moduleId === moduleId && l.kind !== "Besucht" && l.date >= start && l.date <= today).reduce((s, l) => s + (Number(l.minutes) || 0), 0);
   const presenceMin = ses.filter((s) => s.attended && isHeld(s) && s.date <= today).reduce((s, x) => s + minutesOf(x), 0);
   const istH = (selfMin + presenceMin) / 60;
   const ratio = sollH > 0 ? istH / sollH : 1;
@@ -100,6 +103,49 @@ export function workloadOverview(data, today = iso()) {
     .map((m) => ({ m, w: workload(data, m.id, today) }))
     .filter((x) => x.w)
     .sort((a, b) => a.w.ratio - b.w.ratio || b.w.gapH - a.w.gapH);
+}
+
+/* ---------------- Aufzeichnungen als Lernzeit ---------------- */
+
+/**
+ * Neu angeschaute Minuten einer Aufzeichnung („angeschaut bis“) als Lerneinheit, oder null.
+ * Gezählt wird nur, was über die schon eingetragenen Aufzeichnungs-Minuten dieses Termins hinausgeht,
+ * so zählt dieselbe Stelle nie doppelt, auch nicht nach Zurück- und wieder Vorstellen.
+ */
+export function watchLog(logs, s, today = iso()) {
+  const sec = parseWatch(s?.watchedTo);
+  if (!s?.moduleId || sec === null || !Number.isFinite(sec)) return null;
+  const logged = logs.filter((l) => l.sessionId === s.id && l.kind === "Aufzeichnung").reduce((n, l) => n + (Number(l.minutes) || 0), 0);
+  const minutes = Math.floor(sec / 60) - logged;
+  if (minutes < 1) return null;
+  return { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Aufzeichnung", date: today, minutes, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} angeschaut bis ${fmtWatch(sec)}`, created: today };
+}
+
+/** Besuchter Termin als Lerneinheit am Tag des Termins (Dauer aus Beginn und Ende, sonst 90 Minuten). */
+export function presenceLog(s) {
+  if (!s?.moduleId || !s.date) return null;
+  return { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Besucht", date: s.date, at: s.start || "", minutes: minutesOf(s) || 90, note: `${s.type || "Termin"} besucht`, created: iso() };
+}
+
+/**
+ * Besucht an- oder abhaken, samt Lerneinheit: An legt sie an (höchstens eine je Termin), Ab entfernt sie wieder.
+ * @returns neuer Datenstand (ohne Zeitstempel; die setzt stampChanges)
+ */
+export function toggleAttended(data, id) {
+  const s = data.sessions.find((x) => x.id === id);
+  if (!s) return data;
+  const on = !s.attended, mine = (l) => l.sessionId === id && l.kind === "Besucht";
+  const sessions = data.sessions.map((x) => (x.id === id ? { ...x, attended: on } : x));
+  const log = on && !data.logs.some(mine) ? presenceLog({ ...s, attended: on }) : null;
+  const logs = on ? (log ? [...data.logs, log] : data.logs) : data.logs.filter((l) => !mine(l));
+  return { ...data, sessions, logs };
+}
+
+/** Wie weit ein Termin wahrgenommen ist: besucht = 100 %, sonst der Anteil der angeschauten Aufzeichnung; null ohne beides. */
+export function sessionCoverage(s) {
+  if (s.attended) return { ratio: 1, label: "besucht" };
+  const w = watchProgress(s);
+  return w && w.ratio !== null ? { ratio: w.ratio, label: `${Math.round(w.ratio * 100)} % angeschaut` } : null;
 }
 
 /* ---------------- Lerntagebuch ---------------- */

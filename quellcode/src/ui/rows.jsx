@@ -7,6 +7,7 @@ import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
 import { isOcc, occLabel } from "../lib/occlusion.js";
 import { SwipeRow } from "./swipe.jsx";
 import { WatchProgress } from "./links.jsx";
+import { SubtaskChecklist } from "./subtasks.jsx";
 import { Select } from "./select.jsx";
 
 /* ---------------- Zeilen ---------------- */
@@ -76,6 +77,7 @@ export function HomeworkRow({ h, db }) {
           {HW_STATUS.map((x) => <option key={x} value={x}>{x}</option>)}
         </Select>
       </div>
+      <SubtaskChecklist h={h} db={db} color={m?.color} />
     </SwipeRow>
   );
 }

@@ -37,6 +37,38 @@ function groupOf(c) {
   return (k) => byField.get(k) || k;
 }
 const groupFields = (c) => (g) => GROUPS[c]?.[g] || [g];
+
+/* Listen, deren Elemente eine eigene id tragen (Teilaufgaben einer Abgabe), werden pro Element zusammengeführt:
+   Für Stempel und Zusammenführen gilt jedes Element als eigenes Feld "liste:id", die Reihenfolge als "liste#".
+   Die ganze Liste bleibt zusätzlich als Feld erhalten, damit ältere App-Versionen sie wie bisher als ein Feld behandeln. */
+const LISTS = { homework: ["subtasks"] };
+function flatten(c) {
+  const lists = LISTS[c];
+  if (!lists) return (x) => x;
+  return (x) => {
+    if (!x || !lists.some((l) => Array.isArray(x[l]))) return x;
+    const out = { ...x };
+    for (const l of lists) {
+      if (!Array.isArray(x[l])) continue;
+      out[l + "#"] = x[l].map((e) => e.id);
+      for (const { id, ...rest } of x[l]) out[`${l}:${id}`] = rest;
+    }
+    return out;
+  };
+}
+/* Gegenstück zu flatten: baut die Listen aus Reihenfolge und Elementen wieder zusammen (ändert `v`). */
+function unflatten(c, v) {
+  for (const l of LISTS[c] || []) {
+    const pre = l + ":", order = v[l + "#"], items = new Map();
+    for (const k of Object.keys(v)) if (k.startsWith(pre)) { items.set(k.slice(pre.length), v[k]); delete v[k]; }
+    delete v[l + "#"];
+    if (order === undefined && !items.size) continue;
+    const ids = (Array.isArray(order) ? order : []).filter((id) => items.has(id));
+    const rest = [...items.keys()].filter((id) => !ids.includes(id)).sort();
+    v[l] = [...ids, ...rest].map((id) => ({ id, ...items.get(id) }));
+  }
+  return v;
+}
 /** JSON mit sortierten Schlüsseln: gleicher Inhalt ergibt denselben Text, egal in welcher Reihenfolge die Felder stehen. */
 export function canonical(v) {
   if (Array.isArray(v)) return "[" + v.map((x) => (x === undefined ? "null" : canonical(x))).join(",") + "]";
@@ -90,7 +122,7 @@ export function stampChanges(prev, next, now = nowIso()) {
   for (const c of COLLS) {
     if (prev[c] === next[c]) continue;
     const before = new Map((prev[c] || []).map((x) => [x.id, x]));
-    const gOf = groupOf(c), gFields = groupFields(c);
+    const gOf = groupOf(c), gFields = groupFields(c), fl = flatten(c);
     const list = next[c] || [];
     let touched = false;
     const stamped = list.map((x) => {
@@ -101,10 +133,10 @@ export function stampChanges(prev, next, now = nowIso()) {
         touched = true;
         tombs.delete(`${c}:${x.id}`);
         const s = hlc(now, tomb?.at, x.updated);
-        const fu = x.fu && restamp(x.updated, x.fu, changedGroups({}, x, gOf, gFields), s);
+        const fu = x.fu && restamp(x.updated, x.fu, changedGroups({}, fl(x), gOf, gFields), s);
         return fu ? { ...x, updated: s, fu } : { ...x, updated: s };
       }
-      const groups = changedGroups(p, x, gOf, gFields);
+      const groups = changedGroups(fl(p), fl(x), gOf, gFields);
       touched = true;
       if (!groups.size) return p; /* nur Zeitstempel oder Reihenfolge der Felder geändert: Stempel nicht zurücksetzen */
       tombs.delete(`${c}:${x.id}`);
@@ -149,13 +181,13 @@ function mergeFields(x, xu, xfu, y, yu, yfu, gOf, gFields) {
 
 function mergeItem(x, y, c) {
   if (x === y) return x;
-  const gOf = groupOf(c), gFields = groupFields(c);
-  const m = mergeFields(x, stamp(x), x.fu, y, stamp(y), y.fu, gOf, gFields);
+  const gOf = groupOf(c), gFields = groupFields(c), fl = flatten(c);
+  const m = mergeFields(fl(x), stamp(x), x.fu, fl(y), stamp(y), y.fu, gOf, gFields);
   /** @type {Record<string, any>} */
-  const out = { id: x.id, ...m.values, updated: m.updated };
+  const out = { id: x.id, ...unflatten(c, m.values), updated: m.updated };
   if (Object.keys(m.fu).length > 1 || x.fu || y.fu) out.fu = m.fu;
   /* Gleicher Inhalt wie eine Seite: deren Objekt behalten (Identität zählt für Statistik und Konflikthinweis) */
-  for (const side of [x, y]) if (!changedGroups(side, out, gOf, gFields).size && stamp(side) === out.updated && same(side.fu, out.fu)) return side;
+  for (const side of [x, y]) if (!changedGroups(fl(side), fl(out), gOf, gFields).size && stamp(side) === out.updated && same(side.fu, out.fu)) return side;
   return out;
 }
 
@@ -235,7 +267,7 @@ export function findConflicts(local, merged, synced) {
   const out = [];
   for (const c of COLLS) {
     const after = new Map((merged[c] || []).map((x) => [x.id, x]));
-    const gOf = groupOf(c), gFields = groupFields(c);
+    const gOf = groupOf(c), gFields = groupFields(c), fl = flatten(c);
     for (const x of local[c] || []) {
       const was = synced.get(`${c}:${x.id}`);
       if (was === stamp(x)) continue;
@@ -243,7 +275,8 @@ export function findConflicts(local, merged, synced) {
       if (!y) { out.push({ c, id: x.id, title: titleOf(x), kind: "deleted", local: x }); continue; }
       if (y === x) continue;
       const st = fieldStamps(x, x.updated, x.fu);
-      const lost = [...changedGroups(x, y, gOf, gFields)].filter((g) => st.of(g) > (was || EPOCH));
+      /* die ganze Liste zählt nicht: sie ändert sich mit jedem Element, auch wenn dort nichts verloren ging */
+      const lost = [...changedGroups(fl(x), fl(y), gOf, gFields)].filter((g) => !LISTS[c]?.includes(g) && st.of(g) > (was || EPOCH));
       if (lost.length) out.push({ c, id: x.id, title: titleOf(x), kind: "overwritten", local: x, fields: lost });
     }
   }
@@ -255,13 +288,13 @@ export function findConflicts(local, merged, synced) {
 export function restoreConflicts(d, conflicts) {
   const out = { ...d };
   for (const c of new Set(conflicts.map((k) => k.c))) {
-    const gFields = groupFields(c);
+    const gFields = groupFields(c), fl = flatten(c);
     const mine = new Map(conflicts.filter((k) => k.c === c).map((k) => [k.id, k]));
     const restore = (x, k) => {
       if (!k.fields) return { ...k.local };
-      const y = { ...x };
-      for (const g of k.fields) for (const f of gFields(g)) { if (f in k.local) y[f] = k.local[f]; else delete y[f]; }
-      return y;
+      const y = { ...fl(x) }, local = fl(k.local);
+      for (const g of k.fields) for (const f of gFields(g)) { if (f in local) y[f] = local[f]; else delete y[f]; }
+      return unflatten(c, y);
     };
     const kept = (d[c] || []).map((x) => (mine.has(x.id) ? restore(x, mine.get(x.id)) : x));
     const present = new Set(kept.map((x) => x.id));
