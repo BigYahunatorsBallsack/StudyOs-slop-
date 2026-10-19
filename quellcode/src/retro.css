@@ -104,7 +104,7 @@
 :root[data-theme="retro"] .btn-ghost { --pxc: #4a2a8a; }
 :root[data-theme="retro"] .btn-danger { --pxc: var(--danger); background: var(--surface); }
 :root[data-theme="retro"] .btn-icon { box-shadow: none; }
-:root[data-theme="retro"] .btn-icon:hover { background: var(--surface-2); }
+@media (hover: hover) { :root[data-theme="retro"] .btn-icon:hover { background: var(--surface-2); } }
 :root[data-theme="retro"] .btn-lg { font-size: .8rem; }
 :root[data-theme="retro"] .field { background: var(--bg); border-color: transparent; }
 :root[data-theme="retro"] .field:focus { --pxc: var(--accent-2); }
@@ -134,7 +134,7 @@
 :root[data-theme="retro"] .hero-title { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem; line-height: 1.2; letter-spacing: .01em; text-shadow: 2px 2px 0 var(--bg); }
 :root[data-theme="retro"] .hero-meta { opacity: 1; color: var(--text-2); text-shadow: 1px 1px 0 var(--bg); }
 :root[data-theme="retro"] .hero .btn { background: var(--surface-2); color: var(--text); --pxc: #4a2a8a; }
-:root[data-theme="retro"] .hero .btn:hover { background: var(--surface-3); }
+@media (hover: hover) { :root[data-theme="retro"] .hero .btn:hover { background: var(--surface-3); } }
 :root[data-theme="retro"] .hero .btn-solid { background: var(--mod, var(--accent)); color: var(--on-module); --pxc: color-mix(in srgb, var(--mod, var(--accent)) 60%, #fff); }
 :root[data-theme="retro"] .hero-calm { box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 5px 5px 0 0 var(--drop); }
 
@@ -257,7 +257,7 @@
 :root[data-theme="retro"] .group-caret { display: none; }
 :root[data-theme="retro"] .section-title:has(> .group-toggle)::before { transition: none; }
 :root[data-theme="retro"] .section-title:has(> .group-toggle[aria-expanded="true"])::before { transform: rotate(90deg); }
-:root[data-theme="retro"] .group-toggle:hover { color: var(--accent-text); }
+@media (hover: hover) { :root[data-theme="retro"] .group-toggle:hover { color: var(--accent-text); } }
 /* Weg zur Uni und Mensa behalten ihr Symbol, die Richtung zeigt dort ein kleiner Winkel */
 :root[data-theme="retro"] .group-commute .section-title::before { width: 24px; height: 20px; vertical-align: -4px; background: var(--px-bus) center / 24px 20px no-repeat; }
 :root[data-theme="retro"] .group-mensa .section-title::before { width: 24px; height: 20px; vertical-align: -4px; background: var(--px-bowl) center / 24px 20px no-repeat; }

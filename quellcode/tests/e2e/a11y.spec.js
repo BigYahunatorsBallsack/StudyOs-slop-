@@ -11,8 +11,8 @@ async function check(page, where) {
   return found;
 }
 
-for (const theme of ['dark', 'light', 'retro']) {
-  test(`axe: keine Verstöße (${{ dark: 'dunkel', light: 'hell', retro: 'retro' }[theme]})`, async ({ page }) => {
+for (const theme of ['retro']) {
+  test(`axe: keine Verstöße (${theme})`, async ({ page }) => {
     test.setTimeout(90000);
     // feste Uhrzeit: Dienstag 19:30, die Beispiel-Termine des Tages sind vorbei (prüft auch die abgeblendete Darstellung)
     await page.clock.setFixedTime(new Date('2026-10-20T19:30:00+02:00'));
@@ -23,9 +23,6 @@ for (const theme of ['dark', 'light', 'retro']) {
     await page.getByRole('button', { name: 'Beispieldaten laden' }).click();
     await page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
     await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load())?.modules?.length ?? 0)).toBeGreaterThan(0);
-    if (theme !== 'dark') await page.evaluate(async (t) => {
-      const d = await window.STUDYOS_ENV.load(); d.settings.theme = t; await window.STUDYOS_ENV.save(d);
-    }, theme);
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     const all = [];

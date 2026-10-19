@@ -1,6 +1,6 @@
 """Sucht in allen Bildschirmen nach Elementen, die sich sichtbar überlappen (Handy und Desktop).
 
-Aufruf: python3 tools/overlap_check.py [Farbschema]  (z. B. Retro; Standard: Dunkel). Eigenes Chromium: PW_CHROMIUM=/pfad/chrome"""
+Aufruf: python3 tools/overlap_check.py Eigenes Chromium: PW_CHROMIUM=/pfad/chrome"""
 import sys, json, os
 from playwright.sync_api import sync_playwright
 
@@ -37,7 +37,6 @@ with sync_playwright() as p:
         nav = lambda n: pg.get_by_role('navigation', name='Hauptnavigation').get_by_role('button', name=n).click()
         nav('Mehr'); pg.get_by_role('tab', name='Daten & Einstellungen').click()
         pg.get_by_role('button', name='Beispieldaten laden').click(); pg.get_by_role('button', name='Aktuelle Daten ersetzen?').click()
-        if len(sys.argv) > 1: pg.get_by_role('tab', name=sys.argv[1], exact=True).click(); pg.wait_for_timeout(400)
         screens = [('Heute', None), ('Module', None), ('Woche', 'Raster'), ('Woche', 'Liste'), ('Lernen', 'Timer'), ('Lernen', 'Lerneinheiten'), ('Lernen', 'Karteikarten'), ('Lernen', 'Prüfungen & Lernplan'),
                    ('Mehr', 'Wochenrückblick'), ('Mehr', 'Alle Hausaufgaben'), ('Mehr', 'Studienfortschritt'), ('Mehr', 'Daten & Einstellungen')]
         for tab, sub in screens:

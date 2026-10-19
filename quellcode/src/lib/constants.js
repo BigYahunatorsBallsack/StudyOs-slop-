@@ -29,6 +29,6 @@ export const COLL = { module: "modules", session: "sessions", homework: "homewor
 export const RING_COLORS = { review: "#38bdf8", hw: "#34d399", topics: "#fbbf24" };
 
 /* defaultsRev 2: Studiengang, Studienplan, Mensa und Weg zur Uni starten leer (vorher persönliche Vorgaben, siehe upgradeSettings) */
-export const DEFAULT_SETTINGS = { targetEcts: 180, threshold: 70, weeklyGoal: 0, sound: true, backupDays: 7, name: "", university: "TUM", program: "", curriculum: "", mensa: "", commute: null, theme: "dark", retroMotion: "pixel", defaultsRev: 2 };
+export const DEFAULT_SETTINGS = { targetEcts: 180, threshold: 70, weeklyGoal: 0, sound: true, backupDays: 7, name: "", university: "TUM", program: "", curriculum: "", mensa: "", commute: null, retroMotion: "pixel", defaultsRev: 2 };
 
 export const TIMER_KEY = "studyos-timer-v1";
