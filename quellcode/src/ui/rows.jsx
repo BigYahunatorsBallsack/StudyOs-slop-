@@ -130,7 +130,7 @@ export function LogRow({ l, db }) {
 
 export function CardList({ cards, db }) {
   const t = iso();
-  if (!cards.length) return <Empty>Noch keine Karteikarten.</Empty>;
+  if (!cards.length) return <Empty art="card">Noch keine Karteikarten. Der Stapel wartet auf seine erste Karte.</Empty>;
   return (
     <ul className="rows">
       {[...cards].sort((a, b) => a.due.localeCompare(b.due)).map((c) => { const m = db.mod(c.moduleId); return (

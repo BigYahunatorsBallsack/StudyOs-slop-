@@ -61,7 +61,7 @@ export function TimerView({ db, timer: timerIn }) {
         <div className="flex flex-col items-center gap-4">
           <Tabs items={[["focus", "Fokus"], ["break", "Pause"]]} value={timer.mode} onChange={timer.setMode} label="Timer-Modus" />
           <div className="relative">
-            <PixelRing prog={prog} color={timer.mode === "focus" ? m?.color || "#05d9e8" : "#00f5a0"} />
+            <PixelRing prog={prog} color={timer.mode === "focus" ? m?.color || "var(--accent-2)" : "var(--ok)"} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span role="timer" aria-label={`${mm} Minuten ${ss} Sekunden verbleibend`} className="font-num text-5xl font-semibold">{mm}:{ss}</span>
               <span className="text-xs text-slate-400">{timer.mode === "focus" ? "Fokus" : "Pause"}</span>
@@ -165,7 +165,7 @@ function PixelRing({ prog, color }) {
   const filled = Math.min(blocks.length, Math.floor(prog * blocks.length + 1e-9));
   return (
     <svg width="200" height="200" viewBox="0 0 200 200" shapeRendering="crispEdges" aria-hidden="true" className="px-ring">
-      {blocks.map((b, i) => <rect key={i} x={b.x - 5} y={b.y - 5} width="10" height="10" fill={i < filled ? color : "var(--hm0)"} className={i === filled - 1 ? "px-ring-new" : undefined} />)}
+      {blocks.map((b, i) => <rect key={i} x={b.x - 5} y={b.y - 5} width="10" height="10" style={{ fill: i < filled ? color : "var(--hm0)" }} className={i === filled - 1 ? "px-ring-new" : undefined} />)}
     </svg>
   );
 }
@@ -185,7 +185,7 @@ export function LogsView({ db }) {
         <button className={btnPrimary} onClick={() => db.openForm("log", { date: iso(), moduleId: mod === "all" ? "" : mod }, true)}>+ Lerneinheit</button>
       </div>
       <p className="text-sm text-slate-300">Summe: <span className="font-num">{fmtMin(sum(logs, (l) => l.minutes))}</span> in {logs.length} Einheiten</p>
-      {logs.length ? <ul className="rows">{logs.map((l) => <LogRow key={l.id} l={l} db={db} />)}</ul> : <Empty>Noch keine Lerneinheiten. Trage sie manuell ein oder nutze den Timer.</Empty>}
+      {logs.length ? <ul className="rows">{logs.map((l) => <LogRow key={l.id} l={l} db={db} />)}</ul> : <Empty art="hourglass">Noch keine Lerneinheiten. Trage sie manuell ein oder nutze den Timer.</Empty>}
     </div>
   );
 }
@@ -334,7 +334,7 @@ export function ExamsView({ db }) {
         <p className="text-xs text-slate-400">Der Lernplan verteilt offene Themen (schwächste zuerst) auf die Tage bis zur Prüfung.</p>
         <button className={btnPrimary} onClick={() => db.openForm("exam", null, true)}>+ Prüfung</button>
       </div>
-      {!upcoming.length && <Empty>Keine anstehenden Prüfungen eingetragen.</Empty>}
+      {!upcoming.length && <Empty art="trophy">Keine anstehenden Prüfungen eingetragen. Durchatmen.</Empty>}
       {upcoming.map((e) => {
         const m = db.mod(e.moduleId), n = diffDays(t, e.date), s = moduleStats(data, e.moduleId);
         const plan = open === e.id ? buildPlan(data, e) : null;

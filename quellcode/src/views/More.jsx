@@ -72,7 +72,7 @@ export function HomeworkAll({ db }) {
         </Select>
         <button className={btnPrimary} onClick={() => db.openForm("homework", mod === "all" ? null : { moduleId: mod }, true)}>+ Hausaufgabe</button>
       </div>
-      {list.length ? <ul className="rows">{list.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}</ul> : <Empty>Keine Hausaufgaben in dieser Ansicht.</Empty>}
+      {list.length ? <ul className="rows">{list.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}</ul> : <Empty art="bowl">Keine Hausaufgaben in dieser Ansicht. Zeit für die Mensa.</Empty>}
     </div>
   );
 }

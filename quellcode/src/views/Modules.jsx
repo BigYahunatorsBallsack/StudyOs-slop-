@@ -186,14 +186,14 @@ export function ModuleDetail({ db, id, onBack }) {
             <Tabs items={[["anstehend", "Anstehend"], ["offen", `Nachzubereiten (${s.openReviews})`], ["vergangen", "Vergangen"]]} value={sesFilter} onChange={setSesFilter} label="Filter Termine" />
             <button className={btnPrimary} onClick={() => db.openForm("session", { moduleId: id }, true)}>+ Termin / Serie</button>
           </div>
-          {shownSes.length ? <ul className="rows">{shownSes.map((x) => <SessionRow key={x.id} s={x} db={db} showDate />)}</ul> : <Empty>Keine Termine in dieser Ansicht. Tipp: Beim Anlegen „Wöchentlich wiederholen bis“ setzen, um das ganze Semester einzutragen.</Empty>}
+          {shownSes.length ? <ul className="rows">{shownSes.map((x) => <SessionRow key={x.id} s={x} db={db} showDate />)}</ul> : <Empty art="flag">Keine Termine in dieser Ansicht. Tipp: Beim Anlegen „Wöchentlich wiederholen bis“ setzen, um das ganze Semester einzutragen.</Empty>}
         </div>
       )}
 
       {sub === "ha" && (
         <div className="space-y-3">
           <div className="flex justify-end"><button className={btnPrimary} onClick={() => db.openForm("homework", { moduleId: id }, true)}>+ Hausaufgabe</button></div>
-          {hw.length ? <ul className="rows">{hw.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}</ul> : <Empty>Noch keine Hausaufgaben.</Empty>}
+          {hw.length ? <ul className="rows">{hw.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}</ul> : <Empty art="check">Noch keine Hausaufgaben. Genieß die Ruhe.</Empty>}
         </div>
       )}
 
@@ -203,7 +203,7 @@ export function ModuleDetail({ db, id, onBack }) {
             <p className="text-xs text-slate-400">Stand antippen zum Ändern, Sterne für Selbsteinschätzung.</p>
             <button className={btnPrimary} onClick={() => db.openForm("topic", { moduleId: id }, true)}>+ Thema</button>
           </div>
-          {topics.length ? <ul className="rows">{topics.map((x) => <TopicRow key={x.id} x={x} db={db} minutes={topicMin(x.id)} />)}</ul> : <Empty>Lege die Kapitel aus Skript oder Vorlesung als Themen an, um deinen Lernstand zu verfolgen.</Empty>}
+          {topics.length ? <ul className="rows">{topics.map((x) => <TopicRow key={x.id} x={x} db={db} minutes={topicMin(x.id)} />)}</ul> : <Empty art="star">Lege die Kapitel aus Skript oder Vorlesung als Themen an, um deinen Lernstand zu verfolgen.</Empty>}
         </div>
       )}
 
@@ -231,7 +231,7 @@ export function ModuleDetail({ db, id, onBack }) {
                 </li>
               ); })}
             </ul>
-          ) : <Empty>Noch keine Notizen.</Empty>}
+          ) : <Empty art="book">Noch keine Notizen.</Empty>}
         </div>
       )}
 
@@ -321,7 +321,7 @@ function DiaryPreview({ logs, onAll }) {
 
 /* Lerntagebuch: Lerneinheiten nach Tagen, mit der Notiz in voller Länge */
 function Diary({ days, db, color }) {
-  if (!days.length) return <Empty>Noch keine Lerneinheiten. Nach einer Fokusphase im Timer kannst du in einer Zeile notieren, was du gemacht hast.</Empty>;
+  if (!days.length) return <Empty art="hourglass">Noch keine Lerneinheiten. Nach einer Fokusphase im Timer kannst du in einer Zeile notieren, was du gemacht hast.</Empty>;
   return (
     <section aria-label="Lerntagebuch" className="space-y-3">
       <h3 className="section-title">Lerntagebuch</h3>
