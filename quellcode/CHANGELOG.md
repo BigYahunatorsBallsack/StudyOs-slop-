@@ -1,6 +1,8 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Teilaufgaben bei Abgaben:** Im Formular einer Hausaufgabe Teilaufgaben anlegen (Enter fügt hinzu, „a-d“ oder „Aufgabe 1-4“ legt mehrere auf einmal an). In der Liste zeigt ein Balken den Fortschritt (z. B. 1/3); aufgeklappt hakst du a, b und c einzeln ab. Mit dem ersten Häkchen wird das Blatt „in Arbeit“, mit dem letzten „bearbeitet“ (mit Rückgängig). Auf „Heute“ steht der Balken bei der Abgabe. Wöchentliche Blatt-Serien übernehmen die Teilaufgaben, jeweils offen. Der Sync führt Teilaufgaben einzeln zusammen: hakst du auf dem Handy a und am Laptop b ab, bleiben beide Häkchen.
+- **Schnelleingabe überall:** Das „+“ oben neben der Suche öffnet die Schnelleingabe in jedem Bereich (bisher nur auf „Heute“ oder mit E). „Blatt 5 DS Fr a-c“ legt die Abgabe gleich mit den Teilaufgaben a, b und c an; „Aufgaben 1-4“ geht auch.
 - **Weg zur Uni lädt schneller:** Der letzte Stand von Abfahrten, Störungen und Fahrzeit steht sofort da (bis 30 Minuten alt, mit „Stand HH:MM“) und wird im Hintergrund erneuert, auch der zuletzt bekannte Standort. Alle Abfahrten (jetzt und zur Vorlesung, Zubringer und Hauptlinie) kommen in einem Aufruf statt in bis zu drei Runden nacheinander, und die Funktion merkt sich die Anmeldung kurz, statt sie bei jeder Abfrage neu zu prüfen. Die Bündelung braucht die neue `index.ts`; ohne Update fragt die App wie bisher einzeln, aber parallel.
 
 ## 2.10.0

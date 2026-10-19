@@ -227,6 +227,38 @@ test('Schnelleingabe legt eine Hausaufgabe an, mit Rückgängig', async ({ page 
   await expect(page.getByLabel(/^Titel/)).toHaveValue('Blatt 10');
 });
 
+test('Plus im Kopf: Abgabe mit Teilaufgaben anlegen, abhaken und im Formular ergänzen', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Woche').click();
+  await page.getByRole('button', { name: 'Schnelleingabe (E)' }).click();
+  await page.getByLabel('Was steht an?').fill('Blatt 12 Diskrete Fr a-c');
+  await expect(page.locator('.preview-chip', { hasText: '3 Teilaufgaben: a, b, c' })).toBeVisible();
+  await page.getByRole('button', { name: 'Hausaufgabe anlegen' }).click();
+  await expect.poll(async () => (await stored(page))?.homework.find((h) => h.title === 'Blatt 12')?.subtasks?.map((s) => s.title)).toEqual(['a', 'b', 'c']);
+
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Alle Hausaufgaben' }).click();
+  const row = page.locator('.swipe .row').filter({ hasText: 'Blatt 12' });
+  await expect(row.getByText('0/3')).toBeVisible();
+  await row.getByRole('button', { name: /Teilaufgaben/ }).click();
+  await row.getByRole('checkbox', { name: 'a' }).check();
+  await expect(row.getByText('1/3')).toBeVisible();
+  await expect(row.locator('[data-value]')).toHaveAttribute('data-value', 'in Arbeit');
+  await row.getByRole('checkbox', { name: 'b' }).check();
+  await row.getByRole('checkbox', { name: 'c' }).click(); // danach ist das Blatt erledigt und verschwindet aus „Offen“
+  await expect(page.getByText('Alle Teilaufgaben von „Blatt 12“ erledigt.')).toBeVisible();
+  await page.getByRole('tab', { name: 'Erledigt', exact: true }).click();
+  await expect(row.locator('[data-value]')).toHaveAttribute('data-value', 'bearbeitet');
+
+  await row.getByRole('button', { name: /Blatt 12/ }).click();
+  await page.getByLabel('Teilaufgaben (optional)').fill('Aufgabe 4-5');
+  await page.getByLabel('Teilaufgaben (optional)').press('Enter');
+  await expect(page.getByRole('textbox', { name: 'Teilaufgabe 5' })).toHaveValue('Aufgabe 5');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page))?.homework.find((h) => h.title === 'Blatt 12')?.subtasks?.map((s) => [s.title, s.done])).toEqual([['a', true], ['b', true], ['c', true], ['Aufgabe 4', false], ['Aufgabe 5', false]]);
+  await expect(row.getByText('3/5')).toBeVisible();
+});
+
 test('Tastenkürzel: Hilfe, Tabs, Timer, Listen-Navigation', async ({ page }) => {
   await loadDemo(page);
   await nav(page, 'Heute').click();
