@@ -1,5 +1,8 @@
 # Änderungen
 
+## Unveröffentlicht
+- **Weg zur Uni lädt schneller:** Der letzte Stand von Abfahrten, Störungen und Fahrzeit steht sofort da (bis 30 Minuten alt, mit „Stand HH:MM“) und wird im Hintergrund erneuert, auch der zuletzt bekannte Standort. Alle Abfahrten (jetzt und zur Vorlesung, Zubringer und Hauptlinie) kommen in einem Aufruf statt in bis zu drei Runden nacheinander, und die Funktion merkt sich die Anmeldung kurz, statt sie bei jeder Abfrage neu zu prüfen. Die Bündelung braucht die neue `index.ts`; ohne Update fragt die App wie bisher einzeln, aber parallel.
+
 ## 2.10.0
 - **Musik in der Fokusphase:** Am Timer zwischen „Aus“, „8-Bit“ (ruhige Chiptune-Schleife in a-Moll) und „Regen“ (Rauschen mit einzelnen Tropfen) wählen, dazu ein Lautstärkeregler. Der Klang wird im Browser erzeugt, nichts wird geladen. Er läuft nur, solange die Fokusphase läuft, auch wenn du den Bereich wechselst, und blendet weich ein und aus. Voreinstellung ist „Aus“.
 - **Signalton direkt am Timer ausschalten:** Der Schalter für Signalton und Vibration am Ende einer Phase steht jetzt auch beim Timer (bisher nur unter „Daten & Einstellungen“).

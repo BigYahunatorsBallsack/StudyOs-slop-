@@ -15,6 +15,7 @@ function createBackend() {
       if (op === 'push.saveSubscription') { const r = pushRow(args[0]); r.subscriptions = [...r.subscriptions.filter((x) => x.endpoint !== args[1].endpoint), args[1]]; r.tz = args[2]; return true; }
       if (op === 'push.removeSubscription') { const r = pushRow(args[0]); r.subscriptions = r.subscriptions.filter((x) => x.endpoint !== args[1]); return true; }
       if (op === 'push.saveDeadlines') { const r = pushRow(args[0]); r.deadlines = args[1]; r.tz = args[2]; return true; }
+      if (op === 'mvg' && args[1] && args[1].batch) { this.batches = (this.batches || 0) + 1; return Promise.all(args[1].batch.map(async (b) => ({ data: this.mvg ? await this.mvg(b) : [] }))); }
       if (op === 'mvg') return this.mvg ? this.mvg(args[1]) : [];
       if (op === 'drive') return this.drive ? this.drive(args[1]) : { error: 'kein Schlüssel' };
       if (op === 'files.put') { this.files.set(args[0] + '/' + args[1], args[2]); return true; }
@@ -38,7 +39,7 @@ function createBackend() {
   };
 }
 
-async function newDevice(browser, backend) {
+async function newDevice(browser, backend, { time } = {}) {
   const context = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'de-DE', permissions: ['notifications'] });
   /* Push-Dienst des Browsers durch eine Attrappe ersetzen (Headless-Chromium erreicht keinen echten Push-Dienst) */
   await context.addInitScript(() => {
@@ -57,6 +58,7 @@ async function newDevice(browser, backend) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.exposeFunction('__studyosFakeCloud', (...a) => backend.handle(...a));
+  if (time) await page.clock.install({ time }); /* feste Startzeit, wo das Ergebnis von der Tageszeit abhängt; die Uhr läuft weiter, sonst kollidieren die Sync-Zeitstempel */
   await page.goto('./');
   return { context, page, errors };
 }
@@ -346,18 +348,20 @@ test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser
 test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in der Cloud', async ({ browser }) => {
   test.setTimeout(60000);
   const backend = createBackend();
+  /* feste Startzeit (Montag 10 Uhr): Abfahrten, „morgen“ und die Empfehlung hängen sonst von der Tageszeit ab */
+  const NOW = new Date('2026-10-19T10:00:00+02:00');
   backend.mvg = (body) => {
     if (body.kind === 'stations') return [{ id: 'de:09184:2222', name: 'Haar, Gymnasium', place: 'Haar (b München)', types: ['BUS'] }];
     if (body.kind === 'messages') return [{ title: 'Weichenstörung bei Haar', text: 'Unregelmäßige Abstände.', incident: true, from: 0, to: null, lines: ['S6'] }];
-    const base = new Date(); base.setHours(0, 0, 0, 0);
+    const base = new Date(NOW); base.setHours(0, 0, 0, 0);
     const t = (d, hm) => base.getTime() + d * 86400000 + (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60000;
     if (body.station === 'de:09175:4020') return [0, 1].flatMap((d) => ['07:32', '07:52', '08:12'].flatMap((hm) => [
       { line: 'S6', destination: 'Leuchtenbergring', type: 'SBAHN', planned: t(d, hm), time: t(d, hm), delay: 0, realtime: true, cancelled: false, platform: '5' },
       { line: 'S6', destination: 'Grafing-Bahnhof', type: 'SBAHN', planned: t(d, hm) + 60000, time: t(d, hm) + 60000, delay: 0, realtime: true, cancelled: false, platform: '4' }]));
     return [0, 1].flatMap((d) => ['07:53', '08:13', '08:33', '09:13'].map((hm) => ({ line: '230', destination: 'Garching, Forschungszentrum (U)', type: 'REGIONAL_BUS', planned: t(d, hm), time: t(d, hm) + (hm === '08:13' ? 120000 : 0), delay: hm === '08:13' ? 2 : 0, realtime: true, cancelled: false })))
-      .concat([{ line: '241', destination: 'Taufkirchen', type: 'REGIONAL_BUS', planned: Date.now() + 600000, time: Date.now() + 600000, delay: 0, realtime: true, cancelled: false }]);
+      .concat([{ line: '241', destination: 'Taufkirchen', type: 'REGIONAL_BUS', planned: NOW.getTime() + 600000, time: NOW.getTime() + 600000, delay: 0, realtime: true, cancelled: false }]);
   };
-  const A = await newDevice(browser, backend);
+  const A = await newDevice(browser, backend, { time: NOW });
   await A.page.evaluate(async () => {
     const d = new Date(); d.setDate(d.getDate() + 1); const tomorrow = d.toLocaleDateString('sv-SE');
     await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '' }, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
@@ -413,6 +417,11 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await card.getByRole('tab', { name: 'Öffis' }).click();
   await expect(card.locator('.px-ride.px-bus')).toHaveCount(1); // Pixel-Bus fährt einmal durch die Karte
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
+  // Abfahrten kommen gebündelt in einem Aufruf; nach dem Neuladen steht der letzte Stand sofort da, auch wenn die MVG hängt
+  expect(backend.batches).toBeGreaterThan(0);
+  backend.mvg = () => new Promise(() => {});
+  await A.page.reload();
+  await expect(A.page.getByRole('region', { name: 'Weg zur Uni' }).getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
 
   // Anhang: verschlüsselt hochgeladen
   await nav(A.page, 'Mehr').click();

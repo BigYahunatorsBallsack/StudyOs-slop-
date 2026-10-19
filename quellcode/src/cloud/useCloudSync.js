@@ -38,6 +38,7 @@ const dropStamps = () => { try { localStorage.removeItem(STAMPS_KEY); } catch {}
 
 export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict }) {
   const cloud = getCloud();
+  const batchRef = useRef(null); /* kann die Funktion Sammelabfragen? null = noch unbekannt */
   const [phase, setPhase] = useState(cloud ? "loading" : "off");
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
@@ -267,6 +268,20 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     }),
     fetchIcs: (url) => cloud.fetchIcs(url),
     mvg: (body) => cloud.mvg(body),
+    /* Mehrere MVG-Abfragen in einem Aufruf; ältere Funktionen kennen das nicht, dann einzeln (parallel) */
+    mvgMany: async (list) => {
+      if (batchRef.current !== false) {
+        try {
+          const r = await cloud.mvg({ batch: list });
+          if (Array.isArray(r) && r.length === list.length && r.every((x) => x && typeof x === "object" && ("data" in x || "error" in x))) {
+            batchRef.current = true;
+            return r.map((x) => { if (x.error) throw new Error(x.error); return x.data; });
+          }
+        } catch (e) { if (batchRef.current === true || !/Unbekannte Abfrage/.test(String(e && e.message))) throw e; }
+        batchRef.current = false;
+      }
+      return Promise.all(list.map((b) => cloud.mvg(b)));
+    },
     drive: (body) => cloud.drive(body),
     /* Anhänge verschlüsselt hoch- bzw. herunterladen; ohne entsperrten Sync-Schlüssel nicht möglich */
     canFiles: () => !!(cloud && keyRef.current && phase === "ready"),

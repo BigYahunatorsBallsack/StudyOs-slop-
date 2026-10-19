@@ -70,13 +70,29 @@ async function ensureVapid(q) {
   return cfg;
 }
 
-async function authUser(req, env, fetchImpl) {
+/* Geprüfte Anmeldungen kurz merken (höchstens 5 Minuten, nie über den Ablauf des Tokens hinaus):
+   spart bei Abfahrten und Fahrzeit die zusätzliche Anfrage an Supabase Auth, solange die Funktion warm ist */
+const AUTH_TTL = 5 * 60000;
+const authCache = new Map();
+function tokenExp(token) {
+  try { return Number(JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp) * 1000 || 0; } catch { return 0; }
+}
+
+export async function authUser(req, env, fetchImpl, now = Date.now()) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!token) return null;
+  const hit = authCache.get(token);
+  if (hit && hit.until > now) return hit.user;
   const res = await fetchImpl(`${env.SUPABASE_URL}/auth/v1/user`, { headers: { Authorization: `Bearer ${token}`, apikey: serviceKey(env) } });
   if (!res.ok) return null;
   const user = await res.json();
-  return user && user.id ? user : null;
+  if (!user || !user.id) return null;
+  const exp = tokenExp(token);
+  if (exp > now) {
+    if (authCache.size > 200) authCache.clear();
+    authCache.set(token, { user, until: Math.min(now + AUTH_TTL, exp) });
+  }
+  return user;
 }
 
 export async function runReminders({ q, cfg, now = new Date(), fetchImpl, subject }) {
@@ -157,7 +173,14 @@ export function createHandler({ env, fetchImpl = fetch, now = () => new Date() }
       if (action === "mvg" && req.method === "POST") {
         const user = await authUser(req, env, fetchImpl);
         if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
-        const r = await mvg(await req.json().catch(() => ({})), fetchImpl);
+        const body = await req.json().catch(() => ({}));
+        /* mehrere Abfragen in einem Aufruf (Weg zur Uni: Abfahrten jetzt und zur Vorlesung, Zubringer und Hauptlinie) */
+        if (Array.isArray(body.batch)) {
+          if (!body.batch.length || body.batch.length > 6) return fail("Zu viele Abfragen.", 400);
+          const all = await Promise.all(body.batch.map((b) => mvg(b, fetchImpl)));
+          return json(all.map((r) => (r.error ? { error: r.error } : { data: r.data })));
+        }
+        const r = await mvg(body, fetchImpl);
         if (r.error) return fail(r.error, r.status);
         return json(r.data);
       }

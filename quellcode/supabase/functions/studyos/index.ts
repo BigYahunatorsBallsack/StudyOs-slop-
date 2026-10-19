@@ -422,13 +422,30 @@ async function ensureVapid(q) {
   }
   return cfg;
 }
-async function authUser(req, env2, fetchImpl) {
+var AUTH_TTL = 5 * 6e4;
+var authCache = /* @__PURE__ */ new Map();
+function tokenExp(token) {
+  try {
+    return Number(JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp) * 1e3 || 0;
+  } catch {
+    return 0;
+  }
+}
+async function authUser(req, env2, fetchImpl, now2 = Date.now()) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!token) return null;
+  const hit = authCache.get(token);
+  if (hit && hit.until > now2) return hit.user;
   const res = await fetchImpl(`${env2.SUPABASE_URL}/auth/v1/user`, { headers: { Authorization: `Bearer ${token}`, apikey: serviceKey(env2) } });
   if (!res.ok) return null;
   const user = await res.json();
-  return user && user.id ? user : null;
+  if (!user || !user.id) return null;
+  const exp = tokenExp(token);
+  if (exp > now2) {
+    if (authCache.size > 200) authCache.clear();
+    authCache.set(token, { user, until: Math.min(now2 + AUTH_TTL, exp) });
+  }
+  return user;
 }
 async function runReminders({ q, cfg, now: now2 = /* @__PURE__ */ new Date(), fetchImpl, subject }) {
   const vapid = { publicKey: cfg.vapid_public, privateJwk: cfg.vapid_private, subject };
@@ -524,7 +541,13 @@ function createHandler({ env: env2, fetchImpl = fetch, now: now2 = () => /* @__P
       if (action === "mvg" && req.method === "POST") {
         const user = await authUser(req, env2, fetchImpl);
         if (!user) return fail("Bitte in StudyOS beim Cloud-Sync anmelden.", 401);
-        const r = await mvg(await req.json().catch(() => ({})), fetchImpl);
+        const body = await req.json().catch(() => ({}));
+        if (Array.isArray(body.batch)) {
+          if (!body.batch.length || body.batch.length > 6) return fail("Zu viele Abfragen.", 400);
+          const all = await Promise.all(body.batch.map((b) => mvg(b, fetchImpl)));
+          return json(all.map((r2) => r2.error ? { error: r2.error } : { data: r2.data }));
+        }
+        const r = await mvg(body, fetchImpl);
         if (r.error) return fail(r.error, r.status);
         return json(r.data);
       }
