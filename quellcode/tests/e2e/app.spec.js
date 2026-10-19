@@ -250,6 +250,8 @@ test('Tastenkürzel: Hilfe, Tabs, Timer, Listen-Navigation', async ({ page }) =>
 });
 
 test('Als-Nächstes-Karte zeigt die überfällige Abgabe und erledigt sie per Knopf', async ({ page }) => {
+  // feste Uhrzeit ohne laufende Beispiel-Vorlesung (die hätte auf der Karte Vorrang)
+  await page.clock.setFixedTime(new Date('2026-10-20T19:30:00+02:00'));
   await loadDemo(page);
   await nav(page, 'Heute').click();
   await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
