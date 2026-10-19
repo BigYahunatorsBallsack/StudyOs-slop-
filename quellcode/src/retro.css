@@ -451,6 +451,16 @@
 :root[data-theme="retro"] .badge-done { --pxc: #ffd319; }
 :root[data-theme="retro"] .badge-title { font-family: var(--font-display); font-weight: 400; font-size: .72rem; letter-spacing: .02em; }
 
+/* Bild-Karten: Pixel-Ränder statt Rundungen; das gesuchte Feld pink, aufgedeckt grün gestrichelt */
+:root[data-theme="retro"] :is(.occ-stage, .occ-box, .occ-del, .occ-tag) { border-radius: 0; }
+:root[data-theme="retro"] .occ-box { font-family: var(--font-display); font-weight: 400; border: 0; box-shadow: inset 0 0 0 2px var(--line-strong); }
+:root[data-theme="retro"] .occ-box.is-target { box-shadow: inset 0 0 0 2px var(--accent-strong), 2px 2px 0 0 rgba(0, 0, 0, .6); }
+:root[data-theme="retro"] .occ-box.is-open { box-shadow: none; border: 2px dashed var(--ok); }
+:root[data-theme="retro"] .occ-tag { font-family: var(--font-display); font-weight: 400; color: var(--accent-2); }
+@keyframes px-occ-open { 0% { background: var(--accent); } 50% { background: color-mix(in srgb, var(--accent) 40%, transparent); } 100% { background: transparent; } }
+:root[data-theme="retro"][data-motion="pixel"] .occ-box.is-open { animation: px-occ-open .18s steps(3, end); }
+:root[data-theme="retro"][data-motion="neon"] .occ-box.is-open { animation: px-n-glow .4s ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme="retro"] *, :root[data-theme="retro"] *::before, :root[data-theme="retro"] *::after { animation: none !important; transition: none !important; }
   :root[data-theme="retro"] .px-shot { display: none; }

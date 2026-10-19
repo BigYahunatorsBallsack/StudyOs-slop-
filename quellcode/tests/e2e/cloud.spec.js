@@ -550,3 +550,53 @@ test('Cloud-Sicherung: wöchentlich verschlüsselt, Wiederherstellen holt Gelös
   expect(A.errors).toEqual([]);
   await A.context.close();
 });
+
+test('Bild-Karte: Bild verschlüsselt in der Cloud, das zweite Gerät lädt es und fragt ab', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const A = await newDevice(browser, backend);
+  await openData(A.page);
+  await A.page.getByRole('button', { name: 'Beispieldaten laden' }).click();
+  await A.page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await expect.poll(() => backend.rows.size, { timeout: 15000 }).toBe(1);
+  const version = backend.rows.values().next().value.version;
+
+  const png = Buffer.from((await A.page.evaluate(() => {
+    const c = document.createElement('canvas'); c.width = 300; c.height = 200;
+    const x = c.getContext('2d'); x.fillStyle = '#ff2a6d'; x.fillRect(0, 0, 300, 200);
+    return c.toDataURL('image/png');
+  })).split(',')[1], 'base64');
+  await nav(A.page, 'Lernen').click();
+  await A.page.getByRole('tab', { name: 'Karteikarten' }).click();
+  await A.page.getByRole('button', { name: '+ Bild-Karte' }).click();
+  const dlg = A.page.getByRole('dialog', { name: 'Bild-Karte anlegen' });
+  await dlg.getByLabel('Bild wählen').setInputFiles({ name: 'zelle.png', mimeType: 'image/png', buffer: png });
+  await dlg.getByRole('button', { name: '+ Bereich' }).click();
+  await dlg.getByLabel('Tags').fill('wolke');
+  await dlg.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(() => [...backend.files.keys()].filter((k) => !k.includes('/sicherung-')).length, { timeout: 15000 }).toBe(1);
+  const sealed = Buffer.from([...backend.files.entries()].find(([k]) => !k.includes('/sicherung-'))[1]);
+  expect(sealed.includes(png.subarray(0, 8))).toBe(false); /* kein PNG-Kopf: verschlüsselt */
+  await expect.poll(() => A.page.evaluate(async () => (await window.STUDYOS_ENV.load())?.cards.find((c) => c.occ)?.occ.img.cloud ?? null)).toBe(true);
+  await openData(A.page);
+  await A.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+  await expect.poll(() => backend.rows.values().next().value.version, { timeout: 15000 }).toBeGreaterThan(version);
+
+  const B = await newDevice(browser, backend);
+  await login(B.page);
+  await B.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await B.page.getByRole('button', { name: 'Entsperren und synchronisieren' }).click();
+  await expect.poll(() => B.page.evaluate(async () => (await window.STUDYOS_ENV.load())?.cards.some((c) => c.occ) ?? false), { timeout: 15000 }).toBe(true);
+  await nav(B.page, 'Lernen').click();
+  await B.page.getByRole('tab', { name: 'Karteikarten' }).click();
+  await choose(B.page.getByLabel('Tag filtern'), 'wolke');
+  await B.page.getByRole('button', { name: 'Lernen starten' }).click();
+  await expect.poll(() => B.page.locator('.occ-img').evaluate((el) => el.complete && el.naturalWidth), { timeout: 15000 }).toBe(300);
+  await expect(B.page.locator('.occ-box.is-target')).toHaveText('?');
+  expect(A.errors).toEqual([]); expect(B.errors).toEqual([]);
+  await A.context.close(); await B.context.close();
+});
