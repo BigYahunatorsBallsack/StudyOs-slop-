@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { choose } from './select.js';
 
 /* Cloud-Sync mit zwei simulierten Geräten. Das Backend liegt im Testprozess und verhält sich wie
    die Supabase-Tabelle (eine Zeile pro Nutzer, Versionsnummer für Konflikterkennung). */
@@ -207,7 +208,7 @@ test('Stundenplan-Abo: einrichten, Änderungen übernehmen, neue Veranstaltung z
   await A.page.getByLabel('TUMonline-Kalender-Link').fill('https://campus.tum.de/tumonline/ical?pToken=abc');
   await A.page.getByRole('button', { name: 'Abrufen', exact: true }).first().click();
   await expect(A.page.getByText('2 Termine in 1 Veranstaltungen gefunden.')).toBeVisible();
-  await expect(A.page.getByLabel('Modul für Analysis für Informatik VO')).toHaveValue('__new');
+  await expect(A.page.getByLabel('Modul für Analysis für Informatik VO')).toHaveAttribute('data-value', '__new');
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
   await expect(A.page.getByText('Abonniert: 2 Termine übernommen.')).toBeVisible();
   const sessions = () => A.page.evaluate(async () => ((await window.STUDYOS_ENV.load()) || { sessions: [] }).sessions.map((s) => `${s.room}|${!!s.cancelled}`).sort());
@@ -281,7 +282,7 @@ test('Karteikarten teilen: Link erzeugen, ohne Konto öffnen und importieren', a
   });
   await nav(A.page, 'Lernen').click();
   await A.page.getByRole('tab', { name: 'Karteikarten' }).click();
-  await A.page.getByLabel('Modul filtern').selectOption(moduleId);
+  await choose(A.page.getByLabel('Modul filtern'), moduleId);
   await A.page.getByRole('button', { name: `Link erstellen (${n})` }).click();
   const link = await A.page.getByLabel('Link zum Stapel').inputValue();
   expect(link).toMatch(/\?teilen=[\w-]+#k=[\w-]+$/);
@@ -321,8 +322,8 @@ test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser
   await A.page.getByLabel('Moodle-Kalender-Link').fill('https://www.moodle.tum.de/calendar/export_execute.php?userid=1&authtoken=x');
   await A.page.getByRole('button', { name: 'Abrufen', exact: true }).nth(1).click();
   await expect(A.page.getByText('2 Abgaben in 2 Kursen.', { exact: false })).toBeVisible();
-  await expect(A.page.getByLabel('Modul für Diskrete Strukturen')).toHaveValue('ds');
-  await A.page.getByLabel('Modul für WiSe EIDI').selectOption('__skip');
+  await expect(A.page.getByLabel('Modul für Diskrete Strukturen')).toHaveAttribute('data-value', 'ds');
+  await choose(A.page.getByLabel('Modul für WiSe EIDI'), '__skip');
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
   await expect(A.page.getByText('Abonniert: 1 Abgabe übernommen.')).toBeVisible();
   await expect.poll(() => A.page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework.map((h) => `${h.title}|${h.moduleId}|${h.dueTime}`))).toEqual([expect.stringMatching(/^Hausaufgabe 3\|ds\|\d\d:00$/)]);
@@ -397,9 +398,9 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(card.getByText('Weichenstörung bei Haar')).toHaveCount(0);
 
   // Ziel wählen: die Übung um 12:00 → 12:00 − 67 Min. = 10:53
-  await card.getByLabel('Pünktlich sein für').selectOption({ label: 'Morgen 12:00: Diskrete Strukturen' });
+  await choose(card.getByLabel('Pünktlich sein für'), { label: 'Morgen 12:00: Diskrete Strukturen' });
   await expect(card.getByText(/10:53 losfahren in Zorneding, damit du morgen um 12:00/)).toBeVisible();
-  await card.getByLabel('Pünktlich sein für').selectOption({ index: 0 });
+  await choose(card.getByLabel('Pünktlich sein für'), { index: 0 });
 
   // Ab dem aktuellen Standort
   await A.context.grantPermissions(['geolocation']);
@@ -445,7 +446,7 @@ test('Artemis: Abo auch ohne Abgaben, übernimmt sie später automatisch', async
   await A.page.getByLabel('Artemis-Kalender-Link').fill('https://artemis.tum.de/api/calendar/courses/621/calendar-events-ics?token=abc');
   await A.page.getByRole('button', { name: 'Prüfen', exact: true }).click();
   await expect(A.page.getByText('Noch keine Abgabefristen im Kalender (nur 2 Vorlesungen).', { exact: false })).toBeVisible();
-  await A.page.getByLabel('Modul für den Artemis-Kurs').selectOption('eidi');
+  await choose(A.page.getByLabel('Modul für den Artemis-Kurs'), 'eidi');
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
   await expect(A.page.getByText('Abonniert: 0 Abgaben übernommen.')).toBeVisible();
   // später erscheinen Aufgaben im Kalender

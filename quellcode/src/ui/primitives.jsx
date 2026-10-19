@@ -163,7 +163,7 @@ export function Modal({ title, onClose, children }) {
   closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement;
-    const el = ref.current?.querySelector("input:not([type=hidden]),select,textarea") || ref.current?.querySelector("button");
+    const el = ref.current?.querySelector("input:not([type=hidden]),select,textarea,[role=combobox]") || ref.current?.querySelector("button");
     el && el.focus();
     const onKey = (e) => {
       if (e.key === "Escape") { e.stopPropagation(); closeRef.current(); return; }

@@ -4,6 +4,7 @@ import { parseICS } from "../lib/ics.js";
 import { guessMapping, NEW, SKIP, unmappedSummaries } from "../lib/feed.js";
 import { cleanTitle, feedSummary, isMoodleDeadline, unmappedCourses } from "../lib/moodle.js";
 import { Card, ConfirmButton } from "../ui/primitives.jsx";
+import { Select } from "../ui/select.jsx";
 
 const fmtWhen = (s) => (s ? new Date(s).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie");
 
@@ -14,11 +15,11 @@ function MappingList({ summaries, map, setMap, modules }) {
         <li key={s} className="row" style={{ "--mod": modules.find((m) => m.id === map[s])?.color }}>
           <p className="row-title">{s}</p>
           <label className="sr-only" htmlFor={"feed-" + s}>Modul für {s}</label>
-          <select id={"feed-" + s} className="field mt-2 w-full text-sm" value={map[s] ?? NEW} onChange={(e) => setMap({ ...map, [s]: e.target.value })}>
+          <Select id={"feed-" + s} className="field mt-2 w-full text-sm" value={map[s] ?? NEW} onChange={(e) => setMap({ ...map, [s]: e.target.value })}>
             <option value={NEW}>Neues Modul anlegen</option>
             <option value={SKIP}>Nicht übernehmen</option>
             {modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+          </Select>
         </li>
       ))}
     </ul>
@@ -234,10 +235,10 @@ export function ArtemisCard({ db }) {
                 {draft.count ? <>{draft.count} {draft.count === 1 ? "Abgabe" : "Abgaben"} gefunden, z. B. „{draft.sample[0]}“.</> : <>Noch keine Abgabefristen im Kalender{draft.what ? ` (nur ${draft.what})` : ""}. Das ist normal, solange die Aufgaben noch nicht freigeschaltet sind: StudyOS übernimmt sie automatisch, sobald sie im Kalender stehen.</>}
                 {" "}Zu welchem Modul gehört der Kurs?
               </p>
-              <select aria-label="Modul für den Artemis-Kurs" className="field mt-2 w-full text-sm" value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
+              <Select aria-label="Modul für den Artemis-Kurs" className="field mt-2 w-full text-sm" value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
                 <option value="">Modul wählen …</option>
                 {data.modules.filter((m) => !m.archived).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
+              </Select>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className="btn btn-primary" onClick={subscribe} disabled={busy || !moduleId}>Abonnieren</button>
                 <button className="btn btn-ghost" onClick={() => setDraft(null)}>Abbrechen</button>

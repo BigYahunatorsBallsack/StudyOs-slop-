@@ -13,6 +13,7 @@ import { CANTEENS, mensaOf } from "../lib/mensa.js";
 import { CURRICULA, curriculumOf } from "../lib/curriculum.js";
 import { CommuteSettings } from "./Commute.jsx";
 import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
+import { Select } from "../ui/select.jsx";
 
 export function DataView({ db }) {
   const { data } = db;
@@ -210,10 +211,10 @@ export function DataView({ db }) {
           </div>
           <div className="col-span-2">
             <label htmlFor="st-mensa" className="mb-1 block text-xs text-slate-400">Mensa auf „Heute“</label>
-            <select id="st-mensa" className={inputCls} value={mensaOf(data.settings)} onChange={(e) => db.patchSettings({ mensa: e.target.value })}>
+            <Select id="st-mensa" className={inputCls} value={mensaOf(data.settings)} onChange={(e) => db.patchSettings({ mensa: e.target.value })}>
               <option value="">Keine anzeigen</option>
               {CANTEENS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-            </select>
+            </Select>
           </div>
           <div>
             <label htmlFor="st-prog" className="mb-1 block text-xs text-slate-400">Studiengang</label>
@@ -221,10 +222,10 @@ export function DataView({ db }) {
           </div>
           <div className="col-span-2">
             <label htmlFor="st-plan" className="mb-1 block text-xs text-slate-400">Studienplan (Vorlage für Module und GOP-Regel)</label>
-            <select id="st-plan" className={inputCls} value={curriculumOf(data)?.id || "none"} onChange={(e) => db.patchSettings({ curriculum: e.target.value })}>
+            <Select id="st-plan" className={inputCls} value={curriculumOf(data)?.id || "none"} onChange={(e) => db.patchSettings({ curriculum: e.target.value })}>
               <option value="none">Keiner</option>
               {CURRICULA.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            </Select>
           </div>
           <div className="col-span-2">
             <span className="mb-1 block text-xs text-slate-400">Animationen</span>
@@ -325,11 +326,11 @@ export function IcsImport({ db, readFile }) {
               <li key={g} className="rounded-lg bg-slate-800/40 p-2">
                 <p className="text-sm">{g} <span className="text-xs text-slate-500">· {events.filter((e) => e.summary === g).length}× · {guessType(g)}</span></p>
                 <label className="sr-only" htmlFor={"ics-" + g}>Modul für {g}</label>
-                <select id={"ics-" + g} className={`${inputCls} mt-1`} value={map[g]} onChange={(e) => setMap((m) => ({ ...m, [g]: e.target.value }))}>
+                <Select id={"ics-" + g} className={`${inputCls} mt-1`} value={map[g]} onChange={(e) => setMap((m) => ({ ...m, [g]: e.target.value }))}>
                   <option value="__skip">Nicht importieren</option>
                   <option value="__new">Neues Modul mit diesem Namen</option>
                   {data.modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
+                </Select>
               </li>
             ))}
           </ul>
