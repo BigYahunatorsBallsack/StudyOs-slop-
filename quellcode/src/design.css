@@ -222,6 +222,11 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .ev.ev-done { background: color-mix(in srgb, var(--mod) 45%, var(--surface)); color: var(--text); }
 .ev.ev-cancelled { background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--surface-3) 6px 12px); color: var(--muted); text-decoration: line-through; }
 .ev.ev-review { box-shadow: inset 0 0 0 2px var(--warn); }
+/* Besucht bzw. angeschaut: Streifen am unteren Rand des Termins */
+.ev-cov { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--bg); border-top: 1px solid var(--bg); }
+.ev-cov > span { display: block; height: 100%; background: var(--danger); }
+.ev-cov[data-tier="warn"] > span { background: var(--warn); }
+.ev-cov[data-tier="ok"] > span { background: var(--ok); }
 .allday { display: flex; flex-direction: column; gap: 2px; min-height: 0; padding: 2px 0; }
 .allday span { border-radius: 6px; font-size: .6rem; font-weight: 700; padding: .12rem .25rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .allday .ad-hw { background: color-mix(in srgb, var(--mod) 30%, var(--surface)); color: var(--text); }
