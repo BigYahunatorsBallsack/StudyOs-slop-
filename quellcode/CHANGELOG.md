@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Tabs brechen um statt abgeschnitten zu werden:** Reiterzeilen wie unter „Mehr“ (Wochenrückblick … Daten & Einstellungen) liefen am PC rechts aus dem Bild, weil sie nur per Wischen seitlich scrollten. Jetzt rutschen Tabs, die nicht mehr in die Zeile passen, in eine zweite Zeile; alle sind lesbar und anklickbar, auch im Retro-Look mit Pixel-Rand.
 - **Lernnotiz nach dem Timer:** Nach einer Fokusphase (oder „Beenden & eintragen“) wird die Lerneinheit mit Modul, Thema und Dauer sofort gespeichert, statt dass sich das ganze Formular öffnet. Ein kleines Fenster fragt nur noch in einer Zeile „Was hast du gemacht?“; Enter speichert, „Details“ öffnet das volle Formular, „Nicht eintragen“ verwirft die Einheit (mit Rückgängig).
 - **Lerntagebuch pro Modul:** Unter Modul → „Lernzeit“ stehen die Lerneinheiten nach Tagen mit Tagessumme und der Notiz in voller Länge; die Übersicht des Moduls zeigt die letzten drei Notizen.
 - **Lernzeit gegen ECTS-Soll:** Der Arbeitsaufwand (30 h je ECTS) zeigt jetzt den Rückstand oder Vorsprung in Stunden und wie viel pro Woche bis Semesterende nötig ist, dazu „Als Wochenziel übernehmen“ mit einem Vorschlag, bei dem die Termine schon abgezogen sind. Im Wochenrückblick vergleicht eine neue Karte alle belegten Module, wer am weitesten zurückliegt, steht oben. Am Timer steht unter der Modulwahl, wie weit das Modul hinter dem Soll liegt.

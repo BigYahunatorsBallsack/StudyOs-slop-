@@ -1022,3 +1022,19 @@ test('Timer: „Nicht eintragen“ verwirft die Fokusphase', async ({ page }) =>
   await expect.poll(async () => (await stored(page)).logs.length).toBe(0);
   await expect(page.getByText('Eintrag gelöscht.')).toBeVisible();
 });
+
+test('Tab-Zeilen brechen am PC um, statt rechts abgeschnitten zu werden', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loadDemo(page);
+  await nav(page, 'Mehr').click();
+  for (const sub of ['Alle Hausaufgaben', 'Erfolge']) {
+    await page.getByRole('tab', { name: sub }).click();
+    // jeder Tab liegt vollständig im sichtbaren Bereich seiner Zeile
+    const cut = await page.evaluate(() => [...document.querySelectorAll('.seg')].flatMap((seg) => {
+      const box = seg.getBoundingClientRect();
+      return [...seg.children].filter((t) => { const r = t.getBoundingClientRect(); return r.left < box.left - 1 || r.right > box.right + 1 || r.right > window.innerWidth; }).map((t) => t.textContent);
+    }));
+    expect(cut, sub).toEqual([]);
+  }
+  await expect(page.getByRole('tab', { name: 'Daten & Einstellungen' })).toBeInViewport({ ratio: 1 });
+});
