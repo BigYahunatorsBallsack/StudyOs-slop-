@@ -8,6 +8,7 @@ import { btnGhost, btnPrimary, focusRing, inputCls } from "./styles.js";
 import { Attachments } from "./Attachments.jsx";
 import { followingSimilar } from "../lib/series.js";
 import { Select } from "./select.jsx";
+import { SubtaskEditor } from "./subtasks.jsx";
 
 export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, onClose }) {
   const def = formDef(form.kind, data);
@@ -23,6 +24,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
       const has = init[f.k] !== undefined && init[f.k] !== null;
       if (f.t === "checkbox") v[f.k] = has ? !!init[f.k] : !!f.def;
       else if (f.t === "weekdays") v[f.k] = Array.isArray(init[f.k]) ? init[f.k].map(Number) : [];
+      else if (f.t === "subtasks") v[f.k] = Array.isArray(init[f.k]) ? init[f.k] : [];
       else if (f.t === "decimal") v[f.k] = has ? fmtDec(init[f.k]) : "";
       else v[f.k] = has ? init[f.k] : f.k === "moduleId" && init.moduleId === undefined && lastMod ? lastMod : typeof f.def === "function" ? f.def() : f.def ?? "";
     });
@@ -69,6 +71,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
               if (f.t === "select") ctrl = <Select {...common}>{resolve(f, vals).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>;
               else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} />;
               else if (f.t === "textarea") ctrl = <textarea {...common} rows={f.rows || 4} placeholder={f.ph} />;
+              else if (f.t === "subtasks") ctrl = <SubtaskEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} />;
               else if (f.t === "weekdays") ctrl = (
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label={f.l}>
                   {WD.map((w, i) => {

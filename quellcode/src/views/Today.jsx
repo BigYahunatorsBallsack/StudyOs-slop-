@@ -17,6 +17,8 @@ import { WhatNowDialog } from "./WhatNow.jsx";
 import { withoutArchived } from "../lib/study.js";
 import { moduleGoals, weekCard } from "../lib/progress.js";
 import { burst } from "../ui/pixel.jsx";
+import { SubtaskProgress } from "../ui/subtasks.jsx";
+import { subProgress } from "../lib/subtasks.js";
 
 /* ---------------- Heute ---------------- */
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
@@ -230,6 +232,7 @@ function TodoList({ db, items }) {
                 <span className="row-title block truncate">{title}</span>
                 <span className={`row-meta block truncate ${late ? "todo-late" : ""}`}>{meta}</span>
                 {x.kind === "review" && <WatchProgress s={x.item} color={m?.color} className="mt-0.5" />}
+                {x.kind === "homework" && <SubtaskProgress h={x.item} color={m?.color} className="mt-0.5" />}
               </button>
               {x.kind === "review" && /^https:\/\//i.test(m?.liveUrl || "") && (
                 <a className="ext-link shrink-0" href={m.liveUrl} target="_blank" rel="noopener noreferrer">Aufzeichnung<span className="sr-only"> von {m.name} öffnen</span> ↗</a>
@@ -282,7 +285,8 @@ function NextUp({ db, openReviews, cardsDue }) {
     </>);
   } else {
     title = x.title;
-    meta = m?.name || "";
+    const p = subProgress(x);
+    meta = [m?.name, p.total ? `${p.done} von ${p.total} Teilaufgaben` : ""].filter(Boolean).join(", ");
     actions = (<>
       <button className="btn btn-solid" onClick={(e) => { burst(e.currentTarget); const prev = x.status; db.setHwStatus(x.id, "abgegeben"); db.toast(`„${x.title}“ abgegeben.`, { label: "Rückgängig", run: () => db.setHwStatus(x.id, prev) }); }}>Abgegeben</button>
       <button className="btn" onClick={() => db.openForm("homework", x)}>Details</button>

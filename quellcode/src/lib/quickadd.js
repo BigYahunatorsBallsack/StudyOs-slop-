@@ -1,7 +1,9 @@
 /* Schnelleingabe: Freitext wie „Blatt 4 Analysis Fr“ in einen Eintrag übersetzen.
-   Erkennt Art (Hausaufgabe, Prüfung, Termin, Lerneinheit, Notiz), Modul, Datum, Uhrzeit und Dauer.
+   Erkennt Art (Hausaufgabe, Prüfung, Termin, Lerneinheit, Notiz), Modul, Datum, Uhrzeit und Dauer,
+   bei Hausaufgaben auch Teilaufgaben („a-c“ oder „Aufgaben 1-4“).
    Alles Erkannte wird aus dem Titel entfernt; der Rest ist der Titel. */
-import { addDays, iso, wdIdx } from "./util.js";
+import { expandRange } from "./subtasks.js";
+import { addDays, iso, uid, wdIdx } from "./util.js";
 
 const WEEKDAYS = [
   ["mo", "montag"], ["di", "dienstag"], ["mi", "mittwoch"], ["do", "donnerstag"], ["fr", "freitag"], ["sa", "samstag"], ["so", "sonntag"],
@@ -103,11 +105,11 @@ function parseDuration(tokens, i) {
 
 /**
  * @returns {{ kind: string, kindGuessed: boolean, module: object|null, date: string, start: string, end: string,
- *             minutes: number|null, title: string, sessionType: string }}
+ *             minutes: number|null, title: string, sessionType: string, subtasks: string[] }}
  */
 export function parseQuick(text, modules = [], today = iso()) {
   const raw = String(text || "").trim();
-  const out = { kind: "", kindGuessed: true, module: null, date: "", start: "", end: "", minutes: null, title: "", sessionType: "Vorlesung" };
+  const out = { kind: "", kindGuessed: true, module: null, date: "", start: "", end: "", minutes: null, title: "", sessionType: "Vorlesung", subtasks: [] };
   if (!raw) return out;
   if (/^notiz\s*:/i.test(raw)) return { ...out, kind: "note", kindGuessed: false, title: raw.replace(/^notiz\s*:\s*/i, "") };
   const tokens = raw.replace(/\s+([-–])\s+/g, "$1").split(/\s+/);
@@ -115,6 +117,15 @@ export function parseQuick(text, modules = [], today = iso()) {
   for (let i = 0; i < tokens.length; i++) {
     if (used[i]) continue;
     const tok = tokens[i];
+    /* Teilaufgaben: „a-c“ immer, Zahlenbereiche nur nach „Aufgabe(n)“, sonst wären sie eine Uhrzeit */
+    if (!out.subtasks.length && /^[a-z][-–][a-z]$/i.test(tok)) {
+      const names = expandRange(tok);
+      if (names) { out.subtasks = names; used[i] = true; if (!out.kind || out.kind === "log") { out.kind = "homework"; out.kindGuessed = false; } continue; }
+    }
+    if (!out.subtasks.length && i > 0 && /^(aufgabe|aufgaben|aufg\.?|nr\.?)$/i.test(tokens[i - 1]) && /^\d+[-–]\d+$/.test(tok)) {
+      const names = expandRange("Aufgabe " + tok);
+      if (names) { out.subtasks = names; used[i] = used[i - 1] = true; if (!out.kind || out.kind === "log") { out.kind = "homework"; out.kindGuessed = false; } continue; }
+    }
     const d = !out.date && parseDateToken(tokens, i, today);
     if (d) { out.date = d[0]; for (let j = 0; j < d[1]; j++) used[i + j] = true; continue; }
     if (/^(um|ab|bis|von)$/i.test(tok) && tokens[i + 1] && /^\d{1,2}(:\d{2})?$/.test(tokens[i + 1])) {
@@ -154,7 +165,8 @@ export function parseQuick(text, modules = [], today = iso()) {
 export function quickToEntity(q, today = iso()) {
   const moduleId = q.module?.id || "";
   switch (q.kind) {
-    case "homework": return { kind: "homework", vals: { moduleId, title: q.title || "Hausaufgabe", issued: today, due: q.date || "", status: "ausgegeben" } };
+    case "homework": return { kind: "homework", vals: { moduleId, title: q.title || "Hausaufgabe", issued: today, due: q.date || "", status: "ausgegeben",
+      ...(q.subtasks?.length && { subtasks: q.subtasks.map((title) => ({ id: uid(), title, done: false })) }) } };
     case "exam": return { kind: "exam", vals: { moduleId, date: q.date || "", time: q.start || "09:00", room: "", dailyMinutes: 90, attempt: 1, result: "offen", freeWeekdays: [] } };
     case "session": return { kind: "session", vals: { moduleId, type: q.sessionType, date: q.date || today, start: q.start || "10:00", end: q.end || addHours(q.start || "10:00", 2), room: q.title || "" } };
     case "log": return { kind: "log", vals: { date: q.date || today, minutes: q.minutes || 45, moduleId, topicId: "", kind: "Nacharbeiten", note: q.title } };

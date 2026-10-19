@@ -44,6 +44,7 @@ export function QuickAdd({ db, onClose }) {
               {q.start && <span className="preview-chip">{q.start}{q.end ? `–${q.end}` : ""}</span>}
               {q.kind === "log" && <span className="preview-chip">{fmtMin(q.minutes || 45)}</span>}
               {q.kind === "session" && <span className="preview-chip">{q.sessionType}</span>}
+              {q.kind === "homework" && q.subtasks.length > 0 && <span className="preview-chip">{q.subtasks.length} Teilaufgaben: {q.subtasks.length > 4 ? `${q.subtasks[0]} bis ${q.subtasks[q.subtasks.length - 1]}` : q.subtasks.join(", ")}</span>}
               {q.title && <span className="preview-chip">„{q.title}“</span>}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -54,6 +55,7 @@ export function QuickAdd({ db, onClose }) {
         ) : (
           <ul className="mt-3 space-y-1 text-sm text-slate-400">
             <li><b className="text-slate-200">Blatt 4 Analysis Fr</b> wird eine Hausaufgabe</li>
+            <li><b className="text-slate-200">Blatt 5 DS Fr a-c</b> bekommt die Teilaufgaben a, b und c</li>
             <li><b className="text-slate-200">Übung DS Do 14-16 MI HS 1</b> wird ein Termin</li>
             <li><b className="text-slate-200">Klausur EIDI 12.02. 10:30</b> wird eine Prüfung</li>
             <li><b className="text-slate-200">90 min Analysis Kapitel 3</b> wird eine Lerneinheit</li>
