@@ -1,5 +1,11 @@
 # Änderungen
 
+## Unveröffentlicht
+- **Sync führt pro Feld zusammen:** Gleichzeitige Änderungen an verschiedenen Feldern desselben Eintrags (z. B. Titel am Handy, Status am Laptop) bleiben beide erhalten. Der Lernstand einer Karteikarte wird als Ganzes übernommen, Einstellungen pro Schlüssel. „Meine behalten“ stellt nur die überschriebenen Felder wieder her.
+- **Falsch gehende Geräteuhr verliert keine Daten mehr:** Zeitstempel sind immer jünger als der bearbeitete Stand und werden um den Versatz zur Serverzeit korrigiert (aus dem `Date`-Header der Supabase-Antwort, keine Datenbankänderung nötig).
+- **Behoben:** Zwei Fassungen mit gleichem Zeitstempel blieben auf beiden Geräten dauerhaft verschieden; jetzt entscheiden beide gleich, und der Fingerabdruck erkennt den Unterschied.
+- Kompatibel mit älteren App-Versionen: Sie ignorieren die neuen Feld-Zeitstempel (`fu`), ihre Änderungen zählen wie bisher für den ganzen Eintrag.
+
 ## 2.7.2
 - **Retro:** Pixel-Pfeil über dem aktiven Tab der Navigation.
 - **Technik:** TypeScript 7, globals 17 und neuere GitHub Actions; ESLint bleibt vorerst bei Version 9 (eslint-plugin-react unterstützt 10 noch nicht).

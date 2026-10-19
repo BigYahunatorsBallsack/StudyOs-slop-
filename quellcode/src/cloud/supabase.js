@@ -42,13 +42,23 @@ export function createSupabaseCloud() {
     return a;
   }, (e) => { authP = null; throw e; }));
   const auth = { getSession: async () => (await getAuth()).getSession() };
+  /* Versatz der Geräteuhr zur Serverzeit, aus dem Date-Header der Antworten (Sekundengenau; Mitte der Anfrage als Bezug).
+     Fehlt der Header (z. B. nicht per CORS freigegeben), bleibt er unbekannt und der Sync nutzt nur die Geräteuhr. */
+  let serverOffset = NaN;
+  const timedFetch = async (...args) => {
+    const t0 = Date.now();
+    const res = await fetch(...args);
+    const server = Date.parse(res.headers?.get?.("date") || "");
+    if (Number.isFinite(server)) serverOffset = server + 500 - (t0 + Date.now()) / 2;
+    return res;
+  };
   /* Datenbankzugriff immer mit dem aktuellen Zugangstoken des Nutzers (wird bei Bedarf erneuert) */
   const db = async () => {
     const { data } = await auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw new CloudError("Die Anmeldung ist abgelaufen. Bitte neu anmelden.");
     const { PostgrestClient } = await loadLibs();
-    return new PostgrestClient(SUPABASE_URL + "/rest/v1", { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+    return new PostgrestClient(SUPABASE_URL + "/rest/v1", { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }, fetch: timedFetch });
   };
   const userId = async () => {
     if (uid) return uid;
@@ -182,6 +192,7 @@ export function createSupabaseCloud() {
     },
     async signOut() { uid = null; if (authP) await (await authP).signOut({ scope: "local" }).catch(() => {}); },
     remote: {
+      get serverOffset() { return serverOffset; },
       async get() {
         const { data, error } = await (await db()).from(SYNC_TABLE).select("version,payload").eq("user_id", await userId()).maybeSingle();
         if (error) throw explain(error);

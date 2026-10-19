@@ -15,6 +15,7 @@ const op = fc.record({
   kind: fc.constantFrom("put", "put", "del", "setting"),
   coll: fc.constantFrom("modules", "notes", "homework"),
   id: fc.constantFrom(...IDS),
+  field: fc.constantFrom("title", "done"),
   value: fc.string({ maxLength: 6 }),
 });
 
@@ -24,7 +25,7 @@ function apply(d, o, now) {
   else if (o.kind === "del") next = { ...d, [o.coll]: d[o.coll].filter((x) => x.id !== o.id) };
   else {
     const exists = d[o.coll].some((x) => x.id === o.id);
-    const item = { id: o.id, title: o.value };
+    const item = { id: o.id, [o.field]: o.value };
     next = { ...d, [o.coll]: exists ? d[o.coll].map((x) => (x.id === o.id ? { ...x, ...item } : x)) : [...d[o.coll], item] };
   }
   return stampChanges(d, next, now);
