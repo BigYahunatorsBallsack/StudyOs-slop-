@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseICS } from "../../src/lib/ics.js";
-import { applyFeed, groupParallel, guessMapping, resolveNewModules, unmappedSummaries, NEW, SKIP } from "../../src/lib/feed.js";
+import { applyFeed, describeChange, feedChanges, groupParallel, guessMapping, resolveNewModules, unmappedSummaries, NEW, SKIP } from "../../src/lib/feed.js";
 import { emptyData } from "../../src/lib/data.js";
 
 const T = "2026-10-21";
@@ -56,13 +56,29 @@ describe("Stundenplan-Abo", () => {
   });
 
   it("entfernt verschwundene künftige Termine, behält bearbeitete und vergangene", () => {
-    const evs = parseICS(cal([ev("past", "12"), ev("a1", "22"), ev("a2", "29"), ev("bleibt", "30")]));
+    const evs = parseICS(cal([ev("past", "12"), ev("a1", "31"), ev("a2", "29"), ev("bleibt", "30")]));
     const d = { ...base(), sessions: applyFeed(base(), evs, map, T).sessions };
     const reviewed = d.sessions.find((s) => s.feedKey.startsWith("a2"));
     reviewed.reviewed = true;
     const r = applyFeed(d, parseICS(cal([ev("bleibt", "30")])), map, T);
     expect(r.stats).toMatchObject({ removed: 1, cancelled: 1 });
     expect(r.sessions.map((s) => [s.feedKey.split("|")[0], !!s.cancelled]).sort()).toEqual([["a2", true], ["bleibt", false], ["past", false]]);
+  });
+
+  it("meldet Raum- und Zeitänderungen der nächsten Wochen, bis man sie bestätigt", () => {
+    const d = { ...base(), sessions: applyFeed(base(), parseICS(cal([ev("a1", "22"), ev("weit", "30")])), map, T).sessions };
+    expect(feedChanges(d.sessions, T)).toEqual([]);
+    const r = applyFeed(d, parseICS(cal([ev("a1", "22", { LOCATION: "Interims 1", DTSTART: "20261022T120000", DTEND: "20261022T134500" }), ev("weit", "30")])), map, T);
+    const [c] = feedChanges(r.sessions, T);
+    expect(c.change.was).toEqual({ start: "10:15", end: "11:45", room: "MI HS 1" });
+    expect(describeChange(c)).toBe("Zeit: 10:15–11:45 → 12:00–13:45, Raum: MI HS 1 → Interims 1");
+    /* zweite Änderung: der ursprüngliche Stand bleibt; zurück auf den alten Raum zählt nur noch die Zeit */
+    const r2 = applyFeed({ ...base(), sessions: r.sessions }, parseICS(cal([ev("a1", "22", { DTSTART: "20261022T120000", DTEND: "20261022T134500" }), ev("weit", "30")])), map, T);
+    expect(describeChange(feedChanges(r2.sessions, T)[0])).toBe("Zeit: 10:15–11:45 → 12:00–13:45");
+    /* bald anstehender Termin verschwindet aus dem Kalender: bleibt als „fällt aus“ stehen */
+    const r3 = applyFeed({ ...base(), sessions: r2.sessions.map((s) => ({ ...s, change: null })) }, parseICS(cal([ev("weit", "30")])), map, T);
+    expect(r3.stats).toMatchObject({ removed: 0, cancelled: 1 });
+    expect(feedChanges(r3.sessions, T).map(describeChange)).toEqual(["fällt aus"]);
   });
 
   it("ein leerer Kalender löscht nichts", () => {

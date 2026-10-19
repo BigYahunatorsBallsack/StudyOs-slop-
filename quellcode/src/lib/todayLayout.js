@@ -3,6 +3,7 @@
 
 export const TODAY_BLOCKS = [
   ["next", "Als Nächstes"],
+  ["changes", "Stundenplan-Änderungen"],
   ["quick", "Schnelleingabe und „Was jetzt?“"],
   ["minis", "Lernzeit und Serie"],
   ["week", "Wochenkarte (Sonntag und Montag)"],

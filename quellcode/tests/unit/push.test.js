@@ -46,3 +46,18 @@ describe("Erinnerungen: Nachbereitung und Wochenausblick", () => {
     expect(sun.map((r) => r.title)).toContain("Deine nächste Woche");
   });
 });
+
+describe("Push bei Stundenplan-Änderungen", () => {
+  it("meldet eine frische Änderung sofort und nur einmal, abschaltbar", () => {
+    const at = new Date();
+    const hm = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+    const today = new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const d = { ...data(), sessions: [{ id: "s1", moduleId: "ds", type: "Vorlesung", date: today, start: "23:59", end: "23:59", room: "HS 2", change: { at: at.toISOString(), was: { room: "HS 1" }, wasCancelled: false } }] };
+    const list = deadlinesFromData(d, today).filter((x) => x.kind === "change");
+    expect(list).toEqual([expect.objectContaining({ kind: "change", date: today, time: hm, body: "Raum: HS 1 → HS 2" })]);
+    const sent = dueReminders(list, {}, new Date(at.getTime() + 60000));
+    expect(sent).toEqual([expect.objectContaining({ title: "Stundenplan geändert", body: expect.stringContaining("Raum: HS 1 → HS 2"), url: "./?aktion=heute" })]);
+    expect(dueReminders(list, { [sent[0].key]: at.toISOString() }, new Date(at.getTime() + 60000))).toEqual([]);
+    expect(deadlinesFromData({ ...d, settings: { ...d.settings, pushChanges: false } }, today).some((x) => x.kind === "change")).toBe(false);
+  });
+});

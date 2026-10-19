@@ -1,6 +1,7 @@
 /* Bausteine rund um einen Termin: Dreifach-Schalter (vorbereitet, besucht, nachbereitet) und die
    Termin-Karte, die im Wochenraster beim Überfahren mit der Maus bzw. beim Antippen erscheint. */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { playSfx } from "./sfx.js";
 import { PlaceLinks, WatchProgress } from "./links.jsx";
 import { fmtShort, isHeld } from "../lib/util.js";
 
@@ -21,7 +22,7 @@ export function SessionTri({ s, db, compact = false, color }) {
         const on = !!s[key], warn = key === "reviewed" && held && !on;
         return (
           <button key={key} type="button" aria-pressed={on} title={long} aria-label={compact && short !== long ? `${short}: ${long}` : long} className={`tri-btn tri-${key} ${warn ? "tri-warn" : ""}`}
-            onClick={(e) => { e.stopPropagation(); db.toggleSession(s.id, key); }}>
+            onClick={(e) => { e.stopPropagation(); if (!s[key]) playSfx("coin"); db.toggleSession(s.id, key); }}>
             <span className="tri-mark" aria-hidden="true">{on ? "✓" : warn ? "!" : ""}</span>
             <span>{compact ? short : WRAP[long] || long}</span>
           </button>

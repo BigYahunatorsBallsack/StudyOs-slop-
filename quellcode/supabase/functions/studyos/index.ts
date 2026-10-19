@@ -27,6 +27,8 @@ var RULES = {
   review: [[0, "20:00", "Noch nachzubereiten", (x) => x.body || x.title]],
   weekly: [[0, "18:00", "Deine n\xE4chste Woche", (x) => x.body || x.title]],
   /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
+  /* Stundenplan geändert: sofort, höchstens 2 Stunden verspätet */
+  change: [[0, (x) => x.time, "Stundenplan ge\xE4ndert", (x) => `${x.title}: ${x.body || "ge\xE4ndert"}`, 2 * 36e5]],
   block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 6e4]]
 };
 var minus = (hm2, n) => {
@@ -45,7 +47,7 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
       const at2 = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
       if (sent[key] || at2 > now2 || now2.getTime() - at2.getTime() > maxLate) return;
-      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" ? "./?aktion=heute" : "./?aktion=pruefungen" });
+      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" || x.kind === "change" ? "./?aktion=heute" : "./?aktion=pruefungen" });
     });
   }
   return out;

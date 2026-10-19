@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { WD, WD_LONG } from "../lib/constants.js";
+import { DONE_HW, WD, WD_LONG } from "../lib/constants.js";
 import { addDays, byTime, fmt, fmtMin, isHeld, iso, isoWeek, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
 import { BlockRow, HomeworkRow, SessionRow } from "../ui/rows.jsx";
 import { Tabs } from "../ui/primitives.jsx";
@@ -7,6 +7,7 @@ import { isActive } from "../lib/data.js";
 import { SessionPopover, useHoverCard } from "../ui/session.jsx";
 import { suggestBlocks } from "../lib/blocks.js";
 import { sessionCoverage } from "../lib/study.js";
+import { offDay } from "../lib/holidays.js";
 
 const HOUR_PX = 46;
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
@@ -30,33 +31,85 @@ function layoutDay(events) {
   return out;
 }
 
-export function WeekView({ db }) {
+export function WeekView({ db, compact = false }) {
   const { data } = db, t = iso();
   const [ws, setWs] = useState(weekStart(t));
   const [mode, setMode] = useState(() => { try { return localStorage.getItem("studyos-week-mode") || "raster"; } catch { return "raster"; } });
   useEffect(() => { try { localStorage.setItem("studyos-week-mode", mode); } catch {} }, [mode]);
+  const [month, setMonth] = useState(t.slice(0, 7));
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   const we = days[6];
   const weekSes = data.sessions.filter((s) => s.date >= ws && s.date <= we);
   const heldWeek = weekSes.filter((s) => isHeld(s) && isActive(s));
   const reviewed = heldWeek.filter((s) => s.reviewed).length;
+  /* neben „Heute“ (breiter Bildschirm) nur Raster und Liste, ohne Lernblock-Vorschläge */
+  const view = compact && mode === "monat" ? "raster" : mode;
+  const isMonth = view === "monat";
+  const shiftMonth = (n) => { const [y, m] = month.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
+  const openWeek = (d) => { setWs(weekStart(d)); setMode("raster"); };
+  const H = compact ? "h3" : "h2";
 
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-2">
         <div>
-          <h2 className="page-title">Woche {isoWeek(ws)}</h2>
-          <p className="page-sub">{fmt(ws)} bis {fmt(we)}{heldWeek.length ? `, ${reviewed} von ${heldWeek.length} nachbereitet` : ""}</p>
+          <H className={compact ? "section-title" : "page-title"}>{isMonth ? monthName(month) : `Woche ${isoWeek(ws)}`}</H>
+          {!isMonth && <p className="page-sub">{fmt(ws)} bis {fmt(we)}{heldWeek.length ? `, ${reviewed} von ${heldWeek.length} nachbereitet` : ""}</p>}
         </div>
         <div className="flex gap-1">
-          <button className="btn btn-ghost btn-icon" onClick={() => setWs(addDays(ws, -7))} aria-label="Vorherige Woche"><span aria-hidden="true" className="block w-4 text-center">‹</span></button>
-          <button className="btn btn-ghost" onClick={() => setWs(weekStart(t))} disabled={ws === weekStart(t)}>Heute</button>
-          <button className="btn btn-ghost btn-icon" onClick={() => setWs(addDays(ws, 7))} aria-label="Nächste Woche"><span aria-hidden="true" className="block w-4 text-center">›</span></button>
+          <button className="btn btn-ghost btn-icon" onClick={() => (isMonth ? shiftMonth(-1) : setWs(addDays(ws, -7)))} aria-label={isMonth ? "Vorheriger Monat" : "Vorherige Woche"}><span aria-hidden="true" className="block w-4 text-center">‹</span></button>
+          <button className="btn btn-ghost" onClick={() => (isMonth ? setMonth(t.slice(0, 7)) : setWs(weekStart(t)))} disabled={isMonth ? month === t.slice(0, 7) : ws === weekStart(t)}>Heute</button>
+          <button className="btn btn-ghost btn-icon" onClick={() => (isMonth ? shiftMonth(1) : setWs(addDays(ws, 7)))} aria-label={isMonth ? "Nächster Monat" : "Nächste Woche"}><span aria-hidden="true" className="block w-4 text-center">›</span></button>
         </div>
       </div>
-      <Tabs items={[["raster", "Raster"], ["liste", "Liste"]]} value={mode} onChange={setMode} label="Ansicht" />
-      <BlockSuggestions db={db} days={days} />
-      {mode === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
+      <Tabs items={compact ? [["raster", "Raster"], ["liste", "Liste"]] : [["raster", "Raster"], ["liste", "Liste"], ["monat", "Monat"]]} value={view} onChange={setMode} label="Ansicht" />
+      {!compact && !isMonth && <BlockSuggestions db={db} days={days} />}
+      {isMonth ? <MonthGrid db={db} month={month} onPick={openWeek} /> : view === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
+    </div>
+  );
+}
+
+const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const monthName = (ym) => `${MONTHS[Number(ym.slice(5)) - 1]} ${ym.slice(0, 4)}`;
+
+/* Monatsübersicht: Punkte für Abgaben (Modulfarbe) und Prüfungen (pink), Feiertage und Ferien gedämpft.
+   Ein Tag öffnet seine Woche im Raster. */
+function MonthGrid({ db, month, onPick }) {
+  const { data } = db, t = iso();
+  const first = `${month}-01`, start = weekStart(first);
+  const weeks = [];
+  for (let w = start; w.slice(0, 7) <= month || weeks.length === 0; w = addDays(w, 7)) { weeks.push(w); if (weeks.length > 6) break; }
+  const hwBy = new Map(), exBy = new Map(), sesBy = new Map();
+  const add = (map, d, x) => { if (!map.has(d)) map.set(d, []); map.get(d).push(x); };
+  data.homework.forEach((h) => h.due && add(hwBy, h.due, h));
+  data.exams.forEach((e) => { if (e.date) add(exBy, e.date, e); if (e.retakeDate && e.result === "nicht bestanden") add(exBy, e.retakeDate, e); });
+  data.sessions.forEach((s) => !s.cancelled && add(sesBy, s.date, s));
+  return (
+    <div className="month" role="grid" aria-label={monthName(month)}>
+      <div className="month-row month-head" role="row">
+        {WD.map((d) => <span key={d} role="columnheader">{d}</span>)}
+      </div>
+      {weeks.map((w) => (
+        <div key={w} className="month-row" role="row">
+          {Array.from({ length: 7 }, (_, i) => addDays(w, i)).map((d) => {
+            const hw = hwBy.get(d) || [], ex = exBy.get(d) || [], ses = sesBy.get(d) || [], off = offDay(d, data.settings);
+            const open = hw.filter((h) => !DONE_HW.has(h.status));
+            const parts = [`${Number(d.slice(8))}. ${monthName(d.slice(0, 7))}`, off?.label, ex.length ? `${ex.length} ${ex.length === 1 ? "Prüfung" : "Prüfungen"}` : "", hw.length ? `${hw.length} ${hw.length === 1 ? "Abgabe" : "Abgaben"}${open.length < hw.length ? ` (${hw.length - open.length} erledigt)` : ""}` : "", ses.length ? `${ses.length} ${ses.length === 1 ? "Termin" : "Termine"}` : ""].filter(Boolean);
+            return (
+              <button key={d} role="gridcell" className={`month-day ${d.slice(0, 7) !== month ? "other" : ""} ${d === t ? "today" : ""} ${off ? "off" : ""} ${ex.length ? "has-exam" : ""}`} onClick={() => onPick(d)} aria-label={parts.join(", ")} title={parts.slice(1).join(", ") || undefined}>
+                <span className="month-num">{Number(d.slice(8))}</span>
+                <span className="month-dots" aria-hidden="true">
+                  {ex.map((e) => <span key={e.id + (e.retakeDate === d ? "r" : "")} className="mdot mdot-exam" />)}
+                  {hw.slice(0, 4).map((h) => <span key={h.id} className={`mdot ${DONE_HW.has(h.status) ? "mdot-done" : ""}`} style={{ "--mod": db.mod(h.moduleId)?.color }} />)}
+                  {hw.length > 4 && <span className="mdot-more">+{hw.length - 4}</span>}
+                </span>
+                {ses.length > 0 && <span className="month-ses" aria-hidden="true">{ses.length}</span>}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+      <p className="mt-3 text-xs text-slate-500">Pink: Prüfung. Punkte in Modulfarbe: Abgaben (blass, wenn erledigt). Die Zahl unten zeigt die Termine des Tages. Gedämpft: Feiertag oder vorlesungsfrei. Ein Tag öffnet seine Woche.</p>
     </div>
   );
 }
@@ -88,7 +141,7 @@ function WeekGrid({ db, days, weekSes }) {
       <div className="grid-week grid-head" style={{ "--days": shown.length }}>
         <span />
         {shown.map((d) => (
-          <div key={d} className={`grid-day ${d === t ? "today" : ""}`}>{WD[wdIdx(d)]}<b>{Number(d.slice(8))}</b></div>
+          <div key={d} className={`grid-day ${d === t ? "today" : ""} ${offDay(d, data.settings) ? "off" : ""}`} title={offDay(d, data.settings)?.label}>{WD[wdIdx(d)]}<b>{Number(d.slice(8))}</b>{offDay(d, data.settings) && <span className="grid-off">{offDay(d, data.settings).label}</span>}</div>
         ))}
       </div>
       {anyAllDay && (
@@ -174,7 +227,7 @@ function WeekList({ db, days, weekSes }) {
         return (
           <section key={d} aria-label={`${WD_LONG[wdIdx(d)]} ${fmt(d)}`}>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className={`section-title ${isToday ? "text-sky-300" : ""}`}>{WD_LONG[wdIdx(d)]} <span className="text-sm font-normal text-slate-400">{d.slice(8)}.{d.slice(5, 7)}.{isToday ? ", heute" : ""}</span></h3>
+              <h3 className={`section-title ${isToday ? "text-sky-300" : ""}`}>{WD_LONG[wdIdx(d)]} <span className="text-sm font-normal text-slate-400">{d.slice(8)}.{d.slice(5, 7)}.{isToday ? ", heute" : ""}{offDay(d, data.settings) ? `, ${offDay(d, data.settings).label}` : ""}</span></h3>
               <div className="flex items-center gap-2">
                 {mins > 0 && <span className="text-xs text-slate-400">{fmtMin(mins)} gelernt</span>}
                 <button className="btn btn-ghost btn-icon" onClick={() => db.openForm("session", { date: d }, true)} aria-label={`Termin am ${fmt(d)} hinzufügen`}><span aria-hidden="true" className="block w-4 text-center">+</span></button>

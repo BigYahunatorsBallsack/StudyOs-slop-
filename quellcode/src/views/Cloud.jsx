@@ -147,6 +147,7 @@ function Reminders({ cloud, settings, patchSettings }) {
       {on && patchSettings && (
         <div className="mt-3 space-y-2 text-sm">
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushReviews !== false} onChange={(e) => patchSettings({ pushReviews: e.target.checked })} /> Um 20 Uhr, wenn heutige Termine noch nicht nachbereitet sind</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushChanges !== false} onChange={(e) => patchSettings({ pushChanges: e.target.checked })} /> Wenn sich im Stundenplan-Abo ein Raum oder eine Uhrzeit ändert oder etwas ausfällt</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushBlocks !== false} onChange={(e) => patchSettings({ pushBlocks: e.target.checked })} /> 10 Minuten vor einem geplanten Lernblock</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushWeekly !== false} onChange={(e) => patchSettings({ pushWeekly: e.target.checked })} /> Sonntags um 18 Uhr Rückblick (Lernzeit, fällige Karten) und Ausblick auf die nächste Woche</label>
         </div>
