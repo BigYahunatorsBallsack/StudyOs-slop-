@@ -87,3 +87,17 @@ export function applySemester(data, curriculum, semNo, status = "geplant") {
   const settings = s.curriculum && s.curriculum !== "none" ? s : { ...s, curriculum: curriculum.id, program: s.program || curriculum.program || "" };
   return { data: { ...data, modules, settings }, added, updated };
 }
+
+/**
+ * Einrichtung beim ersten Start: Module des laufenden Semesters als „belegt“ anlegen,
+ * auf Wunsch auch die früheren Semester (als „bestanden“). Merkt sich Studienplan und Studiengang.
+ */
+export function setupFromPlan(data, curriculum, current, withPast = false) {
+  let d = data, added = 0;
+  const from = withPast ? 1 : current;
+  for (let sem = from; sem <= current; sem++) {
+    const res = applySemester(d, curriculum, sem, sem === current ? "belegt" : "bestanden");
+    d = res.data; added += res.added;
+  }
+  return { data: { ...d, settings: { ...d.settings, curriculum: curriculum.id, program: d.settings?.program || curriculum.program || "" } }, added };
+}

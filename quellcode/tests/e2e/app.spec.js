@@ -368,7 +368,11 @@ test('Wochenraster auf dem Handy: Antippen öffnet die Karte statt des Formulars
   await expect(page.locator('.popover')).toBeVisible();
   await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toHaveCount(0);
   // Die drei Schalter passen in die schmale Karte, auch angehakt, und haben je eine eigene Farbe
-  for (const name of ['Vorbereitet', 'Besucht', 'Nachbereitet']) await page.locator('.popover').getByRole('button', { name }).click();
+  for (const name of ['Vorbereitet', 'Besucht', 'Nachbereitet']) {
+    const b = page.locator('.popover').getByRole('button', { name });
+    if ((await b.getAttribute('aria-pressed')) !== 'true') await b.click();
+    await expect(b).toHaveAttribute('aria-pressed', 'true');
+  }
   const tri = await page.locator('.popover .tri-btn').evaluateAll((els) => els.map((el) => ({ fits: el.scrollWidth <= el.clientWidth, bg: getComputedStyle(el).backgroundColor })));
   expect(tri.every((b) => b.fits)).toBe(true);
   expect(new Set(tri.map((b) => b.bg)).size).toBe(3);
@@ -1114,4 +1118,28 @@ test('Heute anpassen: Bereich ausblenden, verschieben (Pfeil und Ziehen), Standa
   await dlg.getByRole('button', { name: 'Standard wiederherstellen' }).click();
   await expect(dlg.locator('.customize-row').first()).toContainText('Als Nächstes');
   await expect(page.locator('.group-plan')).toBeVisible();
+});
+
+test('Einrichtung beim ersten Start: Studiengang und Semester wählen, Module werden angelegt', async ({ page }) => {
+  await page.goto('./');
+  const setup = page.getByRole('region', { name: 'Einrichtung' });
+  await expect(setup).toBeVisible();
+  await setup.getByLabel('Dein Vorname (optional)').fill('Walter');
+  await choose(setup.getByLabel('Aktuelles Semester'), '2');
+  await expect(setup.getByText('Grundlagen: Algorithmen und Datenstrukturen')).toBeVisible();
+  await setup.getByLabel('Frühere Semester als bestanden eintragen').check();
+  await setup.getByRole('button', { name: 'Module anlegen' }).click();
+  await expect(setup).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Heute anpassen' })).toBeVisible();
+  await expect.poll(async () => (await stored(page))?.modules?.length).toBeGreaterThan(5);
+  const d = await stored(page);
+  expect(d.settings).toMatchObject({ name: 'Walter', curriculum: 'tum-bsc-informatik-2026' });
+  expect(d.modules.filter((m) => m.semester === 2).every((m) => m.status === 'belegt')).toBe(true);
+  expect(d.modules.filter((m) => m.semester === 1).every((m) => m.status === 'bestanden')).toBe(true);
+});
+
+test('Einrichtung: „Anderer Studiengang“ zeigt die Schritte zum Selbst-Anlegen', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Anderer Studiengang' }).click();
+  await expect(page.getByRole('button', { name: 'Erstes Modul anlegen' })).toBeVisible();
 });

@@ -19,6 +19,7 @@ import { moduleGoals, weekCard } from "../lib/progress.js";
 import { burst } from "../ui/pixel.jsx";
 import { todayLayout } from "../lib/todayLayout.js";
 import { CustomizeToday } from "../ui/CustomizeToday.jsx";
+import { Setup } from "../ui/Setup.jsx";
 import { SubtaskProgress } from "../ui/subtasks.jsx";
 import { subProgress } from "../lib/subtasks.js";
 
@@ -30,6 +31,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const prevOpen = useRef(openCount);
   const [cleared, setCleared] = useState(0);
   const [customize, setCustomize] = useState(false);
+  const [manual, setManual] = useState(false);
   useEffect(() => { if (prevOpen.current > 0 && openCount === 0) setCleared((n) => n + 1); prevOpen.current = openCount; }, [openCount]);
 
   if (!data.modules.length) {
@@ -37,9 +39,10 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       <div className="space-y-4">
         <div>
           <h2 className="page-title">Willkommen{data.settings.name ? `, ${data.settings.name}` : ""}</h2>
-          <p className="page-sub">In fünf Schritten ist dein Semester eingerichtet.</p>
+          <p className="page-sub">{manual ? "In fünf Schritten ist dein Semester eingerichtet." : "Wähle Studiengang und Semester, die Module kommen aus dem Studienplan."}</p>
         </div>
-        <Card>
+        {!manual && <Setup db={db} onManual={() => setManual(true)} />}
+        {manual && <Card>
           <ol className="list-decimal space-y-1.5 pl-5 text-sm text-slate-300">
             <li>Module des Semesters anlegen (Name, ECTS, Status)</li>
             <li>Vorlesungen und Übungen als wöchentliche Serie eintragen, oder den TUMonline-Kalender abonnieren</li>
@@ -51,7 +54,8 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
             <button className={btnPrimary} onClick={() => db.openForm("module", null, true)}>Erstes Modul anlegen</button>
             <button className={btnGhost} onClick={() => db.goMore("daten")}>Sicherung importieren oder Beispiel ansehen</button>
           </div>
-        </Card>
+        </Card>}
+        {!manual && <p className="text-center text-sm"><button className="link-btn" onClick={() => db.goMore("daten")}>Sicherung importieren oder Beispiel ansehen</button></p>}
       </div>
     );
   }
