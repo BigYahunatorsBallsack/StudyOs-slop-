@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { searchAll } from "../lib/data.js";
 import { fmt, fmtShort } from "../lib/util.js";
 import { Markdown } from "../ui/markdown.jsx";

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState } from "react";
 import { DONE_HW, MODULE_STATUS, RING_COLORS } from "../lib/constants.js";
 import { isActive, moduleStats } from "../lib/data.js";
 import { byOrder, byTime, diffDays, fmt, fmtDec, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { allTags, cardsToCsv, hasCloze, parseCardsCsv, parseTags, renderCloze, schedule } from "../lib/cards.js";
 import { WD_LONG } from "../lib/constants.js";
 import { moduleStats } from "../lib/data.js";
