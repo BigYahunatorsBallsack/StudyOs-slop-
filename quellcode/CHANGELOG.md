@@ -21,6 +21,7 @@
 - Karteikarten zählen ihre Wiederholungen jetzt mit (`reviews`), auch über ein „Nochmal“ hinweg; ältere Karten starten mit ihren bisherigen Wiederholungen.
 
 ## Unveröffentlicht
+- **Darüberfahren färbt Knöpfe nicht mehr um:** Im Retro-Look bleibt ein Knopf beim Darüberfahren mit der Maus in seiner Farbe und gut lesbar (vorher wurde z. B. „Vorbereitet“ auf „Als Nächstes“ dunkel mit dunkler Schrift). Stattdessen leuchtet der Pixel-Rand cyan auf, dazu die Animation der gewählten Variante.
 - **Aufzeichnung: angeschaut bis.** Im Termin (bearbeiten) lässt sich eintragen, bis wohin du die Aufzeichnung in TUM-Live geschaut hast, z. B. „47:12“. Der Stand erscheint mit Balken (Anteil an der Termindauer) bei „Zu erledigen“, in den Terminlisten und in der Terminkarte und synct mit. Automatisch aus TUM-Live holen geht nicht, weil TUM-Live den Fortschritt nicht nach außen gibt.
 - **Behoben: Weg zur Uni zeigte schon morgen,** sobald die erste Veranstaltung des Tages begonnen hatte, auch wenn heute noch eine weitere kam. Jetzt gilt die nächste Veranstaltung, die noch nicht begonnen hat.
 - **Weg zur Uni: Ziel wählen.** Unter „Pünktlich sein für“ stehen die restlichen Veranstaltungen von heute und die des nächsten Uni-Tages.

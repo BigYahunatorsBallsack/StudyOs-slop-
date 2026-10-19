@@ -735,6 +735,12 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await expect(page.locator('#heute-plan')).toBeHidden();
   await page.getByRole('button', { name: /^Tagesplan/ }).click();
   await expect(page.locator('#heute-plan')).toBeVisible();
+  // Darüberfahren lässt die Knopffarbe stehen (vorher wurde der farbige Knopf auf „Als Nächstes“ dunkel)
+  const solid = page.locator('.hero .btn-solid').first();
+  const bgOf = () => solid.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const bgBefore = await bgOf();
+  await solid.hover();
+  expect(await bgOf()).toBe(bgBefore);
   // Mensa lässt sich genauso einklappen
   await page.getByRole('button', { name: 'Mensa', exact: true }).click();
   await expect(page.locator('#heute-mensa')).toBeHidden();
