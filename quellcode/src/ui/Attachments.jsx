@@ -25,7 +25,7 @@ export function Attachments({ db, coll, itemId }) {
       if (live) setUrls(next);
     })();
     return () => { live = false; };
-  }, [files.map((f) => f.id).join()]); // eslint-disable-line
+  }, [files.map((f) => f.id).join()]);
   useEffect(() => () => Object.values(urlsRef.current).forEach((u) => URL.revokeObjectURL(u)), []);
 
   if (!item) return null;

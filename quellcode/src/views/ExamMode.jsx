@@ -25,7 +25,7 @@ export function ExamMode({ db, moduleId, onClose }) {
     return { ...r, answers, i, revealed: false, done: i >= r.cards.length };
   });
   const topicName = (id) => db.data.topics.find((t) => t.id === id)?.title || "";
-  const result = useMemo(() => (run?.done ? evaluate(run.cards, Object.fromEntries(run.cards.map((c) => [c.id, run.answers[c.id] ?? 0])), topicName) : null), [run?.done]); // eslint-disable-line
+  const result = useMemo(() => (run?.done ? evaluate(run.cards, Object.fromEntries(run.cards.map((c) => [c.id, run.answers[c.id] ?? 0])), topicName) : null), [run?.done]);
   const markWrong = () => {
     const ids = new Set(result.wrong.map((c) => c.id));
     db.withUndo(`${ids.size} Karten auf heute gesetzt.`, (d) => ({ ...d, cards: d.cards.map((c) => (ids.has(c.id) ? { ...c, due: iso() } : c)) }));

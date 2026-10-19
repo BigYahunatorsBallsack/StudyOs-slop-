@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState } from "react";
 import { WD } from "../lib/constants.js";
 import { PALETTE } from "../lib/constants.js";
 import { formDef } from "../lib/forms.js";

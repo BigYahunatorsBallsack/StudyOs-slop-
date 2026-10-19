@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { PALETTE } from "../lib/constants.js";
 import { countsOf, demoData, emptyData, normalizeImport } from "../lib/data.js";
 import { ENV } from "../lib/env.js";

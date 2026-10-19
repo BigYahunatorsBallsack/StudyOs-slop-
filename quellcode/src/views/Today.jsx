@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState } from "react";
 import { WD_LONG } from "../lib/constants.js";
 import { isActive, streakOf } from "../lib/data.js";
 import { byTime, diffDays, fmtMin, fmtShort, isHeld, iso, isoWeek, nowHM, sum, wdIdx, weekStart } from "../lib/util.js";
 import { Bar, Card } from "../ui/primitives.jsx";
 import { btnGhost, btnPrimary } from "../ui/styles.js";
-import { examDeadlines } from "../lib/stats.js";
 import { nextUp } from "../lib/next.js";
 import { SessionTri } from "../ui/session.jsx";
 import { dueLabel, todoItems } from "../lib/todo.js";
@@ -19,7 +18,6 @@ import { withoutArchived } from "../lib/study.js";
 /* ---------------- Heute ---------------- */
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
   const data = withoutArchived(db.data), t = iso();
-  const deadlines = examDeadlines(data, t);
 
   if (!data.modules.length) {
     return (

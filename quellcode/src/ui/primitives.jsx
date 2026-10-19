@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { RING_COLORS } from "../lib/constants.js";
 import { pct } from "../lib/util.js";
 import { Markdown } from "./markdown.jsx";

@@ -18,6 +18,7 @@ import { openBytes, sealBytes } from "../lib/files.js";
 import { deadlinesFromData, deadlinesKey, keyBytes, pushBlocker } from "../lib/push.js";
 import { backupName, backupsToPrune, decodeBackup, encodeBackup, parseBackupName } from "../lib/backup.js";
 import { iso } from "../lib/util.js";
+import { decodeStamps, encodeStamps } from "../lib/sync.js";
 
 const DEBOUNCE_MS = 3000;
 
@@ -29,6 +30,11 @@ function withTimeout(promise, ms, message) {
 const INTERVAL_MS = 5 * 60 * 1000;
 const LAST_KEY = "studyos-cloud-last";
 const BACKUP_KEY = "studyos-cloud-backup"; /* Name der letzten Cloud-Sicherung dieses Geräts */
+const STAMPS_KEY = "studyos-cloud-stamps"; /* Zeitstempel nach dem letzten Sync, übersteht das Neuladen */
+
+const loadStamps = (uid) => { try { return decodeStamps(localStorage.getItem(STAMPS_KEY), uid); } catch { return null; } };
+const saveStamps = (map, uid) => { try { localStorage.setItem(STAMPS_KEY, encodeStamps(map, uid)); } catch {} };
+const dropStamps = () => { try { localStorage.removeItem(STAMPS_KEY); } catch {} };
 
 export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict }) {
   const cloud = getCloud();
@@ -45,10 +51,13 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   const enabledRef = useRef(enabled); enabledRef.current = enabled;
   const syncedRef = useRef(null); /* Zeitstempel nach dem letzten erfolgreichen Sync, für den Konflikthinweis */
   const onConflictRef = useRef(onConflict); onConflictRef.current = onConflict;
+  const uidRef = useRef(null);
 
-  /* Anmeldestatus und gespeicherten Schlüssel laden */
+  /* Anmeldestatus, gespeicherten Schlüssel und Zeitstempel des letzten Syncs laden */
   const enterUser = useCallback(async (u) => {
     setUser(u);
+    uidRef.current = u ? u.id : null;
+    syncedRef.current = u ? loadStamps(u.id) : null;
     if (!u) { keyRef.current = null; setPhase((p) => (p === "code-sent" ? p : "signed-out")); return; }
     const k = await loadKey(u.id);
     if (k) { keyRef.current = k; setPhase("ready"); return; }
@@ -94,6 +103,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     try {
       const res = await syncOnce({ remote: cloud.remote, key: keyRef.current, getLocal, applyLocal, synced: syncedRef.current });
       lastFp.current = res.fingerprint; syncedRef.current = res.stamps;
+      if (uidRef.current) saveStamps(res.stamps, uidRef.current);
       if (res.conflicts.length && onConflictRef.current) onConflictRef.current(res.conflicts);
       const at = new Date().toISOString();
       setLastSync(at); try { localStorage.setItem(LAST_KEY, at); } catch {}
@@ -291,12 +301,14 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       await clearKeys(); await cloud.signOut();
       setUser(null); setPhase("signed-out"); setStatus("idle");
       try { localStorage.removeItem(LAST_KEY); } catch {}
+      syncedRef.current = null; dropStamps();
       setLastSync(null);
       return true;
     }),
     deleteCloud: wrap(async () => {
       await cloud.remote.remove();
       keyRef.current = null; lastFp.current = null;
+      syncedRef.current = null; dropStamps();
       await clearKeys();
       setRemoteExists(false); setPhase("need-key"); setStatus("idle");
       return true;

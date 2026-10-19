@@ -81,6 +81,30 @@ export function stampMap(d) {
   return m;
 }
 
+/** stampMap kompakt als Text, gruppiert nach Sammlung: {"u":nutzer,"s":{"notes":{"n1":"2026-…"}}}.
+    Gespeichert, damit der erste Sync nach dem Neuladen Konflikte erkennt. */
+export function encodeStamps(map, user) {
+  const s = Object.create(null); /* keine Prototyp-Schlüssel, falls eine id "__proto__" heißt */
+  for (const [k, v] of map || []) {
+    const i = k.indexOf(":");
+    const c = k.slice(0, i);
+    if (!s[c]) s[c] = Object.create(null);
+    s[c][k.slice(i + 1)] = v;
+  }
+  return JSON.stringify({ u: user, s });
+}
+
+/** Gegenstück zu encodeStamps; null bei fremdem Nutzer oder kaputtem Text (dann meldet der erste Sync nichts). */
+export function decodeStamps(text, user) {
+  try {
+    const o = JSON.parse(text);
+    if (!o || o.u !== user || typeof o.s !== "object" || !o.s) return null;
+    const m = new Map();
+    for (const [c, ids] of Object.entries(o.s)) for (const [id, v] of Object.entries(ids || {})) if (typeof v === "string") m.set(`${c}:${id}`, v);
+    return m;
+  } catch { return null; }
+}
+
 /** Was hat ein Zusammenführen auf diesem Gerät überschrieben? Nur Einträge, die hier seit dem letzten Sync
     geändert wurden (Zeitstempel weicht von `synced` ab) und danach von einem anderen Gerät ersetzt oder gelöscht sind.
     Ohne `synced` (erster Sync nach dem Start) wird nichts gemeldet. */

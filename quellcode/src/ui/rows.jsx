@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React from "react";
 import { DONE_HW, HW_STATUS, TOPIC_STATES } from "../lib/constants.js";
 import { dueInfo } from "../lib/data.js";
 import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";

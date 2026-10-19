@@ -1,12 +1,12 @@
 {
   "name": "studyos",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "serve": "python3 -m http.server 8080 --directory dist",
-    "lint": "eslint src tests build.mjs",
+    "lint": "eslint --max-warnings 0 src tests build.mjs",
     "test": "TZ=Europe/Berlin vitest run",
     "test:e2e": "node build.mjs && TZ=Europe/Berlin playwright test --project=mobil",
     "test:function": "node build.mjs && node tests/deno/run-function.mjs node_modules/.bin/deno",
