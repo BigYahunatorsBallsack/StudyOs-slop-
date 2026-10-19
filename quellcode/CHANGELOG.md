@@ -1,5 +1,9 @@
 # Änderungen
 
+## 2.7.2
+- **Retro:** Pixel-Pfeil über dem aktiven Tab der Navigation.
+- **Technik:** TypeScript 7, globals 17 und neuere GitHub Actions; ESLint bleibt vorerst bei Version 9 (eslint-plugin-react unterstützt 10 noch nicht).
+
 ## 2.7.1
 - **Behoben:** Uhrzeiten bereits vergangener Termine im Tagesplan hatten zu wenig Kontrast (abgeblendet per Transparenz); jetzt gedämpfte Farbe mit mindestens 4,5:1.
 - **Retro mit Pixel-Details:** kleine Pixel-Icons für S-Bahn, Bus, Tram, Fußweg und Ziel bei „Weg zur Uni“, für Gerichte in der Mensa (Schüssel, Blatt für vegan/vegetarisch, Fisch, Fleisch); Sternenhimmel, Pixel-Pfeile vor Abschnittstiteln, blinkender Cursor am Seitentitel (ohne Animation bei „Bewegung reduzieren“), Sanduhr und Flamme bei Lernzeit und Serie, segmentierte Fortschrittsbalken, ein Space Invader bei leeren Listen und ein Pixel-Pfeil an der Jetzt-Linie. Grafiken aus `tools/retro_pixels.py`.
