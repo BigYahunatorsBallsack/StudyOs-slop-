@@ -14,6 +14,7 @@ function createBackend() {
       if (op === 'push.saveSubscription') { const r = pushRow(args[0]); r.subscriptions = [...r.subscriptions.filter((x) => x.endpoint !== args[1].endpoint), args[1]]; r.tz = args[2]; return true; }
       if (op === 'push.removeSubscription') { const r = pushRow(args[0]); r.subscriptions = r.subscriptions.filter((x) => x.endpoint !== args[1]); return true; }
       if (op === 'push.saveDeadlines') { const r = pushRow(args[0]); r.deadlines = args[1]; r.tz = args[2]; return true; }
+      if (op === 'mvg' && args[1] && args[1].batch) { this.batches = (this.batches || 0) + 1; return Promise.all(args[1].batch.map(async (b) => ({ data: this.mvg ? await this.mvg(b) : [] }))); }
       if (op === 'mvg') return this.mvg ? this.mvg(args[1]) : [];
       if (op === 'drive') return this.drive ? this.drive(args[1]) : { error: 'kein Schlüssel' };
       if (op === 'files.put') { this.files.set(args[0] + '/' + args[1], args[2]); return true; }
@@ -412,6 +413,11 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await card.getByRole('tab', { name: 'Öffis' }).click();
   await expect(card.locator('.px-ride.px-bus')).toHaveCount(1); // Pixel-Bus fährt einmal durch die Karte
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
+  // Abfahrten kommen gebündelt in einem Aufruf; nach dem Neuladen steht der letzte Stand sofort da, auch wenn die MVG hängt
+  expect(backend.batches).toBeGreaterThan(0);
+  backend.mvg = () => new Promise(() => {});
+  await A.page.reload();
+  await expect(A.page.getByRole('region', { name: 'Weg zur Uni' }).getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
 
   // Anhang: verschlüsselt hochgeladen
   await nav(A.page, 'Mehr').click();

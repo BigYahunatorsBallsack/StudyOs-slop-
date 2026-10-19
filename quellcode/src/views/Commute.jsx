@@ -32,18 +32,43 @@ function DepList({ title, deps, icon }) {
 
 const MODES = [["transit", "Öffis"], ["car", "Auto"]];
 
+/* Letzter Stand von Abfahrten und Fahrzeit auf dem Gerät: wird sofort gezeigt und im Hintergrund erneuert */
+const CACHE = "studyos-weg";
+const MAX_AGE = 30 * 60000;
+const readCache = (k) => { try { const all = JSON.parse(localStorage.getItem(CACHE) || "{}"); const v = all[k]; return v && Date.now() - v.at < MAX_AGE ? v : null; } catch { return null; } };
+const writeCache = (k, v) => { try { const all = JSON.parse(localStorage.getItem(CACHE) || "{}"); for (const x of Object.keys(all)) if (Date.now() - all[x].at > MAX_AGE) delete all[x]; all[k] = { ...v, at: Date.now() }; localStorage.setItem(CACHE, JSON.stringify(all)); } catch { /* egal */ } };
+
+/* Älterer Stand aus dem Zwischenspeicher: dazusagen, von wann er ist */
+const Stand = ({ at }) => (at && Date.now() - at > 120000 ? <p className="mt-1 text-[11px] text-slate-500">Stand {hhmm(at)}, wird aktualisiert</p> : null);
+
+/* Aus den Rohdaten: die nächsten Abfahrten (ohne schon abgefahrene) und die Empfehlung für die Veranstaltung */
+function transitState(raw, c, session) {
+  const now = Date.now(), f = c.feeder;
+  const ahead = (l) => (l || []).filter((d) => d.time >= now - 60000);
+  return {
+    main: ahead(raw.mainNow).filter((d) => matches(d, c)).slice(0, 3),
+    feeder: f ? ahead(raw.feederNow).filter((d) => matches(d, f)).slice(0, 3) : null,
+    plan: recommend(ahead(raw.mainLater), session, c, f ? ahead(raw.feederLater) : null),
+    err: "", at: raw.at || now,
+  };
+}
+
 /* Mit dem Auto: Fahrzeit mit Verkehr alle 5 Minuten neu, solange die Seite offen ist */
 function CarView({ db, c, session, ready, tick }) {
-  const [state, setState] = useState({ route: null, err: "", here: false }); /* here: Route wurde ab dem Standort gerechnet */
-  const [here, setHere] = useState({ pos: "", err: "" }); /* aktueller Standort als „Breite,Länge“ (auf ca. 10 m gerundet) */
-  const slot = Math.floor(tick / 5);
   const fromHere = !!c.car.fromHere;
+  /* zuletzt bekannter Standort und letzte Route sofort zeigen */
+  const [here, setHere] = useState(() => ({ pos: (fromHere && readCache("pos")?.pos) || "", err: "" })); /* aktueller Standort als „Breite,Länge“ (auf ca. 10 m gerundet) */
+  const [state, setState] = useState(() => {
+    const hit = readCache(`car:${fromHere && here.pos ? here.pos : c.car.from}>${c.car.to}`);
+    return hit ? { route: hit.route, err: "", here: hit.here, at: hit.at } : { route: null, err: "", here: false };
+  }); /* here: Route wurde ab dem Standort gerechnet */
+  const slot = Math.floor(tick / 5);
   useEffect(() => {
     if (!fromHere) return;
     if (!navigator.geolocation) { setHere({ pos: "", err: "Dieses Gerät kennt keinen Standort" }); return; }
     let live = true;
     navigator.geolocation.getCurrentPosition(
-      (p) => { if (live) setHere({ pos: `${p.coords.latitude.toFixed(4)},${p.coords.longitude.toFixed(4)}`, err: "" }); },
+      (p) => { const pos = `${p.coords.latitude.toFixed(4)},${p.coords.longitude.toFixed(4)}`; writeCache("pos", { pos }); if (live) setHere({ pos, err: "" }); },
       (e) => { if (live) setHere((h) => (h.pos ? h : { pos: "", err: e.code === 1 ? "Standort nicht freigegeben" : "Standort gerade nicht verfügbar" })); },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
     return () => { live = false; };
@@ -55,8 +80,8 @@ function CarView({ db, c, session, ready, tick }) {
     if (!ready || waiting) return;
     let live = true;
     db.cloud.drive({ from, to: c.car.to })
-      .then((route) => { if (live) setState({ route, err: "", here: useHere }); })
-      .catch((e) => { if (live) setState({ route: null, err: e.message || "Fahrzeit gerade nicht verfügbar.", here: false }); });
+      .then((route) => { writeCache(`car:${from}>${c.car.to}`, { route, here: useHere }); if (live) setState({ route, err: "", here: useHere, at: Date.now() }); })
+      .catch((e) => { if (live) setState((s) => (s.route ? s : { route: null, err: e.message || "Fahrzeit gerade nicht verfügbar.", here: false })); });
     return () => { live = false; };
   }, [ready, slot, from, c.car.to, waiting]);
   const r = state.route, p = carPlan(r, session, c);
@@ -64,7 +89,7 @@ function CarView({ db, c, session, ready, tick }) {
   const jam = r ? r.minutes - r.normal : 0;
   return (
     <>
-      {!ready ? <p className="mt-2 text-sm text-slate-400">Für die Fahrzeit mit Verkehr unter „Daten“ beim Cloud-Sync anmelden.</p>
+      {!ready && (db.cloud?.phase !== "loading" || !r) ? <p className="mt-2 text-sm text-slate-400">{db.cloud?.phase === "loading" ? "Lädt …" : "Für die Fahrzeit mit Verkehr unter „Daten“ beim Cloud-Sync anmelden."}</p>
         : state.err ? <p className="mt-2 text-sm text-slate-400">{state.err}</p>
         : !r ? <p className="mt-2 text-sm text-slate-400" role="status">Lädt …</p>
         : (
@@ -78,6 +103,7 @@ function CarView({ db, c, session, ready, tick }) {
             )}
           </div>
         )}
+      <Stand at={r && state.at} />
       <label className="mt-3 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={fromHere} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, fromHere: e.target.checked } } })} /> Ab meinem Standort
       </label>
@@ -93,7 +119,7 @@ export function CommuteCard({ db, sessions }) {
   const ready = db.cloud?.phase === "ready";
   const car = c?.mode === "car";
   const [state, setState] = useState({ main: null, feeder: null, plan: null, err: "" });
-  const [notes, setNotes] = useState([]); /* Störungsmeldungen der MVG zu den eigenen Linien */
+  const [notes, setNotes] = useState(() => readCache(`notes:${c ? [c.line, c.feeder?.line].join(",") : ""}`)?.notes || []); /* Störungsmeldungen der MVG zu den eigenen Linien */
   const [tick, setTick] = useState(0);
   const options = c ? upcomingSessions(sessions) : [];
   const [pick, setPick] = useState("");
@@ -111,31 +137,45 @@ export function CommuteCard({ db, sessions }) {
     const id = setInterval(() => { if (document.visibilityState === "visible") setTick((t) => t + 1); }, 60000);
     return () => clearInterval(id);
   }, []);
+  const cacheKey = `transit:${key}:${session?.id || ""}`;
+  /* letzter Stand sofort (auch vor der Anmeldung beim Cloud-Sync), dann alle Abfragen in einem Aufruf */
+  useEffect(() => {
+    if (!c || car || incomplete) return;
+    const hit = readCache(cacheKey);
+    if (hit) setState(transitState(hit, c, session));
+  }, [cacheKey, car, incomplete]);
   useEffect(() => {
     if (!c || !ready || car || incomplete) return;
     let live = true;
     (async () => {
       try {
-        const q = (station, offset, limit) => db.cloud.mvg({ kind: "departures", station: station.id, types: TYPES, offset, limit });
+        const q = (station, offset, limit) => ({ kind: "departures", station: station.id, types: TYPES, offset, limit });
         const f = c.feeder;
-        const [mainNow, feederNow] = await Promise.all([q(c.station, 0, 40), f ? q(f.station, 0, 40) : Promise.resolve(null)]);
-        let mainLater = mainNow, feederLater = feederNow;
-        if (session) {
-          const off = queryOffset(session, c);
-          if (off > 30) mainLater = await q(c.station, off, 60);
-          if (f) { const fo = queryOffset(session, c, new Date(), true); if (fo > 30) feederLater = await q(f.station, fo, 60); }
-        }
-        if (live) setState({ main: mainNow.filter((d) => matches(d, c)).slice(0, 3), feeder: f ? feederNow.filter((d) => matches(d, f)).slice(0, 3) : null, plan: recommend(mainLater, session, c, f ? feederLater : null), err: "" });
-      } catch (e) { if (live) setState((s) => ({ ...s, err: e.message || "Abfahrten gerade nicht verfügbar." })); }
+        const list = [q(c.station, 0, 40)];
+        if (f) list.push(q(f.station, 0, 40));
+        const off = session ? queryOffset(session, c) : 0, fo = session && f ? queryOffset(session, c, new Date(), true) : 0;
+        if (off > 30) list.push(q(c.station, off, 60));
+        if (fo > 30) list.push(q(f.station, fo, 60));
+        const res = await (db.cloud.mvgMany ? db.cloud.mvgMany(list) : Promise.all(list.map((b) => db.cloud.mvg(b))));
+        let i = 0;
+        const mainNow = res[i++], feederNow = f ? res[i++] : null;
+        const raw = { mainNow, feederNow, mainLater: off > 30 ? res[i++] : mainNow, feederLater: fo > 30 ? res[i++] : feederNow };
+        writeCache(cacheKey, raw);
+        if (live) setState(transitState(raw, c, session));
+      } catch (e) { if (live) setState((s) => (s.main ? s : { ...s, err: e.message || "Abfahrten gerade nicht verfügbar." })); }
     })();
     return () => { live = false; };
-  }, [ready, tick, key, session?.id]);
+  }, [ready, tick, cacheKey]);
   /* Meldungen höchstens alle 15 Minuten abfragen; ältere Funktionen kennen die Abfrage nicht: dann einfach keine */
   const lines = c && !car && !incomplete ? [c.line, c.feeder?.line].filter(Boolean) : [];
   useEffect(() => {
     if (!ready || !lines.length) return;
     let live = true;
-    db.cloud.mvg({ kind: "messages", lines }).then((l) => { if (live) setNotes(Array.isArray(l) ? l.filter((n) => n && n.title && Array.isArray(n.lines)) : []); }).catch(() => { if (live) setNotes([]); });
+    db.cloud.mvg({ kind: "messages", lines }).then((l) => {
+      const ok = Array.isArray(l) ? l.filter((n) => n && n.title && Array.isArray(n.lines)) : [];
+      writeCache(`notes:${[c.line, c.feeder?.line].join(",")}`, { notes: ok });
+      if (live) setNotes(ok);
+    }).catch(() => { if (live) setNotes([]); });
     return () => { live = false; };
   }, [ready, lines.join(","), Math.floor(tick / 15)]);
 
@@ -155,7 +195,7 @@ export function CommuteCard({ db, sessions }) {
       )}
       {incomplete ? <p className="mt-2 text-sm text-slate-400">{car ? "Start und Ziel" : "Haltestelle"} unter „Daten & Einstellungen“ → „Weg zur Uni“ eintragen.</p>
         : car ? <CarView db={db} c={c} session={session} ready={ready} tick={tick} />
-        : !ready ? <p className="mt-2 text-sm text-slate-400">Für Abfahrten unter „Daten“ beim Cloud-Sync anmelden.</p>
+        : !ready && (db.cloud?.phase !== "loading" || !state.main) ? <p className="mt-2 text-sm text-slate-400">{db.cloud?.phase === "loading" ? "Lädt …" : "Für Abfahrten unter „Daten“ beim Cloud-Sync anmelden."}</p>
         : state.err ? <p className="mt-2 text-sm text-slate-400">{state.err}</p>
         : !state.main ? <p className="mt-2 text-sm text-slate-400" role="status">Lädt …</p>
         : (
@@ -171,6 +211,7 @@ export function CommuteCard({ db, sessions }) {
                 </ol>
               </div>
             ) : <p className="mt-2 text-sm text-slate-400">Für {m?.name || "die erste Vorlesung"} {dayWord(session.date)} um {session.start} keine passende Verbindung gefunden.</p>)}
+            <Stand at={state.at} />
             {notes.length > 0 && (
               <ul className="mt-3 space-y-2" aria-label="Störungen und Baustellen">
                 {notes.map((n, i) => (
