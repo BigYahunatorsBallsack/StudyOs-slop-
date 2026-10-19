@@ -14,6 +14,8 @@ import { PlaceLinks } from "../ui/links.jsx";
 import { ExamMode } from "./ExamMode.jsx";
 import { Markdown } from "../ui/markdown.jsx";
 import { weakByTag, weakCards } from "../lib/progress.js";
+import { AMBIENT_KINDS, ambientOf, ambientVolumeOf } from "../lib/ambient.js";
+import { ringBlocks } from "../lib/timer.js";
 
 /* ---------------- Lernen ---------------- */
 export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
@@ -46,18 +48,16 @@ export function TimerView({ db, timer: timerIn }) {
   const total = (timer.mode === "focus" ? timer.length : timer.brk) * 60;
   const mm = String(Math.floor(timer.remaining / 60)).padStart(2, "0"), ss = String(timer.remaining % 60).padStart(2, "0");
   const topics = data.topics.filter((x) => x.moduleId === timer.moduleId).sort(byOrder);
-  const r = 88, len = 2 * Math.PI * r, prog = total ? (total - timer.remaining) / total : 0;
+  const prog = total ? (total - timer.remaining) / total : 0;
   const m = db.mod(timer.moduleId);
+  const ambient = ambientOf(data.settings);
   return (
     <div className="space-y-4">
       <Card>
         <div className="flex flex-col items-center gap-4">
           <Tabs items={[["focus", "Fokus"], ["break", "Pause"]]} value={timer.mode} onChange={timer.setMode} label="Timer-Modus" />
           <div className="relative">
-            <svg width="200" height="200" viewBox="0 0 200 200" aria-hidden="true">
-              <circle cx="100" cy="100" r={r} fill="none" stroke="var(--hm0)" strokeWidth="8" />
-              <circle cx="100" cy="100" r={r} fill="none" stroke={timer.mode === "focus" ? m?.color || "#38bdf8" : "#34d399"} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${len * prog} ${len}`} transform="rotate(-90 100 100)" />
-            </svg>
+            <PixelRing prog={prog} color={timer.mode === "focus" ? m?.color || "#05d9e8" : "#00f5a0"} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span role="timer" aria-label={`${mm} Minuten ${ss} Sekunden verbleibend`} className="font-num text-5xl font-semibold">{mm}:{ss}</span>
               <span className="text-xs text-slate-400">{timer.mode === "focus" ? "Fokus" : "Pause"}</span>
@@ -85,6 +85,22 @@ export function TimerView({ db, timer: timerIn }) {
                 {[15, 25, 45, 50, 60, 90].map((n) => <option key={n} value={n}>{n} min</option>)}
               </select>
             </div>
+          </div>
+          <div className="grid w-full max-w-sm grid-cols-2 gap-2">
+            <div className="col-span-2">
+              <span id="tm-amb" className="mb-1 block text-xs text-slate-400">Musik in der Fokusphase</span>
+              <Tabs items={AMBIENT_KINDS} value={ambient} onChange={(v) => db.patchSettings({ ambient: v })} label="Musik in der Fokusphase" />
+            </div>
+            {ambient !== "off" && (
+              <div className="col-span-2">
+                <label htmlFor="tm-vol" className="mb-1 block text-xs text-slate-400">Lautstärke</label>
+                <input id="tm-vol" type="range" min="0" max="1" step="0.05" className="w-full accent-sky-500" value={ambientVolumeOf(data.settings)} onChange={(e) => db.patchSettings({ ambientVolume: Number(e.target.value) })} />
+              </div>
+            )}
+            <label className="col-span-2 flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.sound !== false} onChange={(e) => db.patchSettings({ sound: e.target.checked })} />
+              Signalton und Vibration am Ende einer Phase
+            </label>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
             <button className={btnPrimary} onClick={timer.running ? timer.pause : timer.start}>{timer.running ? "Pausieren" : timer.remaining === total ? "Starten" : "Fortsetzen"}</button>
@@ -123,6 +139,17 @@ function WeakSpots({ db, cards, onPractice }) {
         {cards.length > 5 && <button className="link-btn" onClick={() => setAll(!all)}>{all ? "Weniger anzeigen" : `Alle ${cards.length} anzeigen`}</button>}
       </div>
     </Card>
+  );
+}
+
+/* Fortschritt als Ring aus Pixel-Blöcken: jeder Block steht für einen gleich langen Teil der Phase, der jüngste blinkt kurz auf */
+function PixelRing({ prog, color }) {
+  const blocks = ringBlocks(40, 84, 100);
+  const filled = Math.min(blocks.length, Math.floor(prog * blocks.length + 1e-9));
+  return (
+    <svg width="200" height="200" viewBox="0 0 200 200" shapeRendering="crispEdges" aria-hidden="true" className="px-ring">
+      {blocks.map((b, i) => <rect key={i} x={b.x - 5} y={b.y - 5} width="10" height="10" fill={i < filled ? color : "var(--hm0)"} className={i === filled - 1 ? "px-ring-new" : undefined} />)}
+    </svg>
   );
 }
 

@@ -104,7 +104,15 @@
 :root[data-theme="retro"] .btn-ghost { --pxc: #4a2a8a; }
 :root[data-theme="retro"] .btn-danger { --pxc: var(--danger); background: var(--surface); }
 :root[data-theme="retro"] .btn-icon { box-shadow: none; }
-@media (hover: hover) { :root[data-theme="retro"] .btn-icon:hover { background: var(--surface-2); } }
+/* Darüberfahren färbt nichts um (die Schrift bleibt so lesbar wie vorher), sondern hebt nur den Pixel-Rand in Cyan hervor;
+   den Rest machen die Retro-Animationen unten */
+@media (hover: hover) {
+  :root[data-theme="retro"] .btn-primary:hover:not(:disabled) { background: var(--accent); }
+  :root[data-theme="retro"] .btn-ghost:hover:not(:disabled), :root[data-theme="retro"] .surface .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+  :root[data-theme="retro"] .btn-danger:hover:not(:disabled) { background: var(--surface); }
+  :root[data-theme="retro"] :is(.btn, .whatnow, .quick .quick-plus, .chip, .seg-item, .tri-btn, .exam-chip, .tile, .preview-chip, .merge-target):hover:not(:disabled) { --pxc: var(--accent-2); }
+  :root[data-theme="retro"] .btn-icon:hover { box-shadow: 0 -2px 0 0 var(--accent-2), 0 2px 0 0 var(--accent-2), -2px 0 0 0 var(--accent-2), 2px 0 0 0 var(--accent-2); }
+}
 :root[data-theme="retro"] .btn-lg { font-size: .8rem; }
 :root[data-theme="retro"] .field { background: var(--bg); border-color: transparent; }
 :root[data-theme="retro"] .field:focus { --pxc: var(--accent-2); }
@@ -134,7 +142,6 @@
 :root[data-theme="retro"] .hero-title { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem; line-height: 1.2; letter-spacing: .01em; text-shadow: 2px 2px 0 var(--bg); }
 :root[data-theme="retro"] .hero-meta { opacity: 1; color: var(--text-2); text-shadow: 1px 1px 0 var(--bg); }
 :root[data-theme="retro"] .hero .btn { background: var(--surface-2); color: var(--text); --pxc: #4a2a8a; }
-@media (hover: hover) { :root[data-theme="retro"] .hero .btn:hover { background: var(--surface-3); } }
 :root[data-theme="retro"] .hero .btn-solid { background: var(--mod, var(--accent)); color: var(--on-module); --pxc: color-mix(in srgb, var(--mod, var(--accent)) 60%, #fff); }
 :root[data-theme="retro"] .hero-calm { box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 5px 5px 0 0 var(--drop); }
 
@@ -415,6 +422,9 @@
 .px-sky { display: none; }
 :root[data-theme="retro"] .px-sky { display: block; position: fixed; z-index: -2; pointer-events: none; left: calc(4% + var(--sky-x) * 92% - 24px); bottom: calc(84px + var(--sky-y) * 96px); width: 48px; height: 48px; background: var(--px-sun) center / contain no-repeat; image-rendering: pixelated; }
 :root[data-theme="retro"] .px-sky-moon { width: 36px; height: 36px; background-image: var(--px-moon); filter: drop-shadow(0 0 6px rgba(245, 233, 255, .35)); }
+
+/* Timer: Fortschritt als Ring aus Pixel-Blöcken, der jüngste Block springt beim Füllen kurz auf */
+:root[data-theme="retro"] .px-ring .px-ring-new { transform-box: fill-box; transform-origin: center; animation: px-p-blip .3s steps(3, end); }
 
 /* Wochenkarte, Wochenziele, Erfolge */
 :root[data-theme="retro"] .week-card { --pxc: #ffd319; }

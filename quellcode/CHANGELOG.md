@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2.10.0
+- **Musik in der Fokusphase:** Am Timer zwischen „Aus“, „8-Bit“ (ruhige Chiptune-Schleife in a-Moll) und „Regen“ (Rauschen mit einzelnen Tropfen) wählen, dazu ein Lautstärkeregler. Der Klang wird im Browser erzeugt, nichts wird geladen. Er läuft nur, solange die Fokusphase läuft, auch wenn du den Bereich wechselst, und blendet weich ein und aus. Voreinstellung ist „Aus“.
+- **Signalton direkt am Timer ausschalten:** Der Schalter für Signalton und Vibration am Ende einer Phase steht jetzt auch beim Timer (bisher nur unter „Daten & Einstellungen“).
+- **Pixel-Ring:** Der Fortschritt um die Zeit ist ein Ring aus 40 Pixel-Blöcken, die sich nach und nach füllen; der jüngste Block springt kurz auf.
+- **App-Icon im Pixel-Stil:** offenes Buch vor einer Synthwave-Sonne, als Tab-Symbol und auf dem Startbildschirm (erzeugt von `tools/retro_icon.py`). Installierte Apps übernehmen das neue Symbol je nach System erst nach einer Weile oder nach Neuinstallation.
+
 ## 2.9.0
 - **Pixel-Animationen im Retro-Look.** Sie laufen nur, wenn du etwas tust, und bei „Aus“ oder „Bewegung reduzieren“ gar nicht:
   - **Münze beim Abhaken:** Erledigst du auf „Heute“ eine Abgabe, Nachbereitung oder einen Lernblock, springt eine Pixel-Münze mit „+1“ hoch.
@@ -15,6 +21,7 @@
 - Karteikarten zählen ihre Wiederholungen jetzt mit (`reviews`), auch über ein „Nochmal“ hinweg; ältere Karten starten mit ihren bisherigen Wiederholungen.
 
 ## Unveröffentlicht
+- **Darüberfahren färbt Knöpfe nicht mehr um:** Im Retro-Look bleibt ein Knopf beim Darüberfahren mit der Maus in seiner Farbe und gut lesbar (vorher wurde z. B. „Vorbereitet“ auf „Als Nächstes“ dunkel mit dunkler Schrift). Stattdessen leuchtet der Pixel-Rand cyan auf, dazu die Animation der gewählten Variante.
 - **Aufzeichnung: angeschaut bis.** Im Termin (bearbeiten) lässt sich eintragen, bis wohin du die Aufzeichnung in TUM-Live geschaut hast, z. B. „47:12“. Der Stand erscheint mit Balken (Anteil an der Termindauer) bei „Zu erledigen“, in den Terminlisten und in der Terminkarte und synct mit. Automatisch aus TUM-Live holen geht nicht, weil TUM-Live den Fortschritt nicht nach außen gibt.
 - **Behoben: Weg zur Uni zeigte schon morgen,** sobald die erste Veranstaltung des Tages begonnen hatte, auch wenn heute noch eine weitere kam. Jetzt gilt die nächste Veranstaltung, die noch nicht begonnen hat.
 - **Weg zur Uni: Ziel wählen.** Unter „Pünktlich sein für“ stehen die restlichen Veranstaltungen von heute und die des nächsten Uni-Tages.
