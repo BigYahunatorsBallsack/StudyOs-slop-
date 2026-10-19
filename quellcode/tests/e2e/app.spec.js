@@ -1243,7 +1243,7 @@ test('Notizen verlinken: [[Titel]] öffnet die andere Notiz, dort steht „Verli
       sessions: [], homework: [], topics: [], logs: [], cards: [], exams: [] });
   });
   await page.reload();
-  await page.keyboard.press('Control+k');
+  await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click(); /* Knopf statt Tastenkürzel: wartet, bis die App bereit ist */
   await page.getByLabel('Suchbegriff').fill('Rekursion');
   await page.keyboard.press('Enter');
   const dlg = page.getByRole('dialog', { name: 'Rekursion' });
