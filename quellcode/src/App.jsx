@@ -76,7 +76,7 @@ export default function App() {
   const closeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
 
   /* Farbschema: dunkel, hell, retro oder wie das System */
-  useTheme(data.settings.retroMotion);
+  useTheme(data.settings.retroMotion, data.settings.retroPalette);
 
   /* Übrige Bereiche vorladen, sobald der Browser Luft hat */
   useEffect(() => {

@@ -1,6 +1,8 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Farbpaletten** (Mehr → Daten & Einstellungen → Farbpalette): Synthwave, Gameboy (vier Grüntöne), Bernstein (Terminal) und CGA (Magenta, Cyan, Gelb auf Schwarz). Skyline, Sterne, Sonne und Pixel-Symbole färben sich mit; Modulfarben bleiben. Die Wahl wird mit der Cloud abgeglichen.
+- **Schriftgröße:** Kompakt, Normal oder Groß. Gilt nur für das jeweilige Gerät.
 - **Termin-Karte:** Die Schalter Vorbereitet, Besucht und Nachbereitet laufen nicht mehr über den Rand, wenn sie angehakt sind; lange Wörter brechen als „Vor-/bereitet“ um. Jeder Schritt hat jetzt seine eigene Farbe: Vorbereitet gelb, Besucht cyan, Nachbereitet grün.
 
 ## Unveröffentlicht

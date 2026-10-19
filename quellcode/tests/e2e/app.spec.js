@@ -916,3 +916,25 @@ test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, 
   const box = page.getByRole('checkbox').first();
   expect(await box.evaluate((el) => getComputedStyle(el).appearance)).toBe('none');
 });
+
+test('Farbpalette und Schriftgröße: wählen, bleibt nach Neuladen, Normal setzt zurück', async ({ page }) => {
+  await page.goto('./');
+  await openData(page);
+  const html = page.locator('html');
+  await page.getByRole('tablist', { name: 'Farbpalette' }).getByRole('tab', { name: 'Gameboy' }).click();
+  await expect(html).toHaveAttribute('data-palette', 'gameboy');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0b2a0b');
+  await expect.poll(async () => (await stored(page))?.settings?.retroPalette).toBe('gameboy');
+  await page.getByRole('tablist', { name: 'Schriftgröße' }).getByRole('tab', { name: 'Groß' }).click();
+  await expect(html).toHaveAttribute('data-size', 'large');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('18px');
+  await page.reload();
+  await expect(html).toHaveAttribute('data-palette', 'gameboy');
+  await expect(html).toHaveAttribute('data-size', 'large');
+  await openData(page);
+  await page.getByRole('tablist', { name: 'Farbpalette' }).getByRole('tab', { name: 'Synthwave' }).click();
+  await page.getByRole('tablist', { name: 'Schriftgröße' }).getByRole('tab', { name: 'Normal' }).click();
+  await expect(html).not.toHaveAttribute('data-palette', /./);
+  await expect(html).not.toHaveAttribute('data-size', /./);
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0221');
+});

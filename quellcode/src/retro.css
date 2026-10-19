@@ -30,10 +30,76 @@
   --shadow: 4px 4px 0 0 rgba(0, 0, 0, .6);
   --nav-bg: #1a0b3d;
   --pxc: #3d1f7a;           /* Pixel-Rand */
+  --pxc-soft: #4a2a8a; --pxc-strong: #6b46b8;
+  --accent-shade: #7a0f3a; --accent-deep: #4a0e2a; --accent-2-light: #8af3fa; --accent-2-shade: #035b61;
+  --sun-1: #ffd319; --sun-2: #ffa63a; --sun-3: #ff7a4a; --sun-4: #ff4f63; --sun-5: #ff2a6d;
+  --art: brightness(1);      /* Farbfilter für fertige Pixel-Grafiken (Paletten unten) */
   --drop: rgba(0, 0, 0, .55); /* harter Schatten */
   --hm0: #261251; --hm1: #5a1a5e; --hm2: #a01f66; --hm3: #e0266b; --hm4: #ff2a6d;
   color-scheme: dark;
 }
+
+/* ---- Farbpaletten (Einstellungen → Farbpalette): html[data-palette] ersetzt nur die Farben, Schrift und Pixel-Ränder bleiben.
+   Fertige Pixel-Grafiken (Skyline, Sterne, Sonne, Symbole) werden über --art eingefärbt. Alle Textfarben ≥ 4,5:1. ---- */
+:root[data-theme="retro"][data-palette="gameboy"] {
+  --bg: #0b2a0b; --surface: #123a12; --surface-2: #1b4a1b; --surface-3: #245a24;
+  --line: rgba(226, 247, 200, .1); --line-strong: rgba(226, 247, 200, .22);
+  --text: #e2f7c8; --text-2: #cdeeae; --muted: #b5e08e; --faint: #a3d27a;
+  --ink: #9bbc0f; --on-ink: #0b2a0b;
+  --accent: #9bbc0f; --accent-strong: #b4d42a; --accent-text: #b9da3c; --on-accent: #0b2a0b;
+  --accent-2: #6fe0a0;
+  --warn: #e4e85a; --warn-strong: #eef27a; --warn-text: #e4e85a;
+  --danger: #ff8a6b; --danger-strong: #ffa58a; --danger-text: #ffb39c;
+  --ok: #3fe05f; --ok-strong: #6fef85; --ok-text: #3fe05f;
+  --on-module: #0b2a0b; --nav-bg: #123a12;
+  --pxc: #2f6b2f; --pxc-soft: #2a5a2a; --pxc-strong: #4f8f3f;
+  --accent-shade: #3a5a06; --accent-deep: #1d3a05; --accent-2-light: #a8f0c8; --accent-2-shade: #1f5a3a;
+  --sun-1: #e4e85a; --sun-2: #c8dc3a; --sun-3: #9bbc0f; --sun-4: #7aa40a; --sun-5: #5a8a08;
+  --hm0: #1b4a1b; --hm1: #2f6b1f; --hm2: #5a8a10; --hm3: #7fae0c; --hm4: #9bbc0f;
+  --art: grayscale(1) sepia(1) hue-rotate(40deg) saturate(2.2) brightness(.95);
+}
+:root[data-theme="retro"][data-palette="amber"] {
+  --bg: #140b00; --surface: #221405; --surface-2: #301d09; --surface-3: #3e270d;
+  --line: rgba(255, 226, 176, .1); --line-strong: rgba(255, 226, 176, .22);
+  --text: #ffe2b0; --text-2: #ffd08a; --muted: #f0b86a; --faint: #dca255;
+  --ink: #ffb000; --on-ink: #140b00;
+  --accent: #ffb000; --accent-strong: #ffc23d; --accent-text: #ffc04a; --on-accent: #140b00;
+  --accent-2: #ff8a3d;
+  --warn: #ffe45c; --warn-strong: #ffec85; --warn-text: #ffe45c;
+  --danger: #ff6b5b; --danger-strong: #ff8a7a; --danger-text: #ff8f80;
+  --ok: #b8e65a; --ok-strong: #ccf07e; --ok-text: #b8e65a;
+  --on-module: #140b00; --nav-bg: #221405;
+  --pxc: #5a3a10; --pxc-soft: #4a300c; --pxc-strong: #8a5a1a;
+  --accent-shade: #6a4200; --accent-deep: #3a2400; --accent-2-light: #ffb88a; --accent-2-shade: #6a3010;
+  --sun-1: #ffe45c; --sun-2: #ffc23d; --sun-3: #ffb000; --sun-4: #ff8a3d; --sun-5: #e06a1a;
+  --hm0: #301d09; --hm1: #5a3a10; --hm2: #9a6408; --hm3: #d48c00; --hm4: #ffb000;
+  --art: grayscale(1) sepia(1) saturate(3) hue-rotate(-8deg) brightness(1.05);
+}
+:root[data-theme="retro"][data-palette="cga"] {
+  --bg: #000000; --surface: #0e0e1e; --surface-2: #18182e; --surface-3: #24243f;
+  --line: rgba(255, 255, 255, .1); --line-strong: rgba(255, 255, 255, .22);
+  --text: #ffffff; --text-2: #e8e8f2; --muted: #cacade; --faint: #b2b2ca;
+  --ink: #55ffff; --on-ink: #000000;
+  --accent: #ff55ff; --accent-strong: #ff80ff; --accent-text: #ff88ff; --on-accent: #000000;
+  --accent-2: #55ffff;
+  --warn: #ffff55; --warn-strong: #ffff88; --warn-text: #ffff55;
+  --danger: #ff5555; --danger-strong: #ff7f7f; --danger-text: #ff8888;
+  --ok: #55ff55; --ok-strong: #88ff88; --ok-text: #55ff55;
+  --on-module: #000000; --nav-bg: #0e0e1e;
+  --pxc: #3a3a6a; --pxc-soft: #2e2e55; --pxc-strong: #5a5a9a;
+  --accent-shade: #7a1a7a; --accent-deep: #400a40; --accent-2-light: #aaffff; --accent-2-shade: #106a6a;
+  --sun-1: #ffff55; --sun-2: #ffaa55; --sun-3: #ff55ff; --sun-4: #ff55aa; --sun-5: #aa55ff;
+  --hm0: #18182e; --hm1: #3a1a5a; --hm2: #7a2a9a; --hm3: #c040d0; --hm4: #ff55ff;
+}
+:root[data-theme="retro"]::before, :root[data-theme="retro"] body::before, :root[data-theme="retro"] .hero::after,
+:root[data-theme="retro"] :is(.px-icon, .px-ride, .px-burst, .px-buddy, .px-shot, .px-sky-sun),
+:root[data-theme="retro"] .section-title::before, :root[data-theme="retro"] .minis > span::before, :root[data-theme="retro"] .empty::before,
+:root[data-theme="retro"] .grid-now::before, :root[data-theme="retro"] .tab[aria-current="page"]::before, :root[data-theme="retro"] .select::after { filter: var(--art); }
+:root[data-theme="retro"] .px-sky-moon { filter: var(--art) drop-shadow(0 0 6px color-mix(in srgb, var(--text) 35%, transparent)); }
+
+/* Schriftgröße (Einstellungen): alles in rem wächst mit, Pixel-Grafiken behalten ihre Größe */
+html[data-size="compact"] { font-size: 87.5%; }
+html[data-size="large"] { font-size: 112.5%; }
 
 /* Keine Rundungen, nirgends */
 :root[data-theme="retro"] *, :root[data-theme="retro"] *::before, :root[data-theme="retro"] *::after { border-radius: 0 !important; }
@@ -41,12 +107,12 @@
 :root[data-theme="retro"] body { background: transparent; font-family: var(--font-body); letter-spacing: -.02em; } /* Mono läuft breit */
 /* .font-ui (App-Rahmen) und .font-num (kleine Zeiten) folgen der Mono-Schrift; große Zahlen bekommen VT323 (unten) */
 :root[data-theme="retro"] .font-ui, :root[data-theme="retro"] .font-num { font-family: var(--font-body); }
-:root[data-theme="retro"] ::selection { background: rgba(255, 42, 109, .45); color: #fff; }
+:root[data-theme="retro"] ::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); color: #fff; }
 :root[data-theme="retro"] :focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
 /* Kästchen: eigenes Pixel-Kästchen statt des System-Häkchens */
 :root[data-theme="retro"] input[type=checkbox] { -webkit-appearance: none; appearance: none; display: inline-block; flex-shrink: 0; width: 18px; height: 18px; margin: 0; vertical-align: middle; cursor: pointer; background: var(--bg);
-  --pxc: #6b46b8; box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 3px 3px 0 0 var(--drop); }
-:root[data-theme="retro"] input[type=checkbox]:checked { background: var(--accent) var(--px-tick) center / 16px 12px no-repeat; image-rendering: pixelated; --pxc: #ff7aa8; }
+  --pxc: var(--pxc-strong); box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 3px 3px 0 0 var(--drop); }
+:root[data-theme="retro"] input[type=checkbox]:checked { background: var(--accent) var(--px-tick) center / 16px 12px no-repeat; image-rendering: pixelated; --pxc: var(--accent-text); }
 :root[data-theme="retro"] input[type=checkbox]:disabled { opacity: .5; cursor: not-allowed; }
 @media (hover: hover) { :root[data-theme="retro"] input[type=checkbox]:hover:not(:disabled) { --pxc: var(--accent-2); } }
 
@@ -77,14 +143,14 @@
 :root[data-theme="retro"] .minis b { font-size: 1.3rem; line-height: 1; }
 :root[data-theme="retro"] .tl-time b { font-size: 1.3rem; line-height: 1; }
 :root[data-theme="retro"] .grid-day b { font-size: 1.35rem; line-height: 1; }
-:root[data-theme="retro"] [role="timer"] { font-size: 5.5rem; line-height: .9; color: var(--accent-2); text-shadow: 3px 3px 0 #7a0f3a; }
+:root[data-theme="retro"] [role="timer"] { font-size: 5.5rem; line-height: .9; color: var(--accent-2); text-shadow: 3px 3px 0 var(--accent-shade); }
 :root[data-theme="retro"] .font-num.text-3xl { font-size: 2.5rem; line-height: 1; }
 :root[data-theme="retro"] .font-num.text-4xl { font-size: 3.2rem; line-height: 1; }
 :root[data-theme="retro"] .font-num.text-5xl { font-size: 4.2rem; line-height: 1; }
 
 /* Seitentitel mit versetztem Cyan/Pink-Schatten und leichtem Glühen */
-:root[data-theme="retro"] .page-title { font-size: 1.7rem; line-height: 1.15; text-shadow: -2px 0 0 rgba(5, 217, 232, .7), 2px 0 0 rgba(255, 42, 109, .7), 0 0 10px rgba(255, 42, 109, .35); }
-:root[data-theme="retro"] .brand { font-size: 1rem; color: var(--accent-text); text-shadow: 2px 2px 0 #4a0e2a, 0 0 8px rgba(255, 42, 109, .45); }
+:root[data-theme="retro"] .page-title { font-size: 1.7rem; line-height: 1.15; text-shadow: -2px 0 0 color-mix(in srgb, var(--accent-2) 70%, transparent), 2px 0 0 color-mix(in srgb, var(--accent) 70%, transparent), 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+:root[data-theme="retro"] .brand { font-size: 1rem; color: var(--accent-text); text-shadow: 2px 2px 0 var(--accent-deep), 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent); }
 :root[data-theme="retro"] .section-title { font-size: .95rem; color: var(--accent-2); }
 :root[data-theme="retro"] .group-head .count { font-size: .8rem; }
 :root[data-theme="retro"] .tile-name, :root[data-theme="retro"] .popover-title { font-size: .95rem; line-height: 1.25; }
@@ -97,7 +163,7 @@
 :root[data-theme="retro"] :is(.surface .row, .surface .stat, .surface .surface, .surface .todo, .surface .notice) {
   box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc);
 }
-:root[data-theme="retro"] .empty { --pxc: #4a2a8a; background: transparent; }
+:root[data-theme="retro"] .empty { --pxc: var(--pxc-soft); background: transparent; }
 
 /* Knöpfe, Felder, Chips, Tabs: Rand ohne Weichzeichner, Drücken versetzt sie in den Schatten */
 :root[data-theme="retro"] :is(.btn, .field, .chip, .seg-item, .tri, .preview-chip, .merge-target, .whatnow, .quick .quick-plus, .pill-status) {
@@ -105,8 +171,8 @@
 }
 :root[data-theme="retro"] .btn { font-size: .72rem; padding: .55rem .9rem; transition: none; white-space: normal; text-align: center; } /* Pixel-Schrift ist breit: lieber umbrechen */
 :root[data-theme="retro"] .btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc); }
-:root[data-theme="retro"] .btn-primary { --pxc: #ff7aa8; --drop: #7a0f3a; }
-:root[data-theme="retro"] .btn-ghost { --pxc: #4a2a8a; }
+:root[data-theme="retro"] .btn-primary { --pxc: var(--accent-text); --drop: var(--accent-shade); }
+:root[data-theme="retro"] .btn-ghost { --pxc: var(--pxc-soft); }
 :root[data-theme="retro"] .btn-danger { --pxc: var(--danger); background: var(--surface); }
 :root[data-theme="retro"] .btn-icon { box-shadow: none; }
 /* Darüberfahren färbt nichts um (die Schrift bleibt so lesbar wie vorher), sondern hebt nur den Pixel-Rand in Cyan hervor;
@@ -132,7 +198,7 @@
 :root[data-theme="retro"] .surface .field, :root[data-theme="retro"] .sheet-panel .field { background: var(--bg); }
 :root[data-theme="retro"] .seg { padding-top: 3px; padding-bottom: 6px; }
 :root[data-theme="retro"] .seg-item { font-size: .7rem; background: var(--surface); }
-:root[data-theme="retro"] .seg-item[aria-selected="true"] { background: var(--ink); color: var(--on-ink); --pxc: #8af3fa; }
+:root[data-theme="retro"] .seg-item[aria-selected="true"] { background: var(--ink); color: var(--on-ink); --pxc: var(--accent-2-light); }
 :root[data-theme="retro"] .chip { font-size: .68rem; }
 :root[data-theme="retro"] .chip[aria-pressed="true"] { background: var(--surface-3); color: var(--text); --pxc: var(--mod, var(--accent)); }
 :root[data-theme="retro"] .stats, :root[data-theme="retro"] .exam-chips { padding-top: 3px; padding-bottom: 7px; }
@@ -149,12 +215,12 @@
 :root[data-theme="retro"] .hero::after {
   right: -26px; bottom: -58px; width: 150px; height: 150px; opacity: .5; z-index: 0;
   clip-path: polygon(70.0% 0.0%, 70.0% 8.3%, 83.1% 8.3%, 83.1% 16.7%, 90.6% 16.7%, 90.6% 25.0%, 95.5% 25.0%, 95.5% 33.3%, 98.4% 33.3%, 98.4% 41.7%, 99.8% 41.7%, 99.8% 50.0%, 99.8% 50.0%, 99.8% 58.3%, 98.4% 58.3%, 98.4% 66.7%, 95.5% 66.7%, 95.5% 75.0%, 90.6% 75.0%, 90.6% 83.3%, 83.1% 83.3%, 83.1% 91.7%, 70.0% 91.7%, 70.0% 100.0%, 30.0% 100.0%, 30.0% 91.7%, 16.9% 91.7%, 16.9% 83.3%, 9.4% 83.3%, 9.4% 75.0%, 4.5% 75.0%, 4.5% 66.7%, 1.6% 66.7%, 1.6% 58.3%, 0.2% 58.3%, 0.2% 50.0%, 0.2% 50.0%, 0.2% 41.7%, 1.6% 41.7%, 1.6% 33.3%, 4.5% 33.3%, 4.5% 25.0%, 9.4% 25.0%, 9.4% 16.7%, 16.9% 16.7%, 16.9% 8.3%, 30.0% 8.3%, 30.0% 0.0%);
-  background: linear-gradient(to bottom, #ffd319 0 24%, #ffa63a 24% 36%, transparent 36% 40%, #ff7a4a 40% 52%, transparent 52% 58%, #ff4f63 58% 68%, transparent 68% 76%, #ff2a6d 76% 84%, transparent 84% 92%, #ff2a6d 92%);
+  background: linear-gradient(to bottom, var(--sun-1) 0 24%, var(--sun-2) 24% 36%, transparent 36% 40%, var(--sun-3) 40% 52%, transparent 52% 58%, var(--sun-4) 58% 68%, transparent 68% 76%, var(--sun-5) 76% 84%, transparent 84% 92%, var(--sun-5) 92%);
 }
 :root[data-theme="retro"] .hero-when { color: color-mix(in srgb, var(--mod, var(--accent)) 72%, #fff); opacity: 1; font-size: .8rem; }
 :root[data-theme="retro"] .hero-title { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem; line-height: 1.2; letter-spacing: .01em; text-shadow: 2px 2px 0 var(--bg); }
 :root[data-theme="retro"] .hero-meta { opacity: 1; color: var(--text-2); text-shadow: 1px 1px 0 var(--bg); }
-:root[data-theme="retro"] .hero .btn { background: var(--surface-2); color: var(--text); --pxc: #4a2a8a; }
+:root[data-theme="retro"] .hero .btn { background: var(--surface-2); color: var(--text); --pxc: var(--pxc-soft); }
 :root[data-theme="retro"] .hero .btn-solid { background: var(--mod, var(--accent)); color: var(--on-module); --pxc: color-mix(in srgb, var(--mod, var(--accent)) 60%, #fff); }
 :root[data-theme="retro"] .hero-calm { box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 5px 5px 0 0 var(--drop); }
 
@@ -169,7 +235,7 @@
 :root[data-theme="retro"] .tl-live .tl-time b { color: var(--accent-2); }
 :root[data-theme="retro"] .todo-check { border-width: 2px; }
 :root[data-theme="retro"] .todo-row + .todo-row { border-top: 2px solid var(--surface-2); }
-:root[data-theme="retro"] .tri { background: var(--bg); padding: 2px; --pxc: #4a2a8a; }
+:root[data-theme="retro"] .tri { background: var(--bg); padding: 2px; --pxc: var(--pxc-soft); }
 :root[data-theme="retro"] .surface .tri, :root[data-theme="retro"] .popover .tri { background: var(--bg); }
 :root[data-theme="retro"] .tri-btn { font-size: .66rem; transition: none; }
 :root[data-theme="retro"] .tri-btn[aria-pressed="true"] { filter: saturate(1.3); }
@@ -206,23 +272,23 @@
 /* Pixel-Pfeil über dem aktiven Tab */
 :root[data-theme="retro"] .tab { position: relative; }
 :root[data-theme="retro"] .tab[aria-current="page"]::before { content: ""; position: absolute; left: 50%; top: -15px; width: 14px; height: 8px; margin-left: -7px; background: var(--px-down) center / 14px 8px no-repeat; image-rendering: pixelated; pointer-events: none; }
-:root[data-theme="retro"] .sheet-backdrop { background: rgba(13, 2, 33, .78); }
+:root[data-theme="retro"] .sheet-backdrop { background: color-mix(in srgb, var(--bg) 78%, transparent); }
 :root[data-theme="retro"] .sheet-panel { box-shadow: 0 -3px 0 0 var(--accent), 0 -6px 0 0 var(--bg); }
 :root[data-theme="retro"] .sheet-panel::before { height: 4px; background: var(--pxc); }
 :root[data-theme="retro"] .popover { --pxc: var(--accent-2); }
-:root[data-theme="retro"] .toast { --pxc: #8af3fa; --drop: #035b61; }
+:root[data-theme="retro"] .toast { --pxc: var(--accent-2-light); --drop: var(--accent-2-shade); }
 :root[data-theme="retro"] .toast .toast-action { color: var(--on-ink); text-decoration: underline; text-underline-offset: 3px; }
-:root[data-theme="retro"] .whatnow { font-weight: 400; font-size: .78rem; --pxc: #8af3fa; }
+:root[data-theme="retro"] .whatnow { font-weight: 400; font-size: .78rem; --pxc: var(--accent-2-light); }
 :root[data-theme="retro"] .quick { color: var(--muted); }
-:root[data-theme="retro"] .quick .quick-plus { --pxc: #ff7aa8; font-size: 1rem; }
+:root[data-theme="retro"] .quick .quick-plus { --pxc: var(--accent-text); font-size: 1rem; }
 
 /* ---- Wochenraster ---- */
 :root[data-theme="retro"] .grid-head { background: var(--bg); }
 :root[data-theme="retro"] .grid-day { font-size: .62rem; }
 :root[data-theme="retro"] .grid-day.today { background: var(--ink); color: var(--on-ink); }
 :root[data-theme="retro"] .grid-col { background: var(--surface); }
-:root[data-theme="retro"] .grid-col.today { background: var(--surface-2); box-shadow: inset 0 0 0 2px rgba(5, 217, 232, .5); }
-:root[data-theme="retro"] .grid-line { background: rgba(245, 233, 255, .08); }
+:root[data-theme="retro"] .grid-col.today { background: var(--surface-2); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-2) 50%, transparent); }
+:root[data-theme="retro"] .grid-line { background: color-mix(in srgb, var(--text) 8%, transparent); }
 :root[data-theme="retro"] .grid-now, :root[data-theme="retro"] .grid-now::before { background: var(--accent); }
 :root[data-theme="retro"] .ev { filter: saturate(1.35); }
 :root[data-theme="retro"] .ev.ev-done { background: var(--surface-3); color: var(--text); box-shadow: inset 3px 0 0 0 var(--mod); filter: none; }
@@ -281,7 +347,7 @@
 :root[data-theme="retro"] .bar { height: .75rem; box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc); }
 :root[data-theme="retro"] .bar > span { position: relative; transition: none; }
 :root[data-theme="retro"] .watch-bar { height: .45rem; }
-:root[data-theme="retro"] .bar > span::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(to right, transparent 0 7px, rgba(13, 2, 33, .85) 7px 9px); }
+:root[data-theme="retro"] .bar > span::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(to right, transparent 0 7px, color-mix(in srgb, var(--bg) 85%, transparent) 7px 9px); }
 
 /* Leere Listen: ein kleiner Space Invader */
 :root[data-theme="retro"] .empty::before { content: ""; display: block; width: 44px; height: 32px; margin: 0 auto .7rem; background: var(--px-invader) center / 44px 32px no-repeat; image-rendering: pixelated; }
@@ -339,7 +405,7 @@
 /* ---- 2) Neon: Leuchtreklame. Was du berührst, glüht in seiner Randfarbe; Auswahl, Dialoge und Meldungen
    leuchten beim Erscheinen kurz auf und klingen ab ---- */
 @keyframes px-n-glow { from { filter: brightness(1.5) drop-shadow(0 0 8px var(--glow, var(--accent-2))); } to { filter: none; } }
-@keyframes px-n-text { from { text-shadow: 0 0 4px currentColor, 0 0 16px var(--accent), -2px 0 0 rgba(5, 217, 232, .7), 2px 0 0 rgba(255, 42, 109, .7); } }
+@keyframes px-n-text { from { text-shadow: 0 0 4px currentColor, 0 0 16px var(--accent), -2px 0 0 color-mix(in srgb, var(--accent-2) 70%, transparent), 2px 0 0 color-mix(in srgb, var(--accent) 70%, transparent); } }
 @keyframes px-n-rise { from { transform: translateY(10px) scale(.98); } to { transform: none; } }
 @keyframes px-n-drop { from { transform: translateY(-4px); } to { transform: none; } }
 @keyframes px-n-out { to { transform: translateY(-4px); clip-path: inset(-8px -8px 100% -8px); } }
@@ -350,12 +416,12 @@
   :root[data-theme="retro"][data-motion="neon"] :is(.btn, .chip, .seg-item, .tile, .exam-chip, .whatnow, .quick, .tri-btn, .todo-check):hover:not(:disabled) { filter: brightness(1.15) drop-shadow(0 0 6px color-mix(in srgb, var(--pxc, var(--accent)) 80%, transparent)); }
 }
 :root[data-theme="retro"][data-motion="neon"] :is(.btn, .chip, .seg-item, .tile, .todo-check, .tab, .whatnow, .quick, .exam-chip):active:not(:disabled) { filter: brightness(1.5) drop-shadow(0 0 10px var(--accent-2)); transition: none; }
-:root[data-theme="retro"][data-motion="neon"] .field:focus { filter: drop-shadow(0 0 6px rgba(5, 217, 232, .6)); }
+:root[data-theme="retro"][data-motion="neon"] .field:focus { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-2) 60%, transparent)); }
 :root[data-theme="retro"][data-motion="neon"] :is(.seg-item[aria-selected="true"], .chip[aria-pressed="true"], .tri-btn[aria-pressed="true"], .tab[aria-current="page"]) { animation: px-n-glow .55s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .page-title { animation: px-n-text .8s ease-out; } /* der Titel ist sofort lesbar und glüht beim Wechsel kurz nach */
 :root[data-theme="retro"][data-motion="neon"] .sheet-backdrop { animation: px-fade .12s ease; }
 :root[data-theme="retro"][data-motion="neon"] .sheet-panel { animation: px-n-rise .16s cubic-bezier(.2, .8, .2, 1), px-n-glow .6s ease-out; }
-:root[data-theme="retro"][data-motion="neon"] .toast { --glow: #8af3fa; animation: px-n-rise .16s cubic-bezier(.2, .8, .2, 1), px-n-glow .7s ease-out; }
+:root[data-theme="retro"][data-motion="neon"] .toast { --glow: var(--accent-2-light); animation: px-n-rise .16s cubic-bezier(.2, .8, .2, 1), px-n-glow .7s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .popover { animation: px-n-rise .12s cubic-bezier(.2, .8, .2, 1), px-n-glow .5s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .group-opening { animation: px-n-drop .16s ease-out, px-n-glow .5s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .group-closing { animation: px-n-out .14s ease-in forwards; }
@@ -374,7 +440,7 @@
 
 :root[data-theme="retro"][data-motion="scan"] .view::before {
   content: ""; position: fixed; left: 0; right: 0; top: 0; height: 2px; z-index: 90; pointer-events: none; opacity: 0;
-  background: var(--accent-2); box-shadow: 0 0 8px 2px rgba(5, 217, 232, .55), 0 -16px 22px rgba(5, 217, 232, .12);
+  background: var(--accent-2); box-shadow: 0 0 8px 2px color-mix(in srgb, var(--accent-2) 55%, transparent), 0 -16px 22px color-mix(in srgb, var(--accent-2) 12%, transparent);
   animation: px-s-sweep .45s cubic-bezier(.45, 0, .55, 1);
 }
 @media (hover: hover) {
@@ -394,7 +460,7 @@
 :root[data-theme="retro"][data-motion="scan"] :is(.btn, .chip, .seg-item, .tile, .todo-check, .whatnow, .quick, .exam-chip):active:not(:disabled) { filter: brightness(1.3); }
 :root[data-theme="retro"][data-motion="scan"] .sheet-backdrop { animation: px-fade .12s ease; }
 :root[data-theme="retro"][data-motion="scan"] .sheet-panel {
-  background-image: linear-gradient(to bottom, transparent, rgba(5, 217, 232, .16) 50%, transparent); background-size: 100% 48px; background-repeat: no-repeat; background-position: 0 200%;
+  background-image: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--accent-2) 16%, transparent) 50%, transparent); background-size: 100% 48px; background-repeat: no-repeat; background-position: 0 200%;
   animation: px-s-rise .14s ease-out, px-s-panel .5s ease-in;
 }
 :root[data-theme="retro"][data-motion="scan"] .sheet-panel::before { animation: px-s-line .3s ease-out; }
@@ -413,7 +479,7 @@
 /* Münze beim Abhaken: springt in vier Pixelschritten hoch (das Element setzt ui/pixel.jsx) */
 @keyframes px-coin { 0% { transform: translate(-50%, -50%); } 30% { transform: translate(-50%, -160%); } 60% { transform: translate(-50%, -220%); } 85% { transform: translate(-50%, -240%); opacity: 1; } 100% { transform: translate(-50%, -250%); opacity: 0; } }
 .px-burst { position: fixed; z-index: 95; width: 24px; height: 24px; pointer-events: none; image-rendering: pixelated; background: var(--px-coin) center / contain no-repeat; animation: px-coin .6s steps(4, end) forwards; }
-.px-burst::after { content: "+1"; position: absolute; left: 110%; top: 0; font-family: var(--font-display); font-size: .7rem; line-height: 1; color: #ffd319; text-shadow: 1px 1px 0 var(--bg); }
+.px-burst::after { content: "+1"; position: absolute; left: 110%; top: 0; font-family: var(--font-display); font-size: .7rem; line-height: 1; color: var(--warn); text-shadow: 1px 1px 0 var(--bg); }
 .px-burst-star { background-image: var(--px-star); }
 .px-burst-star::after { content: none; }
 
@@ -448,18 +514,18 @@
 /* Sonne am Tag, Mond in der Nacht über der Skyline; Stand aus der Uhrzeit (ui/pixel.jsx), springt alle 5 Minuten */
 .px-sky { display: none; }
 :root[data-theme="retro"] .px-sky { display: block; position: fixed; z-index: -2; pointer-events: none; left: calc(4% + var(--sky-x) * 92% - 24px); bottom: calc(84px + var(--sky-y) * 96px); width: 48px; height: 48px; background: var(--px-sun) center / contain no-repeat; image-rendering: pixelated; }
-:root[data-theme="retro"] .px-sky-moon { width: 36px; height: 36px; background-image: var(--px-moon); filter: drop-shadow(0 0 6px rgba(245, 233, 255, .35)); }
+:root[data-theme="retro"] .px-sky-moon { width: 36px; height: 36px; background-image: var(--px-moon); }
 
 /* Timer: Fortschritt als Ring aus Pixel-Blöcken, der jüngste Block springt beim Füllen kurz auf */
 :root[data-theme="retro"] .px-ring .px-ring-new { transform-box: fill-box; transform-origin: center; animation: px-p-blip .3s steps(3, end); }
 
 /* Wochenkarte, Wochenziele, Erfolge */
-:root[data-theme="retro"] .week-card { --pxc: #ffd319; }
+:root[data-theme="retro"] .week-card { --pxc: var(--warn); }
 :root[data-theme="retro"] .week-trophy { width: 36px; height: 33px; margin-top: 2px; }
 :root[data-theme="retro"] .goal-star { width: 14px; height: 14px; margin-right: .35em; vertical-align: -2px; }
 :root[data-theme="retro"] .badge-icon { width: 40px; height: 40px; }
 :root[data-theme="retro"] .badge { box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc); }
-:root[data-theme="retro"] .badge-done { --pxc: #ffd319; }
+:root[data-theme="retro"] .badge-done { --pxc: var(--warn); }
 :root[data-theme="retro"] .badge-title { font-family: var(--font-display); font-weight: 400; font-size: .72rem; letter-spacing: .02em; }
 
 @media (prefers-reduced-motion: reduce) {
