@@ -13,7 +13,7 @@ export const MAX_SHARE_CARDS = 2000;
 /** Stapel aus Karten bauen (ohne Lernfortschritt, nur Inhalt). */
 export function deckFrom(cards, title, by = "") {
   return { v: 1, title: String(title || "Karteikarten").slice(0, 120), by: String(by || "").slice(0, 60), created: new Date().toISOString().slice(0, 10),
-    cards: cards.slice(0, MAX_SHARE_CARDS).map((c) => ({ front: String(c.front || ""), back: String(c.back || ""), tags: String(c.tags || "") })) };
+    cards: cards.filter((c) => !c.occ).slice(0, MAX_SHARE_CARDS).map((c) => ({ front: String(c.front || ""), back: String(c.back || ""), tags: String(c.tags || "") })) };
 }
 
 /** Verschlüsselt einen Stapel. Liefert `{ token, key, blob }`. */
