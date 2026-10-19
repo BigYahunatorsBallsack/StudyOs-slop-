@@ -263,6 +263,8 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .opacity-60 { opacity: .6; }
 @media (hover: hover) { .hover\:opacity-100:hover { opacity: 1; } }
 .leading-4 { line-height: 1rem; }
+.leading-5 { line-height: 1.25rem; }
+.break-words { overflow-wrap: anywhere; }
 .pt-3 { padding-top: .75rem; }
 .self-center { align-self: center; }
 .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem; }
