@@ -28,6 +28,6 @@ export const COLL = { module: "modules", session: "sessions", homework: "homewor
 
 export const RING_COLORS = { review: "#38bdf8", hw: "#34d399", topics: "#fbbf24" };
 
-export const DEFAULT_SETTINGS = { targetEcts: 180, threshold: 70, weeklyGoal: 0, sound: true, backupDays: 7, name: "", university: "TUM", program: "Informatik", theme: "dark", retroMotion: "arcade" };
+export const DEFAULT_SETTINGS = { targetEcts: 180, threshold: 70, weeklyGoal: 0, sound: true, backupDays: 7, name: "", university: "TUM", program: "Informatik", theme: "dark", retroMotion: "pixel" };
 
 export const TIMER_KEY = "studyos-timer-v1";

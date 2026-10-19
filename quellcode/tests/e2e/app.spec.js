@@ -720,17 +720,26 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await openData(page);
   await expect(page.getByRole('tablist', { name: 'Retro-Animationen' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Retro' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-motion', 'arcade');
-  for (const [name, key] of [['Röhre', 'crt'], ['Glitch', 'glitch'], ['Aus', 'off'], ['Arcade', 'arcade']]) {
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'pixel');
+  for (const [name, key] of [['Neon', 'neon'], ['Scan', 'scan'], ['Aus', 'off'], ['Pixel', 'pixel']]) {
     await page.getByRole('tablist', { name: 'Retro-Animationen' }).getByRole('tab', { name }).click();
     await expect(page.locator('html')).toHaveAttribute('data-motion', key);
   }
-  await expect.poll(async () => (await stored(page)).settings.retroMotion).toBe('arcade');
+  await expect.poll(async () => (await stored(page)).settings.retroMotion).toBe('pixel');
   await nav(page, 'Heute').click();
   await page.getByRole('button', { name: /^Tagesplan/ }).click();
   await expect(page.locator('#heute-plan')).toBeHidden();
   await page.getByRole('button', { name: /^Tagesplan/ }).click();
   await expect(page.locator('#heute-plan')).toBeVisible();
+  // Mensa lässt sich genauso einklappen
+  await page.getByRole('button', { name: /^Mensa / }).click();
+  await expect(page.locator('#heute-mensa')).toBeHidden();
+  await page.getByRole('button', { name: /^Mensa / }).click();
+  await expect(page.locator('#heute-mensa')).toBeVisible();
+  // gespeicherte Varianten aus 2.7.x gelten weiter (glitch → scan)
+  await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); d.settings.retroMotion = 'glitch'; await window.STUDYOS_ENV.save(d); });
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'scan');
   await openData(page);
   await page.getByRole('tab', { name: 'Dunkel' }).click();
   await expect(page.locator('html')).not.toHaveAttribute('data-motion', /./);

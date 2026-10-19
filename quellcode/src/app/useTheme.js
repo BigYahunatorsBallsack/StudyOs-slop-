@@ -1,7 +1,10 @@
 /* Farbschema: dunkel, hell, retro oder wie das System; bei Retro zusätzlich die Animationsvariante */
 import { useEffect } from "react";
 
-export const RETRO_MOTIONS = ["arcade", "crt", "glitch", "off"];
+export const RETRO_MOTIONS = ["pixel", "neon", "scan", "off"];
+/* Varianten aus 2.7.x (arcade, crt, glitch) auf die Nachfolger abbilden */
+const OLD = { arcade: "pixel", crt: "neon", glitch: "scan" };
+export const retroMotionOf = (v) => (RETRO_MOTIONS.includes(v) ? v : OLD[v] || "pixel");
 
 export function useTheme(theme, motion) {
   useEffect(() => {
@@ -11,7 +14,7 @@ export function useTheme(theme, motion) {
       const light = theme === "light" || (theme === "system" && mq && mq.matches);
       const name = theme === "retro" ? "retro" : light ? "light" : "dark";
       root.dataset.theme = name;
-      if (name === "retro") root.dataset.motion = RETRO_MOTIONS.includes(motion) ? motion : "arcade";
+      if (name === "retro") root.dataset.motion = retroMotionOf(motion);
       else delete root.dataset.motion;
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute("content", { light: "#f2f0fa", dark: "#1b1830", retro: "#0d0221" }[name]);
