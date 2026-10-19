@@ -1,6 +1,7 @@
 import { EXAM_RESULTS, HW_STATUS, LOG_KINDS, MODULE_STATUS, PALETTE, SESSION_TYPES, TOPIC_STATES } from "./constants.js";
 import { byOrder, byTime, fmtShort, iso } from "./util.js";
 import { hasCloze } from "./cards.js";
+import { parseWatch } from "./tum.js";
 
 /* ---------------- Formulardefinitionen ---------------- */
 export const opt = (arr) => arr.map((x) => (typeof x === "string" ? { value: x, label: x } : x));
@@ -37,10 +38,11 @@ export function formDef(kind, d) {
       { k: "start", l: "Beginn", t: "time", def: "10:00", half: true },
       { k: "end", l: "Ende", t: "time", def: "12:00", half: true },
       { k: "room", l: "Raum", t: "text", ph: "z. B. MI HS 1" },
+      { k: "watchedTo", l: "Aufzeichnung angeschaut bis (optional)", t: "text", ph: "z. B. 47:12", editOnly: true, hint: "Stelle in TUM-Live als Minuten:Sekunden, Stunden:Minuten:Sekunden oder nur Minuten. Leer lassen, wenn noch nichts angeschaut ist." },
       { k: "repeatUntil", l: "Wöchentlich wiederholen bis (optional)", t: "date", createOnly: true },
       { k: "cancelled", l: "Termin fällt aus (zählt nicht zur Nachbereitungsquote)", t: "checkbox", editOnly: true },
       { k: "applySeries", l: "Änderungen auf alle folgenden gleichen Termine übertragen", t: "checkbox", seriesOnly: true, transient: true, hint: "Gleiches Modul, gleiche Art, gleicher Wochentag und Beginn. Übertragen werden nur geänderte Angaben (Art, Beginn, Ende, Raum)." },
-    ], validate: (v) => (v.start && v.end && v.end <= v.start ? "Das Ende muss nach dem Beginn liegen." : v.repeatUntil && v.repeatUntil < v.date ? "Das Wiederholungsende liegt vor dem Startdatum." : "") };
+    ], validate: (v) => (v.start && v.end && v.end <= v.start ? "Das Ende muss nach dem Beginn liegen." : v.repeatUntil && v.repeatUntil < v.date ? "Das Wiederholungsende liegt vor dem Startdatum." : Number.isNaN(parseWatch(v.watchedTo)) ? "„Angeschaut bis“ bitte als 47:12, 1:05:30 oder in Minuten angeben." : "") };
     case "homework": return { title: "Hausaufgabe / Übungsblatt", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },
       { k: "title", l: "Titel", t: "text", req: true, ph: "z. B. Übungsblatt 3" },

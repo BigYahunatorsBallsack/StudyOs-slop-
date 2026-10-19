@@ -62,3 +62,29 @@ export function gradeForecast(data) {
     forecast: exp.length ? avg([...done, ...exp], (m) => val(m.grade) ?? val(m.expectedGrade)) : null, expectedEcts: sum(exp, (m) => Number(m.ects)), expectedCount: exp.length,
   };
 }
+
+/* Wie weit die Aufzeichnung eines Termins in TUM-Live angeschaut ist. TUM-Live gibt das nicht heraus,
+   deshalb trägt man die Stelle selbst ein: „47:12“, „1:05:30“ oder nur Minuten („47“). */
+export function parseWatch(v) {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  if (/^\d{1,3}$/.test(s)) return Number(s) * 60;
+  const m = /^(?:(\d{1,2}):)?(\d{1,3}):(\d{2})$/.exec(s);
+  if (!m || Number(m[3]) > 59 || (m[1] !== undefined && Number(m[2]) > 59)) return NaN;
+  return (Number(m[1] || 0) * 60 + Number(m[2])) * 60 + Number(m[3]);
+}
+
+export function fmtWatch(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  const two = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
+}
+
+/** Stand der Aufzeichnung: null ohne Eintrag, sonst { label, ratio } mit der Termindauer als Länge. */
+export function watchProgress(s) {
+  const sec = parseWatch(s?.watchedTo);
+  if (sec === null || !Number.isFinite(sec)) return null;
+  const mins = (t) => (/^\d{2}:\d{2}$/.test(t || "") ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) : null);
+  const a = mins(s.start), b = mins(s.end), len = a !== null && b !== null && b > a ? (b - a) * 60 : null;
+  return { label: fmtWatch(sec), ratio: len ? Math.min(1, sec / len) : null };
+}

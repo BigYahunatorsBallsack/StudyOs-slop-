@@ -7,7 +7,7 @@ import { btnGhost, btnPrimary } from "../ui/styles.js";
 import { nextUp } from "../lib/next.js";
 import { SessionTri } from "../ui/session.jsx";
 import { dueLabel, todoItems } from "../lib/todo.js";
-import { PlaceLinks } from "../ui/links.jsx";
+import { PlaceLinks, WatchProgress } from "../ui/links.jsx";
 import { MensaCard } from "./Mensa.jsx";
 import { mensaOf } from "../lib/mensa.js";
 import { Group } from "../ui/collapse.jsx";
@@ -229,6 +229,7 @@ function TodoList({ db, items }) {
               <button className="todo-body" onClick={open}>
                 <span className="row-title block truncate">{title}</span>
                 <span className={`row-meta block truncate ${late ? "todo-late" : ""}`}>{meta}</span>
+                {x.kind === "review" && <WatchProgress s={x.item} color={m?.color} className="mt-0.5" />}
               </button>
               {x.kind === "review" && /^https:\/\//i.test(m?.liveUrl || "") && (
                 <a className="ext-link shrink-0" href={m.liveUrl} target="_blank" rel="noopener noreferrer">Aufzeichnung<span className="sr-only"> von {m.name} öffnen</span> ↗</a>
