@@ -1,6 +1,7 @@
 /* Studienalltag: Übungsblatt-Serien, Notenbonus-Prognose, Workload nach ECTS, Archiv */
 import { DONE_HW } from "./constants.js";
-import { addDays, diffDays, isHeld, iso, uid } from "./util.js";
+import { addDays, diffDays, fmtShort, isHeld, iso, uid } from "./util.js";
+import { fmtWatch, parseWatch } from "./tum.js";
 
 /* ---------------- Übungsblätter als Serie ---------------- */
 
@@ -100,6 +101,22 @@ export function workloadOverview(data, today = iso()) {
     .map((m) => ({ m, w: workload(data, m.id, today) }))
     .filter((x) => x.w)
     .sort((a, b) => a.w.ratio - b.w.ratio || b.w.gapH - a.w.gapH);
+}
+
+/* ---------------- Aufzeichnungen als Lernzeit ---------------- */
+
+/**
+ * Neu angeschaute Minuten einer Aufzeichnung („angeschaut bis“) als Lerneinheit, oder null.
+ * Gezählt wird nur, was über die schon eingetragenen Aufzeichnungs-Minuten dieses Termins hinausgeht,
+ * so zählt dieselbe Stelle nie doppelt, auch nicht nach Zurück- und wieder Vorstellen.
+ */
+export function watchLog(logs, s, today = iso()) {
+  const sec = parseWatch(s?.watchedTo);
+  if (!s?.moduleId || sec === null || !Number.isFinite(sec)) return null;
+  const logged = logs.filter((l) => l.sessionId === s.id && l.kind === "Aufzeichnung").reduce((n, l) => n + (Number(l.minutes) || 0), 0);
+  const minutes = Math.floor(sec / 60) - logged;
+  if (minutes < 1) return null;
+  return { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Aufzeichnung", date: today, minutes, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} angeschaut bis ${fmtWatch(sec)}`, created: today };
 }
 
 /* ---------------- Lerntagebuch ---------------- */

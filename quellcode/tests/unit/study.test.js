@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextTitle, buildHomeworkSeries, bonusForecast, workload, workloadOverview, studyDiary, withoutArchived } from "../../src/lib/study.js";
+import { nextTitle, buildHomeworkSeries, bonusForecast, workload, workloadOverview, studyDiary, watchLog, withoutArchived } from "../../src/lib/study.js";
 import { cardsFromNote } from "../../src/lib/cards.js";
 import { emptyData } from "../../src/lib/data.js";
 
@@ -77,6 +77,23 @@ describe("Lerntagebuch", () => {
     ];
     const days = studyDiary(logs, "m");
     expect(days.map((x) => [x.date, x.minutes, x.logs.map((l) => l.id)])).toEqual([["2026-10-14", 75, ["c", "b"]], ["2026-10-12", 25, ["a"]]]);
+  });
+});
+
+describe("Aufzeichnung als Lernzeit", () => {
+  const s = { id: "s", moduleId: "m", type: "Vorlesung", date: "2026-10-13", watchedTo: "47:12" };
+  it("zählt nur neu angeschaute Minuten, nie doppelt", () => {
+    const first = watchLog([], s, "2026-10-14");
+    expect(first).toMatchObject({ moduleId: "m", sessionId: "s", kind: "Aufzeichnung", minutes: 47, date: "2026-10-14" });
+    expect(first.note).toContain("bis 47:12");
+    expect(watchLog([first], s)).toBeNull();
+    expect(watchLog([first], { ...s, watchedTo: "30" })).toBeNull();
+    expect(watchLog([first], { ...s, watchedTo: "1:20:00" }).minutes).toBe(33);
+  });
+  it("ohne Stand oder Modul nichts", () => {
+    expect(watchLog([], { ...s, watchedTo: "" })).toBeNull();
+    expect(watchLog([], { ...s, moduleId: "" })).toBeNull();
+    expect(watchLog([], { ...s, watchedTo: "abc" })).toBeNull();
   });
 });
 

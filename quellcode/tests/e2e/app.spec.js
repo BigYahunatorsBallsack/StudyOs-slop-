@@ -877,6 +877,8 @@ test('Aufzeichnung: „angeschaut bis“ eintragen, Stand erscheint bei Zu erled
   await expect(page.getByText('Geschaut bis 45:00 (50 %)').first()).toBeAttached();
   await expect(page.locator('.todo-row .watch-bar > span')).toHaveAttribute('style', /width: 50%/);
   await expect.poll(async () => (await stored(page)).sessions[0].watchedTo).toBe('45');
+  // neu angeschaute Minuten zählen als Lernzeit fürs Modul
+  await expect.poll(async () => (await stored(page)).logs.map((l) => [l.moduleId, l.kind, l.minutes])).toEqual([['ds', 'Aufzeichnung', 45]]);
 });
 
 test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, Tippen', async ({ page }) => {
