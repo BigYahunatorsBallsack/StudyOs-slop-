@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Kalender-Karte bleibt auf dem Handy offen:** Tippst du im Wochenraster einen Termin an und hakst in der Karte „Vorbereitet“, „Besucht“ oder „Nachbereitet“ ab, schloss sich die Karte nach dem ersten Haken. Jetzt bleibt sie offen, bis du daneben tippst, und du kannst mehrere Haken nacheinander setzen.
 - **„Heute“ und Woche nebeneinander am PC:** Ab etwa 1100 px Breite steht rechts neben „Heute“ das Wochenraster (oder die Liste), mit eigener Bildlaufleiste. Abschaltbar unter Daten & Einstellungen.
 - **Monatsansicht:** Unter Woche → „Monat“ ein Kalender mit Punkten in Modulfarbe für Abgaben (blass, wenn erledigt), pink umrandet bei Prüfungen, der Zahl der Termine und schraffierten Feiertagen und Ferien. Ein Tag öffnet seine Woche im Raster.
 - **Feiertage und vorlesungsfreie Zeit:** StudyOS kennt die bayerischen Feiertage (Ostern wird je Jahr berechnet) und an der TUM die Weihnachtspause sowie die Semesterferien laut tum.de (ab Februar 2027). Eigene Zeiträume lassen sich unter Daten & Einstellungen → „Feiertage und vorlesungsfreie Zeit“ eintragen. Selbst angelegte künftige Termine an solchen Tagen fallen aus (einmalig, mit Rückgängig), neue wöchentliche Serien überspringen sie, und Blatt-Serien legen in den Ferien kein Blatt an (die Nummer zählt ohne Lücke weiter). Termine aus dem Stundenplan-Abo bleiben, wie TUMonline sie liefert. „Heute“, Wochenraster und Liste nennen den Feiertag.
