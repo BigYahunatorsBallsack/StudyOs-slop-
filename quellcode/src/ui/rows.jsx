@@ -6,6 +6,7 @@ import { Chip, Empty } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
 import { SwipeRow } from "./swipe.jsx";
 import { WatchProgress } from "./links.jsx";
+import { Select } from "./select.jsx";
 
 /* ---------------- Zeilen ---------------- */
 export function SessionRow({ s, db, showDate }) {
@@ -70,9 +71,9 @@ export function HomeworkRow({ h, db }) {
           <p className={`text-xs font-semibold ${dl.cls}`}>{dl.text}{h.dueTime && !done ? `, ${h.dueTime} Uhr` : ""}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
         <label className="sr-only" htmlFor={"hw-" + h.id}>Status von {h.title}</label>
-        <select id={"hw-" + h.id} value={h.status} onChange={(e) => db.setHwStatus(h.id, e.target.value)} className="field w-32 shrink-0 py-1.5 text-xs">
+        <Select id={"hw-" + h.id} value={h.status} onChange={(e) => db.setHwStatus(h.id, e.target.value)} className="field w-32 shrink-0 py-1.5 text-xs">
           {HW_STATUS.map((x) => <option key={x} value={x}>{x}</option>)}
-        </select>
+        </Select>
       </div>
     </SwipeRow>
   );

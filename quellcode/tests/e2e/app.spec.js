@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { choose } from './select.js';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -120,7 +121,7 @@ test('Lückentext-Karte: Lücke verdeckt, nach dem Aufdecken sichtbar', async ({
   await page.getByLabel('Vorderseite (Frage)').fill('Mergesort läuft in {{c1::O(n log n)::Landau}}.');
   await page.getByLabel('Tags').fill('Sortieren, Klausur');
   await page.getByRole('button', { name: 'Speichern' }).click();
-  await page.getByLabel('Tag filtern').selectOption('sortieren');
+  await choose(page.getByLabel('Tag filtern'), 'sortieren');
   await page.getByRole('button', { name: 'Lernen starten' }).click();
   await expect(page.getByText('[Landau]')).toBeVisible();
   await expect(page.getByText('O(n log n)')).toHaveCount(0);
@@ -134,7 +135,7 @@ test('Karten-CSV: Import mit Kopfzeile und Export', async ({ page }) => {
   await loadDemo(page);
   await nav(page, 'Lernen').click();
   await page.getByRole('tab', { name: 'Karteikarten' }).click();
-  await page.getByLabel('Modul filtern').selectOption({ index: 1 });
+  await choose(page.getByLabel('Modul filtern'), { index: 1 });
   const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'karten.csv');
   writeFileSync(file, 'Vorderseite;Rückseite;Tags\n"Was ist ein Graph?";"G = (V, E)";graphen\nOhne Antwort;\n');
   await page.locator('input[type=file][accept^=".csv"]').setInputFiles(file);
@@ -200,7 +201,7 @@ test('ICS-Import mit mehreren Wochentagen', async ({ page }) => {
   const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'plan.ics');
   writeFileSync(file, 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Algorithmen Vorlesung\r\nDTSTART:20261019T100000\r\nDTEND:20261019T113000\r\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=4\r\nEXDATE:20261021T100000\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n');
   await page.locator('input[type=file][accept^=".ics"]').setInputFiles(file);
-  await page.getByLabel('Modul für Algorithmen Vorlesung').selectOption('__new');
+  await choose(page.getByLabel('Modul für Algorithmen Vorlesung'), '__new');
   await page.getByRole('button', { name: 'Importieren', exact: true }).click();
   await expect(page.getByText('3 Termine importiert.').first()).toBeVisible();
 });
@@ -757,7 +758,7 @@ test('neuer Nutzer: keine fremden Vorgaben, Studienplan Pharmazeutische Bioproze
   await nav(page, 'Module').click();
   await page.getByRole('button', { name: 'Aus Studienplan' }).click();
   const dlg = page.getByRole('dialog', { name: 'Studienplan übernehmen' });
-  await dlg.getByLabel('Studiengang').selectOption('tum-bsc-pbt-2022');
+  await choose(dlg.getByLabel('Studiengang'), 'tum-bsc-pbt-2022');
   await dlg.getByRole('region', { name: 'Semester 1' }).getByRole('button', { name: '6 anlegen' }).click();
   await dlg.getByRole('button', { name: /Schließen/ }).click();
   await expect.poll(async () => (await stored(page))?.modules?.length ?? 0).toBe(6);
@@ -838,4 +839,37 @@ test('Aufzeichnung: „angeschaut bis“ eintragen, Stand erscheint bei Zu erled
   await expect(page.getByText('Geschaut bis 45:00 (50 %)').first()).toBeAttached();
   await expect(page.locator('.todo-row .watch-bar > span')).toHaveAttribute('style', /width: 50%/);
   await expect.poll(async () => (await stored(page)).sessions[0].watchedTo).toBe('45');
+});
+
+test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, Tippen', async ({ page }) => {
+  await page.goto('./');
+  await nav(page, 'Lernen').click();
+  const len = page.getByRole('combobox', { name: 'Fokusdauer' });
+  await expect(len).toHaveAttribute('data-value', '25');
+  // Tastatur: Pfeil öffnet, Ende springt zur letzten Option, Enter übernimmt
+  await len.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(len).toHaveAttribute('aria-expanded', 'true');
+  const list = page.getByRole('listbox', { name: 'Fokusdauer' });
+  await expect(list.getByRole('option', { name: '25 min' })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await expect(list).toHaveCount(0);
+  await expect(len).toHaveAttribute('data-value', '90');
+  await expect(len).toBeFocused();
+  // Escape schließt nur die Liste, Antippen daneben auch
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Escape');
+  await expect(len).toHaveAttribute('data-value', '90');
+  await len.click();
+  await page.getByRole('option', { name: '45 min' }).click();
+  await expect(len).toHaveAttribute('data-value', '45');
+  await len.click();
+  await page.mouse.click(5, 5);
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  // Kästchen sind eigene Pixel-Kästchen, aber weiter echte Checkboxen
+  await openData(page);
+  const box = page.getByRole('checkbox').first();
+  expect(await box.evaluate((el) => getComputedStyle(el).appearance)).toBe('none');
 });

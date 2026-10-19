@@ -6,6 +6,7 @@ import { PALETTE } from "../lib/constants.js";
 import { iso, uid } from "../lib/util.js";
 import { Card, Modal } from "../ui/primitives.jsx";
 import { Markdown } from "../ui/markdown.jsx";
+import { Select } from "../ui/select.jsx";
 
 const baseUrl = () => window.location.origin + window.location.pathname;
 
@@ -108,10 +109,10 @@ export function ShareImport({ db, token, keyStr, onClose }) {
           </ul>
           {deck.cards.length > 3 && <p className="mt-1 text-xs text-slate-500">… und {deck.cards.length - 3} weitere</p>}
           <label className="mt-4 block text-sm" htmlFor="share-target">In welches Modul?</label>
-          <select id="share-target" className="field mt-1 w-full text-sm" value={target} onChange={(e) => setTarget(e.target.value)}>
+          <Select id="share-target" className="field mt-1 w-full text-sm" value={target} onChange={(e) => setTarget(e.target.value)}>
             <option value="__new">Neues Modul „{deck.title.replace(/\s#\S+$/, "")}“</option>
             {data.modules.filter((m) => !m.archived).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+          </Select>
           <div className="mt-4 flex flex-wrap gap-2">
             <button className="btn btn-primary" onClick={run}>{deck.cards.length} Karten übernehmen</button>
             <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>

@@ -14,6 +14,7 @@ import { PlaceLinks } from "../ui/links.jsx";
 import { ExamMode } from "./ExamMode.jsx";
 import { Markdown } from "../ui/markdown.jsx";
 import { weakByTag, weakCards } from "../lib/progress.js";
+import { Select } from "../ui/select.jsx";
 
 /* ---------------- Lernen ---------------- */
 export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
@@ -68,22 +69,22 @@ export function TimerView({ db, timer: timerIn }) {
           <div className="grid w-full max-w-sm grid-cols-2 gap-2">
             <div className="col-span-2">
               <label htmlFor="tm-mod" className="mb-1 block text-xs text-slate-400">Modul</label>
-              <select id="tm-mod" className={inputCls} value={timer.moduleId} onChange={(e) => timer.set({ moduleId: e.target.value, topicId: "" })}>
+              <Select id="tm-mod" className={inputCls} value={timer.moduleId} onChange={(e) => timer.set({ moduleId: e.target.value, topicId: "" })}>
                 {modOpts(data, true).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
               <label htmlFor="tm-top" className="mb-1 block text-xs text-slate-400">Thema</label>
-              <select id="tm-top" className={inputCls} value={timer.topicId} onChange={(e) => timer.set({ topicId: e.target.value })} disabled={!topics.length}>
+              <Select id="tm-top" className={inputCls} value={timer.topicId} onChange={(e) => timer.set({ topicId: e.target.value })} disabled={!topics.length}>
                 <option value="">– kein Thema –</option>
                 {topics.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
               <label htmlFor="tm-len" className="mb-1 block text-xs text-slate-400">Fokusdauer</label>
-              <select id="tm-len" className={inputCls} value={timer.length} onChange={(e) => timer.setLength(Number(e.target.value))} disabled={timer.running}>
+              <Select id="tm-len" className={inputCls} value={timer.length} onChange={(e) => timer.setLength(Number(e.target.value))} disabled={timer.running}>
                 {[15, 25, 45, 50, 60, 90].map((n) => <option key={n} value={n}>{n} min</option>)}
-              </select>
+              </Select>
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
@@ -134,10 +135,10 @@ export function LogsView({ db }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="lg-f" className="sr-only">Modul filtern</label>
-        <select id="lg-f" className={`${inputFlex}`} value={mod} onChange={(e) => setMod(e.target.value)}>
+        <Select id="lg-f" className={`${inputFlex}`} value={mod} onChange={(e) => setMod(e.target.value)}>
           <option value="all">Alle Module</option>
           {modOpts(data, true).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        </Select>
         <button className={btnPrimary} onClick={() => db.openForm("log", { date: iso(), moduleId: mod === "all" ? "" : mod }, true)}>+ Lerneinheit</button>
       </div>
       <p className="text-sm text-slate-300">Summe: <span className="font-num">{fmtMin(sum(logs, (l) => l.minutes))}</span> in {logs.length} Einheiten</p>
@@ -207,17 +208,17 @@ export function CardsView({ db, filter, setFilter }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="cf" className="sr-only">Modul filtern</label>
-        <select id="cf" className={`${inputFlex}`} value={filter} onChange={(e) => { setFilter(e.target.value); setTag(""); setQueue(null); }}>
+        <Select id="cf" className={`${inputFlex}`} value={filter} onChange={(e) => { setFilter(e.target.value); setTag(""); setQueue(null); }}>
           <option value="">Alle Module</option>
           {data.modules.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-        </select>
+        </Select>
         {tags.length > 0 && (
           <>
             <label htmlFor="ct" className="sr-only">Tag filtern</label>
-            <select id="ct" className={`${inputFlex}`} value={tag} onChange={(e) => { setTag(e.target.value); setQueue(null); }}>
+            <Select id="ct" className={`${inputFlex}`} value={tag} onChange={(e) => { setTag(e.target.value); setQueue(null); }}>
               <option value="">Alle Tags</option>
               {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
-            </select>
+            </Select>
           </>
         )}
         <button className={btnGhost} onClick={() => db.openForm("card", { moduleId: filter }, true)}>+ Karte</button>

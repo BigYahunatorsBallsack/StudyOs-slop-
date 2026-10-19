@@ -7,6 +7,7 @@ import { ConfirmButton, Empty, MarkdownInput, Modal } from "./primitives.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls } from "./styles.js";
 import { Attachments } from "./Attachments.jsx";
 import { followingSimilar } from "../lib/series.js";
+import { Select } from "./select.jsx";
 
 export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, onClose }) {
   const def = formDef(form.kind, data);
@@ -65,7 +66,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
               const id = "f-" + f.k;
               const common = { id, value: vals[f.k] ?? "", onChange: (e) => setField(f.k, e.target.value), className: inputCls + (f.mono ? " font-num" : "") };
               let ctrl;
-              if (f.t === "select") ctrl = <select {...common}>{resolve(f, vals).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>;
+              if (f.t === "select") ctrl = <Select {...common}>{resolve(f, vals).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>;
               else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} />;
               else if (f.t === "textarea") ctrl = <textarea {...common} rows={f.rows || 4} placeholder={f.ph} />;
               else if (f.t === "weekdays") ctrl = (

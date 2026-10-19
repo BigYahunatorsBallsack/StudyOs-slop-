@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { CURRICULA, curriculumOf, previewSemester } from "../lib/curriculum.js";
 import { Modal } from "../ui/primitives.jsx";
+import { Select } from "../ui/select.jsx";
 
 export function CurriculumDialog({ db, onClose }) {
   const { data } = db;
@@ -11,16 +12,16 @@ export function CurriculumDialog({ db, onClose }) {
   return (
     <Modal title="Studienplan übernehmen" onClose={onClose}>
       <label className="block text-xs text-slate-400">Studiengang
-        <select className="field mt-1 w-full text-sm" value={plan.id} onChange={(e) => pick(e.target.value)}>
+        <Select className="field mt-1 w-full text-sm" value={plan.id} onChange={(e) => pick(e.target.value)}>
           {CURRICULA.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        </Select>
       </label>
       <p className="mt-2 text-sm text-slate-400">Module, die du schon hast (z. B. aus dem Stundenplan-Abo), werden nur um Modulnummer und ECTS ergänzt.</p>
       <label className="mt-3 flex items-center gap-2 text-sm">
         Ich bin gerade im
-        <select className="field text-sm" value={current} onChange={(e) => setCurrent(Number(e.target.value))} aria-label="Aktuelles Semester">
+        <Select className="field text-sm" value={current} onChange={(e) => setCurrent(Number(e.target.value))} aria-label="Aktuelles Semester">
           {plan.semesters.map((_, i) => <option key={i} value={i + 1}>{i + 1}.</option>)}
-        </select>
+        </Select>
         Semester
       </label>
       <div className="mt-3 space-y-3">
