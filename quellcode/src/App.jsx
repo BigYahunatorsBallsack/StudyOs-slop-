@@ -43,11 +43,13 @@ const More = named(() => import("./views/More.jsx"), "More");
 const NoteViewer = named(() => import("./views/Search.jsx"), "NoteViewer");
 const SearchModal = named(() => import("./views/Search.jsx"), "SearchModal");
 const ShareImport = named(() => import("./views/Share.jsx"), "ShareImport");
+const OcclusionEditor = named(() => import("./ui/Occlusion.jsx"), "OcclusionEditor");
 const Loading = () => <p className="py-3 text-center text-sm text-slate-500" role="status">Lädt …</p>;
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries, toggleAttended, watchLog } from "./lib/study.js";
+import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
@@ -176,6 +178,10 @@ export default function App() {
       if (kind === "topic" && (item.order === null || item.order === undefined)) item.order = d.topics.filter((x) => x.moduleId === item.moduleId).length + 1;
     }
     if (kind === "homework") item.doneAt = DONE_HW.has(item.status) ? item.doneAt || iso() : null;
+    if (kind === "homework" && Array.isArray(item.subtasks)) {
+      const subs = item.subtasks.map((x) => ({ ...x, title: String(x.title || "").trim() })).filter((x) => x.title);
+      if (subs.length) item.subtasks = subs; else delete item.subtasks;
+    }
     if (kind === "homework" && !isNew && item.feedKey) {
       /* von Hand geänderte Felder übernimmt das Moodle-Abo nicht mehr */
       const old = d.homework.find((x) => x.id === item.id) || {};
@@ -274,9 +280,16 @@ export default function App() {
     { label: "Ansehen", run: () => { setMoreTab("erfolge"); setTab("mehr"); } }, 8000) });
 
   const db = {
-    data, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
+    data, getData: () => dataRef.current, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
     toggleSession: (id, key) => (key === "attended" ? change((d) => toggleAttended(d, id))
       : patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] }))),
+    toggleSubtask: (id, sid) => {
+      const h = dataRef.current.homework.find((x) => x.id === id);
+      if (!h) return;
+      const p = toggleSubtask(h, sid);
+      patch("homework", id, p);
+      if (p.status === "bearbeitet") toast(`Alle Teilaufgaben von „${h.title}“ erledigt.`, { label: "Rückgängig", run: () => patch("homework", id, { subtasks: h.subtasks, status: h.status, doneAt: h.doneAt ?? null }) });
+    },
     setHwStatus: (id, status) => patch("homework", id, (h) => ({ status, doneAt: DONE_HW.has(status) ? h.doneAt || iso() : null })),
     patchSettings: (p) => change((d) => ({ ...d, settings: { ...d.settings, ...p } })),
     replaceAll, withUndo,
@@ -367,6 +380,9 @@ export default function App() {
             {(saveState === "saved" || saveState === "saving") && (
               <span className="text-[11px] text-slate-500" role="status">{saveState === "saving" ? "Speichert …" : cloud.phase === "ready" && cloud.status === "syncing" ? "Synchronisiert …" : cloud.phase === "ready" && cloud.status === "idle" && cloud.lastSync ? "Synchronisiert" : "Gespeichert"}</span>
             )}
+            <button onClick={() => setQuickOpen(true)} className="btn btn-ghost btn-icon appbar-plus" aria-label="Schnelleingabe (E)" title="Schnelleingabe (E)">
+              <Icon name="plus" />
+            </button>
             <button onClick={() => setSearchOpen(true)} className="btn btn-ghost btn-icon" aria-label="Suchen (Strg + K)" title="Suchen (Strg + K)">
               <Icon name="search" />
             </button>
@@ -436,7 +452,8 @@ export default function App() {
       </Suspense>
       {focusLog && !form && <FocusNote key={focusLog.id} log={focusLog} db={db} onClose={() => setFocusNoteId(null)}
         onDetails={(l) => { setFocusNoteId(null); openForm("log", l); }} onDiscard={() => { setFocusNoteId(null); removeEntity("log", focusLog.id); }} />}
-      {form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
+      {form?.kind === "card" && form.initial?.occ ? <Suspense fallback={null}><OcclusionEditor key={form.initial.id || "new"} db={db} initial={form.initial} onClose={() => setForm(null)} /></Suspense>
+        : form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
     </div>
   );
 }

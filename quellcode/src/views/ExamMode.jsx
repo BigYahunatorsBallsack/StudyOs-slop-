@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { evaluate, gradeOf, pickCards } from "../lib/mock.js";
 import { hasCloze, renderCloze } from "../lib/cards.js";
+import { isOcc } from "../lib/occlusion.js";
+import { OcclusionImage } from "../ui/Occlusion.jsx";
 import { iso } from "../lib/util.js";
 import { Bar, Modal } from "../ui/primitives.jsx";
 import { Markdown } from "../ui/markdown.jsx";
@@ -82,7 +84,8 @@ export function ExamMode({ db, moduleId, onClose }) {
       </div>
       <Bar value={run.i} max={run.cards.length} label="Fortschritt" className="mt-2" />
       <div className="surface mt-3 min-h-[140px]">
-        <Markdown text={hasCloze(c.front) ? renderCloze(c.front, run.revealed) : c.front} />
+        {isOcc(c) ? <><p className="mb-2 text-sm font-semibold">{c.front}</p><OcclusionImage db={db} card={c} revealed={run.revealed} /></>
+          : <Markdown text={hasCloze(c.front) ? renderCloze(c.front, run.revealed) : c.front} />}
         {run.revealed && c.back && <><hr className="my-3 border-slate-800" /><Markdown text={c.back} /></>}
       </div>
       {!run.revealed ? (

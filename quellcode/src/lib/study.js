@@ -23,7 +23,8 @@ export function buildHomeworkSeries(base, until) {
     const issued = base.issued ? addDays(base.issued, 7 * i) : null;
     const due = addDays(base.due, 7 * i);
     if ((issued || due) > until) break;
-    out.push({ ...base, id: uid(), seriesId, title: i ? nextTitle(base.title, i) : base.title, issued, due, status: i ? "ausgegeben" : base.status || "ausgegeben", points: i ? null : base.points ?? null, doneAt: null });
+    out.push({ ...base, id: uid(), seriesId, title: i ? nextTitle(base.title, i) : base.title, issued, due, status: i ? "ausgegeben" : base.status || "ausgegeben", points: i ? null : base.points ?? null, doneAt: null,
+      ...(Array.isArray(base.subtasks) && { subtasks: i ? base.subtasks.map((s) => ({ ...s, id: uid(), done: false })) : base.subtasks }) });
   }
   return out;
 }
