@@ -9,6 +9,7 @@ import { useTheme } from "./app/useTheme.js";
 import { useTimer } from "./app/useTimer.js";
 import { useFeeds } from "./app/useFeeds.js";
 import { FormModal } from "./ui/FormModal.jsx";
+import { FocusNote } from "./ui/FocusNote.jsx";
 import { Icon, Toasts } from "./ui/primitives.jsx";
 import { btnGhost, btnPrimary } from "./ui/styles.js";
 import { Today } from "./views/Today.jsx";
@@ -64,6 +65,7 @@ export default function App() {
   const [cardFilter, setCardFilter] = useState("");
   const [form, setForm] = useState(null);
   const [noteView, setNoteView] = useState(null);
+  const [focusNoteId, setFocusNoteId] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(true);
@@ -221,16 +223,23 @@ export default function App() {
 
   const modMap = useMemo(() => Object.fromEntries(data.modules.map((m) => [m.id, m])), [data.modules]);
 
+  /* Fokusphase gleich als Lerneinheit speichern, dann nur noch nach einer Zeile Lernnotiz fragen */
+  const logFocus = (init) => {
+    const id = uid();
+    saveEntity("log", { ...init, id, note: "" }, true);
+    if (form) toast("Fokusphase eingetragen.", { label: "Notiz", run: () => setFocusNoteId(id) }, 15000);
+    else setFocusNoteId(id);
+  };
   const { timer, timerApi } = useTimer({
     sound: !!data.settings.sound,
     onFocusDone: (init, blockId) => {
       if (blockId) patch("blocks", blockId, { done: true });
-      if (form) toast("Fokusphase beendet.", { label: "Eintragen", run: () => openForm("log", init, true) }, 15000);
-      else openForm("log", init, true);
+      logFocus(init);
     },
     onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
-    onLog: (init) => openForm("log", init, true),
+    onLog: logFocus,
   });
+  const focusLog = focusNoteId ? data.logs.find((l) => l.id === focusNoteId) : null;
 
   /* Musik in der Fokusphase (Timer → „Musik in der Fokusphase“) */
   useAmbient({ kind: ambientOf(data.settings), playing: timer.running && timer.mode === "focus", volume: ambientVolumeOf(data.settings) });
@@ -436,6 +445,8 @@ export default function App() {
       {searchOpen && <SearchModal data={data} db={db} onPick={openResult} onClose={() => setSearchOpen(false)} />}
       {noteObj && !form && <NoteViewer note={noteObj} db={db} onClose={() => setNoteView(null)} onEdit={() => { setNoteView(null); openForm("note", noteObj); }} />}
       </Suspense>
+      {focusLog && !form && <FocusNote key={focusLog.id} log={focusLog} db={db} onClose={() => setFocusNoteId(null)}
+        onDetails={(l) => { setFocusNoteId(null); openForm("log", l); }} onDiscard={() => { setFocusNoteId(null); removeEntity("log", focusLog.id); }} />}
       {form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
     </div>
   );

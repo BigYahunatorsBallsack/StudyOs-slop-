@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextTitle, buildHomeworkSeries, bonusForecast, workload, withoutArchived } from "../../src/lib/study.js";
+import { nextTitle, buildHomeworkSeries, bonusForecast, workload, workloadOverview, studyDiary, withoutArchived } from "../../src/lib/study.js";
 import { cardsFromNote } from "../../src/lib/cards.js";
 import { emptyData } from "../../src/lib/data.js";
 
@@ -47,9 +47,36 @@ describe("Workload", () => {
     expect(w.perWeekH).toBe(10);
     expect(w.state).toBe("low");
   });
+  it("Rückstand, Bedarf pro Woche bis Semesterende und Vorschlag fürs Wochenziel", () => {
+    const w = workload(d(), "m", "2026-10-25");
+    expect(w.gapH).toBeCloseTo(15, 5);
+    expect(w.leftWeeks).toBeCloseTo(13, 5);
+    expect(w.needPerWeekH).toBeCloseTo(145 / 13, 5);
+    expect(w.goalSuggestH).toBe(10); // 11,15 h minus 1 h Termine pro Woche, auf halbe Stunden
+    const end = workload(d(), "m", "2027-03-01");
+    expect(end.needPerWeekH).toBeNull();
+    expect(end.goalSuggestH).toBeNull();
+  });
+  it("Vergleich aller Module: am weitesten zurück zuerst, ohne Archiv und ohne ECTS", () => {
+    const data = d({ modules: [{ id: "m", name: "A", ects: 5, status: "belegt" }, { id: "n", name: "B", ects: 5, status: "belegt", semesterStart: "2026-10-12" }, { id: "x", ects: 5, status: "belegt", archived: true, semesterStart: "2026-10-12" }, { id: "y", status: "belegt", semesterStart: "2026-10-12" }] });
+    expect(workloadOverview(data, "2026-10-25").map((x) => x.m.id)).toEqual(["n", "m"]);
+  });
   it("nur für belegte Module mit begonnenem Semester", () => {
     expect(workload(d(), "m", "2026-10-01")).toBeNull();
     expect(workload({ ...d(), modules: [{ id: "m", ects: 5, status: "bestanden" }] }, "m", "2026-10-25")).toBeNull();
+  });
+});
+
+describe("Lerntagebuch", () => {
+  it("gruppiert die Einheiten eines Moduls nach Tag, neueste zuerst", () => {
+    const logs = [
+      { id: "a", moduleId: "m", date: "2026-10-12", minutes: 25, at: "09:00", note: "Blatt 1" },
+      { id: "b", moduleId: "m", date: "2026-10-14", minutes: 25, at: "09:00" },
+      { id: "c", moduleId: "m", date: "2026-10-14", minutes: 50, at: "14:30", note: "Kapitel 2" },
+      { id: "d", moduleId: "z", date: "2026-10-14", minutes: 90 },
+    ];
+    const days = studyDiary(logs, "m");
+    expect(days.map((x) => [x.date, x.minutes, x.logs.map((l) => l.id)])).toEqual([["2026-10-14", 75, ["c", "b"]], ["2026-10-12", 25, ["a"]]]);
   });
 });
 

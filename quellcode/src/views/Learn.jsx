@@ -4,7 +4,7 @@ import { WD_LONG } from "../lib/constants.js";
 import { moduleStats } from "../lib/data.js";
 import { modOpts } from "../lib/forms.js";
 import { buildPlan } from "../lib/plan.js";
-import { byOrder, diffDays, fmt, fmtMin, fmtShort, iso, saveFile, sum, uid, wdIdx } from "../lib/util.js";
+import { byOrder, diffDays, fmt, fmtH, fmtMin, fmtShort, iso, saveFile, sum, uid, wdIdx } from "../lib/util.js";
 import { Bar, Card, Dot, Empty, Stat, Tabs } from "../ui/primitives.jsx";
 import { CardList, LogRow } from "../ui/rows.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls, inputFlex } from "../ui/styles.js";
@@ -17,6 +17,7 @@ import { weakByTag, weakCards } from "../lib/progress.js";
 import { Select } from "../ui/select.jsx";
 import { AMBIENT_KINDS, ambientOf, ambientVolumeOf } from "../lib/ambient.js";
 import { ringBlocks } from "../lib/timer.js";
+import { workload } from "../lib/study.js";
 
 /* ---------------- Lernen ---------------- */
 export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
@@ -72,6 +73,7 @@ export function TimerView({ db, timer: timerIn }) {
               <Select id="tm-mod" className={inputCls} value={timer.moduleId} onChange={(e) => timer.set({ moduleId: e.target.value, topicId: "" })}>
                 {modOpts(data, true).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
+              <WorkloadHint w={timer.moduleId ? workload(data, timer.moduleId) : null} />
             </div>
             <div>
               <label htmlFor="tm-top" className="mb-1 block text-xs text-slate-400">Thema</label>
@@ -108,10 +110,22 @@ export function TimerView({ db, timer: timerIn }) {
             <button className={btnGhost} onClick={timer.reset}>Zurücksetzen</button>
             {timer.mode === "focus" && timer.remaining < total && <button className={btnGhost} onClick={timer.stopAndLog}>Beenden & eintragen</button>}
           </div>
-          <p className="max-w-sm text-center text-xs text-slate-500">Nach einer vollen Fokusphase öffnet sich das Formular für die Lerneinheit, vorausgefüllt mit Modul, Thema und Dauer. Der Timer läuft weiter, wenn du den Bereich wechselst.</p>
+          <p className="max-w-sm text-center text-xs text-slate-500">Nach einer Fokusphase wird die Lerneinheit mit Modul, Thema und Dauer gleich eingetragen; dazu kannst du in einer Zeile notieren, was du gemacht hast. Der Timer läuft weiter, wenn du den Bereich wechselst.</p>
         </div>
       </Card>
     </div>
+  );
+}
+
+/* Unter der Modulwahl: Wie steht das Modul gegenüber dem ECTS-Soll? */
+function WorkloadHint({ w }) {
+  if (!w) return null;
+  const color = w.state === "ok" ? "var(--ok)" : w.state === "warn" ? "var(--warn)" : "var(--danger)";
+  return (
+    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
+      <span className="h-2 w-2 shrink-0" style={{ background: color }} aria-hidden="true" />
+      {w.gapH > 0.05 ? `${fmtH(w.gapH)} hinter dem ECTS-Soll (${fmtH(w.istH)} von ${fmtH(w.sollH)})` : `Im ECTS-Soll: ${fmtH(w.istH)} von ${fmtH(w.sollH)}`}
+    </p>
   );
 }
 

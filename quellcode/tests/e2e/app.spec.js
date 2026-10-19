@@ -943,3 +943,47 @@ test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, 
   const box = page.getByRole('checkbox').first();
   expect(await box.evaluate((el) => getComputedStyle(el).appearance)).toBe('none');
 });
+
+test('Timer: Lernnotiz nach der Fokusphase, Lerntagebuch und ECTS-Soll im Modul', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') });
+  await page.goto('./');
+  await seed(page, () => ({ sessions: [{ id: 's', moduleId: 'ds', type: 'Vorlesung', date: '2026-10-13', start: '10:00', end: '12:00' }] }));
+  await page.reload();
+  await nav(page, 'Lernen').click();
+  await choose(page.getByLabel('Modul', { exact: true }), 'ds');
+  await expect(page.getByText(/hinter dem ECTS-Soll/)).toBeVisible();
+  await choose(page.getByLabel('Fokusdauer'), '15');
+  await page.getByRole('button', { name: 'Starten' }).click();
+  await page.clock.fastForward('15:05');
+  const dlg = page.getByRole('dialog', { name: 'Fokusphase geschafft' });
+  await expect(dlg).toContainText('15 min eingetragen für Diskrete Strukturen');
+  // schon gespeichert, bevor die Notiz dazukommt
+  await expect.poll(async () => (await stored(page)).logs.map((l) => [l.moduleId, l.minutes])).toEqual([['ds', 15]]);
+  await dlg.getByLabel(/Was hast du gemacht/).fill('Blatt 2, Aufgabe 3 gerechnet');
+  await dlg.getByLabel(/Was hast du gemacht/).press('Enter');
+  await expect(dlg).toHaveCount(0);
+  await expect.poll(async () => (await stored(page)).logs[0].note).toBe('Blatt 2, Aufgabe 3 gerechnet');
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: /Diskrete Strukturen/ }).first().click();
+  await expect(page.locator('section').filter({ hasText: 'Lerntagebuch' }).getByText('Blatt 2, Aufgabe 3 gerechnet')).toBeVisible();
+  await page.getByRole('tab', { name: 'Lernzeit' }).click();
+  await expect(page.getByRole('region', { name: 'Lerntagebuch' })).toContainText('Blatt 2, Aufgabe 3 gerechnet');
+  await expect(page.getByText(/hinter dem Soll/)).toBeVisible();
+  await page.getByRole('button', { name: 'Als Wochenziel übernehmen' }).click();
+  await expect.poll(async () => (await stored(page)).modules[0].weeklyGoal).toBeGreaterThan(0);
+  await nav(page, 'Mehr').click();
+  await expect(page.getByRole('heading', { name: 'Lernzeit gegen ECTS-Soll' })).toBeVisible();
+});
+
+test('Timer: „Nicht eintragen“ verwirft die Fokusphase', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') });
+  await page.goto('./');
+  await nav(page, 'Lernen').click();
+  await choose(page.getByLabel('Fokusdauer'), '15');
+  await page.getByRole('button', { name: 'Starten' }).click();
+  await page.clock.fastForward('15:05');
+  await expect.poll(async () => (await stored(page))?.logs.length).toBe(1);
+  await page.getByRole('dialog', { name: 'Fokusphase geschafft' }).getByRole('button', { name: 'Nicht eintragen' }).click();
+  await expect.poll(async () => (await stored(page)).logs.length).toBe(0);
+  await expect(page.getByText('Eintrag gelöscht.')).toBeVisible();
+});
