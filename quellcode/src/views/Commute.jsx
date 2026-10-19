@@ -34,7 +34,7 @@ const MODES = [["transit", "Öffis"], ["car", "Auto"]];
 
 /* Mit dem Auto: Fahrzeit mit Verkehr alle 5 Minuten neu, solange die Seite offen ist */
 function CarView({ db, c, session, ready, tick }) {
-  const [state, setState] = useState({ route: null, err: "" });
+  const [state, setState] = useState({ route: null, err: "", here: false }); /* here: Route wurde ab dem Standort gerechnet */
   const [here, setHere] = useState({ pos: "", err: "" }); /* aktueller Standort als „Breite,Länge“ (auf ca. 10 m gerundet) */
   const slot = Math.floor(tick / 5);
   const fromHere = !!c.car.fromHere;
@@ -55,8 +55,8 @@ function CarView({ db, c, session, ready, tick }) {
     if (!ready || waiting) return;
     let live = true;
     db.cloud.drive({ from, to: c.car.to })
-      .then((route) => { if (live) setState({ route, err: "" }); })
-      .catch((e) => { if (live) setState({ route: null, err: e.message || "Fahrzeit gerade nicht verfügbar." }); });
+      .then((route) => { if (live) setState({ route, err: "", here: useHere }); })
+      .catch((e) => { if (live) setState({ route: null, err: e.message || "Fahrzeit gerade nicht verfügbar.", here: false }); });
     return () => { live = false; };
   }, [ready, slot, from, c.car.to, waiting]);
   const r = state.route, p = carPlan(r, session, c);
@@ -72,7 +72,7 @@ function CarView({ db, c, session, ready, tick }) {
             <p><b className="font-num">{r.minutes} Min.</b> mit dem Auto ({r.km.toLocaleString("de-DE")} km){jam >= 2 ? <span className="text-amber-300">, {jam} Min. Verzögerung durch Verkehr</span> : ", Verkehr fließt"}</p>
             {session && p && (
               <ol className="commute-steps mt-1.5">
-                <li><PxIcon name="car" /><span><b className="font-num">{hhmm(p.leaveAt)}</b> losfahren {useHere ? "ab deinem Standort" : `in ${c.car.from}`}, damit du {dayWord(session.date)} um {session.start} bei {m?.name || "deiner Vorlesung"} bist</span></li>
+                <li><PxIcon name="car" /><span><b className="font-num">{hhmm(p.leaveAt)}</b> losfahren {state.here ? "ab deinem Standort" : `in ${c.car.from}`}, damit du {dayWord(session.date)} um {session.start} bei {m?.name || "deiner Vorlesung"} bist</span></li>
                 <li><PxIcon name="flag" /><span><b className="font-num">{hhmm(p.arriveAt)}</b> voraussichtlich am Ziel{c.car.park ? `, dann ${c.car.park} Min. Parken und Fußweg` : ""}</span></li>
               </ol>
             )}
@@ -83,7 +83,7 @@ function CarView({ db, c, session, ready, tick }) {
       </label>
       {fromHere && here.err && <p className="mt-1 text-xs text-slate-400">{here.err}, gerechnet ab {c.car.from}.</p>}
       <p className="mt-3 text-sm"><a className="ext-link" href={mapsLink(c.car, fromHere)} target="_blank" rel="noopener noreferrer">Route in Google Maps öffnen ↗</a></p>
-      {r && <p className="mt-1 text-[11px] text-slate-500">Verkehrslage laut {r.provider === "tomtom" ? "TomTom" : "Google"}, wird alle 5 Minuten aktualisiert{useHere ? ", dein Standort geht dafür gerundet an den Kartendienst" : ""}. Die Abfahrtszeit gilt für jetzt losfahren, später kann es anders aussehen.</p>}
+      {r && <p className="mt-1 text-[11px] text-slate-500">Verkehrslage laut {r.provider === "tomtom" ? "TomTom" : "Google"}, wird alle 5 Minuten aktualisiert{state.here ? ", dein Standort geht dafür gerundet an den Kartendienst" : ""}. Die Abfahrtszeit gilt für jetzt losfahren, später kann es anders aussehen.</p>}
     </>
   );
 }
