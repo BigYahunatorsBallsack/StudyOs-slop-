@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { DONE_HW, WD } from "../lib/constants.js";
 import { isActive } from "../lib/data.js";
-import { addDays, fmt, fmtMin, isHeld, iso, parseDec, sum, wdIdx } from "../lib/util.js";
+import { addDays, fmt, fmtH, fmtMin, isHeld, iso, parseDec, sum, wdIdx } from "../lib/util.js";
+import { workloadOverview } from "../lib/study.js";
 import { Bar, Card, Dot, Empty, Stat, Tabs } from "../ui/primitives.jsx";
 import { HomeworkRow } from "../ui/rows.jsx";
 import { btnPrimary, focusRing, inputBase, inputFlex } from "../ui/styles.js";
@@ -129,6 +130,7 @@ export function Review({ db }) {
           </ul>
         ) : <p className="text-sm text-slate-400">In den letzten 7 Tagen keine Lernzeit eingetragen.</p>}
       </Card>
+      <EctsCompare db={db} />
       <Heatmap logs={data.logs} />
       <Rhythm data={data} />
     </div>
@@ -361,5 +363,33 @@ function Forecast({ data, db }) {
         </ul>
       )}
     </div>
+  );
+}
+
+/* Lernzeit aller belegten Module gegen das ECTS-Soll (30 h je ECTS), wer am weitesten zurückliegt, oben */
+function EctsCompare({ db }) {
+  const list = workloadOverview(db.data);
+  if (!list.length) return null;
+  const color = (w) => (w.state === "ok" ? "var(--ok)" : w.state === "warn" ? "var(--warn)" : "var(--danger)");
+  return (
+    <Card title="Lernzeit gegen ECTS-Soll">
+      <p className="mb-3 text-xs text-slate-400">Seit Semesterbeginn: Lernzeit und besuchte Termine gegenüber 30 h je ECTS, gleichmäßig über das Semester verteilt.</p>
+      <ul className="space-y-3">
+        {list.map(({ m, w }) => (
+          <li key={m.id}>
+            <button className={`block w-full rounded-md text-left ${focusRing}`} onClick={() => db.goModule(m.id)}>
+              <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate">{m.name}</span>
+                <span className="font-num shrink-0 text-xs text-slate-400">{fmtH(w.istH)} / {fmtH(w.sollH)}</span>
+              </div>
+              <Bar value={w.istH} max={Math.max(w.sollH, w.istH, 0.1)} color={color(w)} label={`${m.name}: Arbeitsaufwand im Soll`} />
+              <p className="mt-0.5 text-[11px]" style={{ color: w.gapH >= 0.1 ? color(w) : undefined }}>
+                {w.gapH >= 0.1 ? `${fmtH(w.gapH)} Rückstand` : w.gapH <= -0.1 ? `${fmtH(-w.gapH)} vor dem Soll` : "im Soll"}{w.needPerWeekH !== null ? `, nötig: ${fmtH(w.needPerWeekH)} pro Woche` : ""}
+              </p>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
