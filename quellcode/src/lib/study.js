@@ -2,6 +2,7 @@
 import { DONE_HW } from "./constants.js";
 import { addDays, diffDays, fmtShort, isHeld, iso, uid } from "./util.js";
 import { fmtWatch, parseWatch, watchProgress } from "./tum.js";
+import { inBreak } from "./holidays.js";
 
 /* ---------------- Übungsblätter als Serie ---------------- */
 
@@ -17,12 +18,15 @@ export function nextTitle(title, step = 1) {
 }
 
 /** Wöchentliche Blätter vom ersten Blatt bis `until` (Ausgabedatum), höchstens 20. */
-export function buildHomeworkSeries(base, until) {
+/* Wöchentliche Blatt-Serie; Wochen, deren Abgabe in die vorlesungsfreie Zeit fiele, werden übersprungen (die Nummer zählt ohne Lücke weiter) */
+export function buildHomeworkSeries(base, until, settings = null) {
   const seriesId = uid(), out = [];
-  for (let i = 0; i < 20; i++) {
-    const issued = base.issued ? addDays(base.issued, 7 * i) : null;
-    const due = addDays(base.due, 7 * i);
+  for (let w = 0; w < 40 && out.length < 20; w++) {
+    const issued = base.issued ? addDays(base.issued, 7 * w) : null;
+    const due = addDays(base.due, 7 * w);
     if ((issued || due) > until) break;
+    if (w && settings && inBreak(due, settings)) continue;
+    const i = out.length;
     out.push({ ...base, id: uid(), seriesId, title: i ? nextTitle(base.title, i) : base.title, issued, due, status: i ? "ausgegeben" : base.status || "ausgegeben", points: i ? null : base.points ?? null, doneAt: null,
       ...(Array.isArray(base.subtasks) && { subtasks: i ? base.subtasks.map((s) => ({ ...s, id: uid(), done: false })) : base.subtasks }) });
   }

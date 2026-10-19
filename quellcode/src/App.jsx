@@ -22,6 +22,7 @@ import { useAchievements } from "./app/useAchievements.js";
 import { useAmbient } from "./ui/ambient.js";
 import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
+import { playSfx, setSfxEnabled } from "./ui/sfx.js";
 
 /* Seltener genutzte Bereiche als eigene Dateien (offline über den Service Worker).
    Nach dem Start werden sie im Leerlauf vorgeladen, damit der erste Wechsel nicht auf „Lädt …“ wartet: React zeigt einen
@@ -51,8 +52,23 @@ import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries, toggleAttended, watchLog } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, setupFromPlan } from "./lib/curriculum.js";
+import { cancelOffDays } from "./lib/holidays.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
+
+/* Trifft eine Media-Query zu? Folgt Änderungen (Fenster breiter oder schmaler ziehen). */
+function useMedia(q) {
+  const get = () => { try { return window.matchMedia(q).matches; } catch { return false; } };
+  const [on, setOn] = useState(get);
+  useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia(q); } catch { return undefined; }
+    const f = () => setOn(mq.matches);
+    mq.addEventListener?.("change", f);
+    return () => mq.removeEventListener?.("change", f);
+  }, [q]);
+  return on;
+}
 
 /* ---------------- App ---------------- */
 export default function App() {
@@ -71,6 +87,7 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
+  const wide = useMedia("(min-width: 1100px)");
 
   const toast = (text, action, ms = 5000) => {
     const id = uid();
@@ -159,13 +176,13 @@ export default function App() {
     const coll = COLL[kind];
     if (kind === "homework" && isNew && vals.repeatUntil) {
       const { repeatUntil, ...base } = vals;
-      const list = buildHomeworkSeries({ ...base, created: iso() }, repeatUntil);
+      const list = buildHomeworkSeries({ ...base, created: iso() }, repeatUntil, d.settings);
       setTimeout(() => toast(`${list.length} Blätter angelegt.`), 0);
       return { ...d, homework: [...d.homework, ...list] };
     }
     if (kind === "session" && isNew && vals.repeatUntil) {
       const { repeatUntil, ...base } = vals;
-      return { ...d, sessions: [...d.sessions, ...buildWeeklySeries(base, repeatUntil)] };
+      return { ...d, sessions: [...d.sessions, ...buildWeeklySeries(base, repeatUntil, d.settings)] };
     }
     const item = { ...vals }; delete item.repeatUntil;
     if (isNew) {
@@ -275,9 +292,20 @@ export default function App() {
 
   const feeds = useFeeds({ ready, loadError, cloud, data, dataRef, change });
 
-  useAchievements({ data, enabled: ready && !loadError, onUnlock: (list) => toast(
+  /* Selbst angelegte Termine an Feiertagen und in der vorlesungsfreien Zeit fallen aus (einmal je Termin, mit Rückgängig) */
+  useEffect(() => {
+    if (!ready || loadError) return;
+    const { count } = cancelOffDays(dataRef.current.sessions, dataRef.current.settings);
+    if (!count) return;
+    let ids = [];
+    change((d) => { const r = cancelOffDays(d.sessions, d.settings); ids = r.sessions.filter((s, i) => s !== d.sessions[i]).map((s) => s.id); return r.count ? { ...d, sessions: r.sessions } : d; });
+    toast(`${count} ${count === 1 ? "Termin fällt" : "Termine fallen"} wegen Feiertag oder vorlesungsfreier Zeit aus.`, { label: "Rückgängig", run: () => change((d) => ({ ...d, sessions: d.sessions.map((s) => (ids.includes(s.id) ? { ...s, cancelled: false, offReason: null } : s)) })) }, 10000);
+  }, [ready, loadError, data.sessions, data.settings.breaks, data.settings.tumBreaks, data.settings.christmasBreak, data.settings.university]);
+
+  useEffect(() => setSfxEnabled(data.settings.sfx), [data.settings.sfx]);
+  useAchievements({ data, enabled: ready && !loadError, onUnlock: (list) => { playSfx("fanfare"); toast(
     list.length === 1 ? `Abzeichen freigeschaltet: „${list[0].title}“` : `${list.length} Abzeichen freigeschaltet: ${list.map((b) => `„${b.title}“`).join(", ")}`,
-    { label: "Ansehen", run: () => { setMoreTab("erfolge"); setTab("mehr"); } }, 8000) });
+    { label: "Ansehen", run: () => { setMoreTab("erfolge"); setTab("mehr"); } }, 8000); } });
 
   const db = {
     data, getData: () => dataRef.current, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
@@ -349,6 +377,15 @@ export default function App() {
   const hasData = data.modules.length + data.logs.length + data.notes.length > 0;
   const noteObj = noteView ? data.notes.find((n) => n.id === noteView) : null;
 
+  /* Am breiten Bildschirm stehen „Heute“ und die Woche nebeneinander */
+  const split = wide && data.settings.wideLayout !== false && data.modules.length > 0;
+  const todayEl = <Today db={db} onQuick={() => setQuickOpen(true)} whatNowOpen={whatNowOpen} setWhatNowOpen={setWhatNowOpen} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
+          <div className="notice notice-plain flex items-center gap-3">
+            <p className="flex-1">{backupAge === null ? "Du hast noch keine Sicherung exportiert." : `Letzte Sicherung vor ${backupAge} Tagen.`} Deine Daten liegen nur auf diesem Gerät. Sichere sie oder schalte den Cloud-Sync ein.</p>
+            <button className={btnGhost} onClick={() => db.goMore("daten")}>Jetzt sichern</button>
+          </div>
+        ) : null} />;
+
   if (!ready) {
     return (
       <div className="font-ui flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
@@ -361,7 +398,7 @@ export default function App() {
     <div className="font-ui min-h-screen">
       <Sky />
       <header className="appbar safe-top sticky top-0 z-20">
-        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
+        <div className={`mx-auto flex items-center gap-2 px-4 py-3 ${split && tab === "heute" ? "main-wide" : "max-w-3xl"}`}>
           <h1 className="brand">StudyOS</h1>
           <span className="hidden text-xs text-slate-500 sm:inline">{[data.settings.program, data.settings.university].filter(Boolean).join(", ")}</span>
           <div className="ml-auto flex items-center gap-2">
@@ -395,7 +432,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="pb-nav mx-auto max-w-3xl px-4 pt-3">
+      <main className={`pb-nav mx-auto px-4 pt-3 ${split && tab === "heute" ? "main-wide" : "max-w-3xl"}`}>
         {loadError && (
           <div role="alert" className="notice notice-danger mb-4">
             Die gespeicherten Daten konnten nicht geladen werden ({loadError}). Automatisches Speichern ist pausiert, damit nichts überschrieben wird. Lade die App neu oder stelle eine Sicherung unter Mehr → Daten wieder her.
@@ -416,12 +453,12 @@ export default function App() {
         <Suspense fallback={<Loading />}>
         {/* neu pro Bereich, damit die Retro-Animationen beim Wechsel einsetzen */}
         <div key={tab + (tab === "module" && moduleId ? ":" + moduleId : "")} className="view">
-        {tab === "heute" && <Today db={db} onQuick={() => setQuickOpen(true)} whatNowOpen={whatNowOpen} setWhatNowOpen={setWhatNowOpen} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
-          <div className="notice notice-plain flex items-center gap-3">
-            <p className="flex-1">{backupAge === null ? "Du hast noch keine Sicherung exportiert." : `Letzte Sicherung vor ${backupAge} Tagen.`} Deine Daten liegen nur auf diesem Gerät. Sichere sie oder schalte den Cloud-Sync ein.</p>
-            <button className={btnGhost} onClick={() => db.goMore("daten")}>Jetzt sichern</button>
+        {tab === "heute" && (split ? (
+          <div className="split">
+            <div className="split-main">{todayEl}</div>
+            <aside className="split-side" aria-label="Woche"><WeekView db={db} compact /></aside>
           </div>
-        ) : null} />}
+        ) : todayEl)}
         {tab === "module" && (moduleId && modMap[moduleId] ? <ModuleDetail db={db} id={moduleId} onBack={() => setModuleId(null)} /> : <ModuleList db={db} />)}
         {tab === "woche" && <WeekView db={db} />}
         {tab === "lernen" && <Learn db={db} sub={learnTab} setSub={setLearnTab} timer={timerApi} cardFilter={cardFilter} setCardFilter={setCardFilter} />}

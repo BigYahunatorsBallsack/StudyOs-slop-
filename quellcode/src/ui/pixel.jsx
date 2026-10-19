@@ -1,6 +1,7 @@
 /* Pixel-Animationen des Retro-Themes: Münze beim Abhaken, Sonne und Mond über der Skyline.
    Bewegung nur als Antwort auf eine Aktion; bei „Aus“ und „Bewegung reduzieren“ bleibt alles still (retro.css). */
 import React, { useEffect, useState } from "react";
+import { playSfx } from "./sfx.js";
 import { skyPos } from "../lib/progress.js";
 
 const still = () => {
@@ -11,6 +12,7 @@ const still = () => {
 
 /** Kleine Pixel-Grafik springt aus einem Element hoch und verschwindet (kind: coin, star). */
 export function burst(target, kind = "coin") {
+  playSfx("coin"); /* Ton auch ohne Animation, wenn eingeschaltet */
   if (typeof document === "undefined" || !target?.getBoundingClientRect || still()) return;
   const r = target.getBoundingClientRect();
   const el = document.createElement("span");

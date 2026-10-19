@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { searchAll } from "../lib/data.js";
 import { fmt, fmtShort } from "../lib/util.js";
-import { Markdown } from "../ui/markdown.jsx";
+import { Markdown, WikiCtx } from "../ui/markdown.jsx";
+import { backlinks, findNote } from "../lib/wiki.js";
 import { Dot, Modal } from "../ui/primitives.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls } from "../ui/styles.js";
 import { Attachments } from "../ui/Attachments.jsx";
@@ -46,18 +47,31 @@ export function SearchModal({ data, db, onPick, onClose }) {
 
 export function NoteViewer({ note, db, onClose, onEdit }) {
   const m = db.mod(note.moduleId), ses = db.data.sessions.find((x) => x.id === note.sessionId);
+  const notes = db.data.notes;
+  const wiki = { resolve: (name) => findNote(notes, name, note.moduleId), open: (id) => db.openNote(id) };
+  const back = backlinks(notes, note);
   const newCards = cardsFromNote(note.text, db.data.cards.filter((c) => c.moduleId === note.moduleId).map((c) => c.front));
   return (
     <Modal title={note.title || "Notiz"} onClose={onClose}>
       <p className="mb-3 text-xs text-slate-500">{m?.name || "Allgemein"}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""} · zuletzt bearbeitet {fmt(note.updated)}</p>
-      {note.text ? <Markdown text={note.text} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
+      <WikiCtx.Provider value={wiki}>
+        {note.text ? <Markdown text={note.text} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
+      </WikiCtx.Provider>
+      {back.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-slate-400">Verlinkt von</p>
+          <ul className="mt-1 flex flex-wrap gap-2">
+            {back.map((n) => <li key={n.id}><button type="button" className="wiki-link text-sm" onClick={() => db.openNote(n.id)}>{n.title || "Notiz"}</button></li>)}
+          </ul>
+        </div>
+      )}
       {(note.files || []).length > 0 && <Attachments db={db} coll="notes" itemId={note.id} />}
       <div className="mt-5 flex flex-wrap gap-2">
         <button className={btnPrimary} onClick={onEdit}>Bearbeiten</button>
         {newCards.length > 0 && note.moduleId && <button className={btnGhost} onClick={() => { db.cardsFromNote(note, newCards); onClose(); }}>{newCards.length} {newCards.length === 1 ? "Karteikarte" : "Karteikarten"} erzeugen</button>}
         <button className={btnGhost} onClick={onClose}>Schließen</button>
       </div>
-      <p className="mt-3 text-[11px] text-slate-600">Formatierung: # Überschrift, - Liste, **fett**, *kursiv*, `Code`, ```java für eingefärbten Code, Formeln mit $x^2$ oder $$\sum_{"{"}i=1{"}"}^n i$$, [Link](https://…). Karteikarten: eine Zeile „Frage :: Antwort“ oder ein Lückentext {"{{c1::Antwort}}"}.</p>
+      <p className="mt-3 text-[11px] text-slate-600">Formatierung: # Überschrift, - Liste, **fett**, *kursiv*, `Code`, ```java für eingefärbten Code, Formeln mit $x^2$ oder $$\sum_{"{"}i=1{"}"}^n i$$, [Link](https://…), andere Notiz mit [[Titel]]. Karteikarten: eine Zeile „Frage :: Antwort“ oder ein Lückentext {"{{c1::Antwort}}"}.</p>
     </Modal>
   );
 }

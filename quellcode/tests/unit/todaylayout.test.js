@@ -22,12 +22,12 @@ describe("Heute anpassen", () => {
     expect(o).not.toContain("alt");
     expect(o.filter((x) => x === "todo")).toHaveLength(1);
     expect(o).toHaveLength(TODAY_BLOCKS.length);
-    expect(o.indexOf("quick")).toBe(o.indexOf("next") + 1); // hinter dem Vorgänger aus der Standardreihenfolge
+    expect(o.indexOf("changes")).toBe(o.indexOf("next") + 1); // hinter dem Vorgänger aus der Standardreihenfolge
   });
   it("verschieben", () => {
     const l = todayLayout({});
-    expect(moveBlock(l, 9, 0).slice(0, 2)).toEqual(["mensa", "next"]);
-    expect(moveBlock(l, 0, 1).slice(0, 2)).toEqual(["quick", "next"]);
+    expect(moveBlock(l, 10, 0).slice(0, 2)).toEqual(["mensa", "next"]);
+    expect(moveBlock(l, 0, 1).slice(0, 2)).toEqual(["changes", "next"]);
     expect(moveBlock(l, 0, 99)).toEqual(ids(l));
   });
 });

@@ -3,7 +3,7 @@ import { PALETTE } from "../lib/constants.js";
 import { countsOf, demoData, emptyData, normalizeImport } from "../lib/data.js";
 import { ENV } from "../lib/env.js";
 import { buildICS, guessType, parseICS } from "../lib/ics.js";
-import { iso, saveFile, uid } from "../lib/util.js";
+import { fmt, iso, saveFile, uid } from "../lib/util.js";
 import { Card, ConfirmButton, Tabs } from "../ui/primitives.jsx";
 import { RETRO_PALETTES, UI_SIZES, retroMotionOf, retroPaletteOf, useUiSize } from "../app/useTheme.js";
 import { btnGhost, btnPrimary, inputBase, inputCls, inputFlex } from "../ui/styles.js";
@@ -14,6 +14,8 @@ import { CURRICULA, curriculumOf } from "../lib/curriculum.js";
 import { CommuteSettings } from "./Commute.jsx";
 import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
 import { Select } from "../ui/select.jsx";
+import { TUM_BREAKS, offDay } from "../lib/holidays.js";
+import { playSfx } from "../ui/sfx.js";
 
 export function DataView({ db }) {
   const { data } = db;
@@ -267,10 +269,20 @@ export function DataView({ db }) {
             <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.sound !== false} onChange={(e) => db.patchSettings({ sound: e.target.checked })} />
             Signalton und Vibration bei Timer-Ende (der Ton startet nach der ersten Timer-Aktion)
           </label>
+          <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
+            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={!!data.settings.sfx} onChange={(e) => { db.patchSettings({ sfx: e.target.checked }); if (e.target.checked) playSfx("coin", true); }} />
+            8-Bit-Klickgeräusche (beim Abhaken und bei neuen Abzeichen)
+          </label>
+          <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
+            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.wideLayout !== false} onChange={(e) => db.patchSettings({ wideLayout: e.target.checked })} />
+            Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen
+          </label>
         </div>
         <p className="mt-2 text-xs text-slate-500">ECTS-Ziel und Notengewichtung können je nach Prüfungsordnung abweichen. Der Notenschnitt in StudyOS ist ECTS-gewichtet.</p>
         {ENV && <p className="mt-2 text-xs text-slate-400">Die App ist offline-fähig und speichert lokal auf diesem Gerät. Für ein zweites Gerät exportiere eine Sicherung. Zum Installieren: oben „App installieren“ oder im Browser-Menü „Zum Startbildschirm“ / „App installieren“.</p>}
       </Card>
+
+      <BreaksCard db={db} />
 
       <Card title="Ausprobieren & Zurücksetzen">
         <div className="flex flex-wrap gap-2">
@@ -351,6 +363,62 @@ export function IcsImport({ db, readFile }) {
           </div>
         </div>
       )}
+    </Card>
+  );
+}
+
+/* Feiertage (automatisch) und vorlesungsfreie Zeiträume (an der TUM vorbelegt, sonst selbst eintragen) */
+function BreaksCard({ db }) {
+  const st = db.data.settings, own = Array.isArray(st.breaks) ? st.breaks : [];
+  const tum = /\bTUM\b|Technische Universität München/i.test(st.university || "");
+  const [from, setFrom] = useState(""), [to, setTo] = useState(""), [label, setLabel] = useState("");
+  const add = () => {
+    if (!from || !to || to < from) return;
+    db.patchSettings({ breaks: [...own, { id: uid(), from, to, label: label.trim() || "vorlesungsfrei" }].sort((a, b) => a.from.localeCompare(b.from)) });
+    setFrom(""); setTo(""); setLabel("");
+  };
+  const today = offDay(iso(), st);
+  return (
+    <Card title="Feiertage und vorlesungsfreie Zeit">
+      <p className="text-sm text-slate-300">Bayerische Feiertage kennt StudyOS von selbst. Selbst angelegte Termine an solchen Tagen und in der vorlesungsfreien Zeit fallen aus, wöchentliche Serien überspringen sie, und Blatt-Serien legen in den Ferien kein Blatt an. Termine aus dem Stundenplan-Abo bleiben, wie TUMonline sie liefert.</p>
+      {today && <p className="mt-2 text-xs text-slate-400">Heute: {today.label}.</p>}
+      {tum && (
+        <div className="mt-3 space-y-2">
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
+            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={st.tumBreaks !== false} onChange={(e) => db.patchSettings({ tumBreaks: e.target.checked })} />
+            Semesterferien der TUM ({TUM_BREAKS.map((b) => `${fmt(b.from)} bis ${fmt(b.to)}`).join(", ")})
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
+            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={st.christmasBreak !== false} onChange={(e) => db.patchSettings({ christmasBreak: e.target.checked })} />
+            Weihnachtspause (24.12. bis 6.1.)
+          </label>
+        </div>
+      )}
+      {own.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {own.map((b) => (
+            <li key={b.id || b.from} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1 truncate">{b.label}: {fmt(b.from)} bis {fmt(b.to)}</span>
+              <button className="btn btn-ghost btn-icon" onClick={() => db.patchSettings({ breaks: own.filter((x) => x !== b) })} aria-label={`${b.label} entfernen`}>✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div>
+          <label htmlFor="br-from" className="mb-1 block text-xs text-slate-400">Vorlesungsfrei von</label>
+          <input id="br-from" type="date" className={inputCls} value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="br-to" className="mb-1 block text-xs text-slate-400">bis</label>
+          <input id="br-to" type="date" className={inputCls} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <div className="col-span-2">
+          <label htmlFor="br-label" className="mb-1 block text-xs text-slate-400">Bezeichnung</label>
+          <input id="br-label" className={inputCls} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="z. B. Semesterferien, Exkursion" />
+        </div>
+      </div>
+      <button className={`${btnGhost} mt-3`} onClick={add} disabled={!from || !to || to < from}>Zeitraum hinzufügen</button>
     </Card>
   );
 }

@@ -1,6 +1,7 @@
 /* Fristen für den Erinnerungsdienst. Nur Titel, Modulname und Datum verlassen das Gerät unverschlüsselt. */
 import { DONE_HW } from "./constants.js";
-import { addDays, fmtMin, iso, sum, wdIdx } from "./util.js";
+import { addDays, fmtMin, fmtShort, iso, sum, wdIdx } from "./util.js";
+import { describeChange } from "./feed.js";
 import { withoutArchived } from "./study.js";
 import { blockReminders } from "./blocks.js";
 import { commuteIncomplete, commuteOf } from "./transit.js";
@@ -44,6 +45,16 @@ export function deadlinesFromData(all, today = iso()) {
     const cards = data.cards.filter((c) => (c.due || "") <= from).length;
     const back = [now ? `${fmtMin(now)} gelernt${prev ? ` (Vorwoche ${fmtMin(prev)})` : ""}` : "diese Woche noch nichts eingetragen", cards ? `${cards} ${cards === 1 ? "Karte" : "Karten"} fällig` : null].filter(Boolean);
     out.push({ id: `weekly-${sunday}`, kind: "weekly", title: "Wochenausblick", date: sunday, body: `Nächste Woche: ${parts.join(", ")}. Rückblick: ${back.join(", ")}.` });
+  }
+  /* Stundenplan-Abo: geänderte oder ausfallende Termine gleich melden (an alle Geräte, auch wenn es hier entdeckt wurde) */
+  if (settings.pushChanges !== false) {
+    data.sessions.forEach((s) => {
+      if (!s.change?.at || s.date < today) return;
+      const at = new Date(s.change.at);
+      if (Number.isNaN(at.getTime()) || Date.now() - at.getTime() > 12 * 3600 * 1000) return;
+      const hm = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+      out.push({ id: `${s.id}-${s.change.at}`, kind: "change", title: `${mod(s.moduleId) || s.type || "Termin"}, ${fmtShort(s.date)} ${s.start || ""}`.trim(), date: iso(at), time: hm, body: describeChange(s) });
+    });
   }
   /* Weg zur Uni: erste Veranstaltung der nächsten 7 Tage mit Haltestellen und Zeiten, damit der Server vor
      der Abfahrt die Echtzeit prüfen kann (nur wenn eingeschaltet) */

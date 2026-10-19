@@ -25,6 +25,8 @@ const RULES = {
   review: [[0, "20:00", "Noch nachzubereiten", (x) => x.body || x.title]],
   weekly: [[0, "18:00", "Deine nächste Woche", (x) => x.body || x.title]],
   /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
+  /* Stundenplan geändert: sofort, höchstens 2 Stunden verspätet */
+  change: [[0, (x) => x.time, "Stundenplan geändert", (x) => `${x.title}: ${x.body || "geändert"}`, 2 * 3600000]],
   block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 60000]],
 };
 const minus = (hm, n) => { const [h, m] = String(hm || "00:00").split(":").map(Number); const t = Math.max(0, h * 60 + m - n); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
@@ -47,7 +49,7 @@ export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europ
       const at = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
       if (sent[key] || at > now || now.getTime() - at.getTime() > maxLate) return;
-      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" ? "./?aktion=heute" : "./?aktion=pruefungen" });
+      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" || x.kind === "change" ? "./?aktion=heute" : "./?aktion=pruefungen" });
     });
   }
   return out;
