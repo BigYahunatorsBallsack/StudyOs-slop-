@@ -410,6 +410,7 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', 'https://www.google.com/maps/dir/?api=1&destination=Boltzmannstra%C3%9Fe%2015%2C%2085748%20Garching%20bei%20M%C3%BCnchen&travelmode=driving');
   await card.getByLabel('Ab meinem Standort').uncheck();
   await card.getByRole('tab', { name: 'Öffis' }).click();
+  await expect(card.locator('.px-ride.px-bus')).toHaveCount(1); // Pixel-Bus fährt einmal durch die Karte
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
 
   // Anhang: verschlüsselt hochgeladen

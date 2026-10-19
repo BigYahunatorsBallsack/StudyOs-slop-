@@ -23,6 +23,7 @@ export function formDef(kind, d) {
       { k: "grade", l: "Note (optional)", t: "decimal", min: 1, max: 5, ph: "z. B. 1,7", half: true },
       { k: "bonusPct", l: "Bonusgrenze HA in % (optional)", t: "decimal", min: 0, max: 100, ph: "z. B. 50", half: true },
       { k: "expectedGrade", l: "Erwartete Note (für die Prognose)", t: "decimal", min: 1, max: 5, ph: "z. B. 2,3", half: true },
+      { k: "weeklyGoal", l: "Lernziel pro Woche in Stunden (optional)", t: "decimal", min: 0, max: 80, ph: "z. B. 4", half: true, hint: "Erscheint auf „Heute“ als Balken; zählt die eingetragene Lernzeit von Montag bis Sonntag." },
       { k: "liveUrl", l: "Aufzeichnungen (TUM-Live-Link)", t: "url", ph: "https://live.rbg.tum.de/…", half: true },
       { k: "gop", l: "Zählt zur Grundlagenprüfung (GOP)", t: "checkbox" },
       { k: "semesterStart", l: "Semesterbeginn (optional)", t: "date", half: true, hint: "Für die Workload-Ampel; sonst zählt der erste Termin." },

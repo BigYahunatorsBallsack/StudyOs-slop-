@@ -13,6 +13,7 @@ import { ShareDeck } from "./Share.jsx";
 import { PlaceLinks } from "../ui/links.jsx";
 import { ExamMode } from "./ExamMode.jsx";
 import { Markdown } from "../ui/markdown.jsx";
+import { weakByTag, weakCards } from "../lib/progress.js";
 
 /* ---------------- Lernen ---------------- */
 export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
@@ -62,6 +63,8 @@ export function TimerView({ db, timer: timerIn }) {
               <span className="text-xs text-slate-400">{timer.mode === "focus" ? "Fokus" : "Pause"}</span>
             </div>
           </div>
+          {/* Pixel-Begleiter (nur Retro): tippt während der Fokusphase, schläft in der Pause */}
+          <span className="px-buddy" data-state={timerIn.running ? "run" : "idle"} data-mode={timer.mode} aria-hidden="true" />
           <div className="grid w-full max-w-sm grid-cols-2 gap-2">
             <div className="col-span-2">
               <label htmlFor="tm-mod" className="mb-1 block text-xs text-slate-400">Modul</label>
@@ -92,6 +95,34 @@ export function TimerView({ db, timer: timerIn }) {
         </div>
       </Card>
     </div>
+  );
+}
+
+/* Karten, die oft vergessen werden, und die Themen (Tags) dahinter; „Üben“ fragt sie unabhängig von der Fälligkeit ab */
+function WeakSpots({ db, cards, onPractice }) {
+  const [all, setAll] = useState(false);
+  const groups = weakByTag(cards, (c) => parseTags(c.tags)).filter((g) => g.tag).slice(0, 5);
+  const shown = all ? cards : cards.slice(0, 5);
+  const plain = (s) => String(s || "").replace(/\{\{c\d+::(.*?)(?:::[^}]*)?\}\}/g, "$1").replace(/[#*_`>$]/g, "").trim();
+  return (
+    <Card title="Schwachstellen">
+      <p className="text-sm text-slate-300">{cards.length} {cards.length === 1 ? "Karte vergisst" : "Karten vergisst"} du oft oder findest sie schwer.{groups.length ? " Am häufigsten: " : ""}{groups.map((g, i) => <React.Fragment key={g.tag}>{i ? ", " : ""}<b>#{g.tag}</b> ({g.count})</React.Fragment>)}{groups.length ? "." : ""}</p>
+      <ul className="mt-2 space-y-1.5">
+        {shown.map((c) => { const m = db.mod(c.moduleId); return (
+          <li key={c.id}>
+            <button className={`flex w-full items-center gap-2 rounded-md text-left text-sm ${focusRing}`} onClick={() => db.openForm("card", c)}>
+              <Dot color={m?.color} />
+              <span className="min-w-0 flex-1 truncate">{plain(c.front) || "Ohne Vorderseite"}</span>
+              <span className="font-num shrink-0 text-xs text-slate-400">{c.lapses ? `${c.lapses}× vergessen` : "schwer"}</span>
+            </button>
+          </li>
+        ); })}
+      </ul>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button className={btnPrimary} onClick={onPractice}>Schwachstellen üben ({cards.length})</button>
+        {cards.length > 5 && <button className="link-btn" onClick={() => setAll(!all)}>{all ? "Weniger anzeigen" : `Alle ${cards.length} anzeigen`}</button>}
+      </div>
+    </Card>
   );
 }
 
@@ -147,6 +178,8 @@ export function CardsView({ db, filter, setFilter }) {
   const q = queue ? queue.filter((id) => data.cards.some((c) => c.id === id)) : null;
   const current = q && q.length ? data.cards.find((c) => c.id === q[0]) : null;
 
+  const weak = weakCards(pool);
+  const practice = () => { setQueue(weak.map((c) => c.id)); setRevealed(false); setDone(0); };
   const start = () => { const ids = due.map((c) => c.id); for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } setQueue(ids); setRevealed(false); setDone(0); };
   const rate = (r) => {
     if (!current) return;
@@ -221,6 +254,7 @@ export function CardsView({ db, filter, setFilter }) {
           {!pool.length && <p className="mt-2 text-xs text-slate-500">Lege Karten im Modul unter „Karten“ oder hier über „+ Karte“ an.</p>}
         </Card>
       )}
+      {!current && weak.length > 0 && <WeakSpots db={db} cards={weak} onPractice={practice} />}
       {!current && (
         <Card title="CSV-Import und -Export">
           <p className="text-xs text-slate-400">Spalten: Vorderseite; Rückseite; Tags. Trennzeichen Semikolon, Komma oder Tab. Aus Anki: „Notizen als Klartext“ exportieren.</p>

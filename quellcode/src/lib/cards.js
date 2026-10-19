@@ -42,7 +42,7 @@ export function schedule(card, q, today = iso()) {
   return {
     stability: Math.round(s * 1000) / 1000, difficulty: Math.round(d * 1000) / 1000, interval,
     reps: g === 1 ? 0 : (card.reps || 0) + 1, lapses: (card.lapses || 0) + (g === 1 && st ? 1 : 0),
-    due: addDays(today, interval), lastReview: today,
+    due: addDays(today, interval), lastReview: today, reviews: (Number(card.reviews) || Number(card.reps) || 0) + 1,
   };
 }
 

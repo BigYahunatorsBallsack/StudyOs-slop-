@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { WD_LONG } from "../lib/constants.js";
 import { isActive, streakOf } from "../lib/data.js";
 import { byTime, diffDays, fmtMin, fmtShort, isHeld, iso, isoWeek, nowHM, sum, wdIdx, weekStart } from "../lib/util.js";
@@ -15,10 +15,17 @@ import { CommuteCard } from "./Commute.jsx";
 import { commuteOf } from "../lib/transit.js";
 import { WhatNowDialog } from "./WhatNow.jsx";
 import { withoutArchived } from "../lib/study.js";
+import { moduleGoals, weekCard } from "../lib/progress.js";
+import { burst } from "../ui/pixel.jsx";
 
 /* ---------------- Heute ---------------- */
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
   const data = withoutArchived(db.data), t = iso();
+  /* Wird „Zu erledigen“ gerade leer, gibt es den Abschuss (nicht beim Öffnen der Seite) */
+  const openCount = data.modules.length ? todoItems(data, t).length : 0;
+  const prevOpen = useRef(openCount);
+  const [cleared, setCleared] = useState(0);
+  useEffect(() => { if (prevOpen.current > 0 && openCount === 0) setCleared((n) => n + 1); prevOpen.current = openCount; }, [openCount]);
 
   if (!data.modules.length) {
     return (
@@ -61,6 +68,8 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const cardsDue = data.cards.filter((c) => c.due <= t).length;
   const openReviews = todo.filter((x) => x.kind === "review").length;
   const nextDay = todays.length ? null : data.sessions.filter((s) => s.date > t && isActive(s)).sort(byTime)[0];
+  const goals = moduleGoals(data, t);
+  const week = weekCard(data, t);
   const longDate = new Date(t + "T00:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long" });
 
   return (
@@ -84,11 +93,29 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       <div className="minis mt-3" aria-label="Lernzeit">
         <span><b>{fmtMin(minToday)}</b> heute</span>
         <span><b>{fmtMin(minWeek)}</b>{goalMin ? ` von ${fmtMin(goalMin)}` : ""} diese Woche</span>
-        <span><b>{streak}</b> {streak === 1 ? "Tag" : "Tage"} Serie</span>
+        <span className="streak" data-tier={streak >= 30 ? 4 : streak >= 7 ? 3 : streak >= 3 ? 2 : streak >= 1 ? 1 : 0}><b>{streak}</b> {streak === 1 ? "Tag" : "Tage"} Serie</span>
       </div>
       {goalMin > 0 && <Bar value={minWeek} max={goalMin} label="Wochenziel Lernzeit" className="mt-2" />}
 
       {notice && <div className="mt-4">{notice}</div>}
+
+      {week && <WeekCard db={db} w={week} />}
+
+      {goals.length > 0 && (
+        <Group id="ziele" title="Wochenziele" count={`${goals.filter((g) => g.done).length}/${goals.length}`}>
+          <ul className="goals">
+            {goals.map(({ m, minutes, goalMin, done }) => (
+              <li key={m.id} className={done ? "goal-done" : ""} style={{ "--mod": m.color }}>
+                <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+                  <span className="truncate">{m.name}</span>
+                  <span className="font-num shrink-0 text-xs text-slate-400">{done && <span className="px-icon px-star goal-star" aria-hidden="true" />}{fmtMin(minutes)} von {fmtMin(goalMin)}{done ? <span className="sr-only">, erreicht</span> : ""}</span>
+                </div>
+                <Bar value={Math.min(minutes, goalMin)} max={goalMin} color={m.color} label={`Wochenziel ${m.name}`} />
+              </li>
+            ))}
+          </ul>
+        </Group>
+      )}
 
       <Group id="plan" title="Tagesplan" count={plan.length || undefined}>
         {plan.length ? (
@@ -101,7 +128,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       </Group>
 
       <Group id="todo" title="Zu erledigen" count={todo.length}>
-        {todo.length ? <TodoList db={db} items={todo} /> : <p className="text-sm text-slate-400">Alles erledigt.</p>}
+        {todo.length ? <TodoList db={db} items={todo} /> : <AllDone key={cleared} shot={cleared > 0} />}
       </Group>
 
       {exams.length > 0 && (
@@ -156,7 +183,7 @@ function TimelineBlock({ b, db }) {
           <p className="row-meta truncate">Lernblock{m ? `, ${m.name}` : ""}{state === "live" && !b.done ? ", jetzt" : ""}</p>
         </button>
         <div className="mt-2 flex flex-wrap gap-2">
-          <button className="btn btn-ghost" onClick={() => db.patch("blocks", b.id, { done: !b.done })} aria-pressed={!!b.done}>{b.done ? "Erledigt ✓" : "Erledigt"}</button>
+          <button className="btn btn-ghost" onClick={(e) => { if (!b.done) burst(e.currentTarget); db.patch("blocks", b.id, { done: !b.done }); }} aria-pressed={!!b.done}>{b.done ? "Erledigt ✓" : "Erledigt"}</button>
           {!b.done && <button className="btn btn-ghost" onClick={() => db.focus({ moduleId: b.moduleId || "", minutes: Math.min(90, mins), kind: b.kind, blockId: b.id })}>Timer starten</button>}
         </div>
       </div>
@@ -169,7 +196,8 @@ function TodoList({ db, items }) {
   const [all, setAll] = useState(false);
   const t = iso();
   const shown = all ? items : items.slice(0, 6);
-  const check = (x) => {
+  const check = (x, e) => {
+    burst(e?.currentTarget);
     if (x.kind === "homework") {
       const prev = x.item.status;
       db.setHwStatus(x.id, "abgegeben");
@@ -197,7 +225,7 @@ function TodoList({ db, items }) {
             <li key={x.kind + x.id} className="todo-row" style={{ "--mod": m?.color }}>
               {x.kind === "cards"
                 ? <span className="todo-check todo-check-go" aria-hidden="true">›</span>
-                : <button className="todo-check" onClick={() => check(x)} aria-label={`Erledigt: ${title}`} />}
+                : <button className="todo-check" onClick={(e) => check(x, e)} aria-label={`Erledigt: ${title}`} />}
               <button className="todo-body" onClick={open}>
                 <span className="row-title block truncate">{title}</span>
                 <span className={`row-meta block truncate ${late ? "todo-late" : ""}`}>{meta}</span>
@@ -255,7 +283,7 @@ function NextUp({ db, openReviews, cardsDue }) {
     title = x.title;
     meta = m?.name || "";
     actions = (<>
-      <button className="btn btn-solid" onClick={() => { const prev = x.status; db.setHwStatus(x.id, "abgegeben"); db.toast(`„${x.title}“ abgegeben.`, { label: "Rückgängig", run: () => db.setHwStatus(x.id, prev) }); }}>Abgegeben</button>
+      <button className="btn btn-solid" onClick={(e) => { burst(e.currentTarget); const prev = x.status; db.setHwStatus(x.id, "abgegeben"); db.toast(`„${x.title}“ abgegeben.`, { label: "Rückgängig", run: () => db.setHwStatus(x.id, prev) }); }}>Abgegeben</button>
       <button className="btn" onClick={() => db.openForm("homework", x)}>Details</button>
     </>);
   }
@@ -265,6 +293,50 @@ function NextUp({ db, openReviews, cardsDue }) {
       <p className="hero-title">{title}</p>
       <p className="hero-meta">{meta}</p>
       <div className="hero-actions">{actions}</div>
+    </section>
+  );
+}
+
+/* „Zu erledigen“ ist leer. Wurde gerade das Letzte abgehakt, wird ein Space Invader abgeschossen (Retro). */
+function AllDone({ shot }) {
+  return (
+    <div className="all-done">
+      {shot && <span className="px-shot" aria-hidden="true" />}
+      <p className="text-sm text-slate-400">Alles erledigt.</p>
+    </div>
+  );
+}
+
+/* Sonntags die laufende, montags die vergangene Woche auf einen Blick; ausblenden gilt pro Woche und Gerät */
+const WEEK_KEY = "studyos-woche-gesehen";
+function WeekCard({ db, w }) {
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(WEEK_KEY) === w.from; } catch { return false; } });
+  if (hidden) return null;
+  const hide = () => { try { localStorage.setItem(WEEK_KEY, w.from); } catch { /* egal */ } setHidden(true); };
+  const diff = w.minutes - w.prevMinutes;
+  const facts = [
+    w.hwDone ? `${w.hwDone} ${w.hwDone === 1 ? "Abgabe" : "Abgaben"} erledigt` : "",
+    w.reviewed ? `${w.reviewed} ${w.reviewed === 1 ? "Termin" : "Termine"} nachbereitet` : "",
+    w.cards ? `${w.cards} ${w.cards === 1 ? "Karte" : "Karten"} wiederholt` : "",
+  ].filter(Boolean);
+  return (
+    <section className="week-card surface mt-4" aria-label={w.current ? "Deine Woche" : "Letzte Woche"}>
+      <div className="flex items-start gap-3">
+        <span className="px-icon px-trophy week-trophy" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <h3 className="section-title">{w.current ? "Deine Woche" : "Letzte Woche"}</h3>
+          <p className="mt-1 text-sm">
+            <b className="font-num">{fmtMin(w.minutes)}</b> gelernt an {w.days} {w.days === 1 ? "Tag" : "Tagen"}
+            {w.prevMinutes || w.minutes ? <span className={diff >= 0 ? "text-emerald-300" : "text-slate-400"}>, {diff >= 0 ? "+" : "−"}{fmtMin(Math.abs(diff))} zur Woche davor</span> : null}.
+          </p>
+          {facts.length > 0 && <p className="mt-1 text-sm text-slate-300">{facts.join(", ")}.</p>}
+          {w.bestDay && <p className="mt-1 text-xs text-slate-400">Stärkster Tag: {WD_LONG[wdIdx(w.bestDay.date)]} mit {fmtMin(w.bestDay.minutes)}.</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className="btn" onClick={() => db.goMore("rueckblick")}>Ganzer Rückblick</button>
+            <button className="btn btn-ghost" onClick={hide}>Ausblenden</button>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

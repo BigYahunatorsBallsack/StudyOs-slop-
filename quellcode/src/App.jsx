@@ -16,6 +16,8 @@ import { WeekView } from "./views/Week.jsx";
 import { mergeData, restoreConflicts, stampChanges } from "./lib/sync.js";
 import { TimerBadge, TimerTitle } from "./ui/timer.jsx";
 import { QuickAdd } from "./ui/QuickAdd.jsx";
+import { Sky } from "./ui/pixel.jsx";
+import { useAchievements } from "./app/useAchievements.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 
 /* Seltener genutzte Bereiche als eigene Dateien: werden beim ersten Öffnen geladen (offline über den Service Worker) */
@@ -229,6 +231,10 @@ export default function App() {
 
   const feeds = useFeeds({ ready, loadError, cloud, data, dataRef, change });
 
+  useAchievements({ data, enabled: ready && !loadError, onUnlock: (list) => toast(
+    list.length === 1 ? `Abzeichen freigeschaltet: „${list[0].title}“` : `${list.length} Abzeichen freigeschaltet: ${list.map((b) => `„${b.title}“`).join(", ")}`,
+    { label: "Ansehen", run: () => { setMoreTab("erfolge"); setTab("mehr"); } }, 8000) });
+
   const db = {
     data, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
     toggleSession: (id, key) => patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] })),
@@ -296,6 +302,7 @@ export default function App() {
 
   return (
     <div className="font-ui min-h-screen">
+      <Sky />
       <header className="appbar safe-top sticky top-0 z-20">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
           <h1 className="brand">StudyOS</h1>

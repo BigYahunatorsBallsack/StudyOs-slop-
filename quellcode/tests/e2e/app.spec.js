@@ -30,7 +30,7 @@ const stored = (page) => page.evaluate(() => window.STUDYOS_ENV.load());
 
 test('alle Bereiche laden ohne Fehler und ohne horizontales Scrollen', async ({ page }) => {
   await loadDemo(page);
-  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'] };
+  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Erfolge', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'] };
   for (const tab of ['Heute', 'Module', 'Woche', 'Lernen', 'Mehr']) {
     await nav(page, tab).click();
     for (const sub of subs[tab] || [null]) {
@@ -766,4 +766,53 @@ test('neuer Nutzer: keine fremden Vorgaben, Studienplan Pharmazeutische Bioproze
   await expect(page.getByText('0 / 10 ECTS aus GOP-Modulen bestanden')).toBeVisible();
   await expect(page.getByText('26 ECTS bis Ende des 3. Semesters')).toBeVisible();
   await expect(page.getByText(/Es fehlen noch 10 ECTS bis Ende des 2\. Semesters/)).toBeVisible();
+});
+
+test('Pixel-Extras: Wochenziel, Münze und Abschuss, Timer-Begleiter, Schwachstellen, Erfolge', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
+    localStorage.setItem('studyos-erfolge-gesehen', '[]');
+    await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '', defaultsRev: 2 }, meta: { lastBackup: new Date().toISOString() },
+      modules: [{ id: 'm', name: 'Analysis', ects: 8, semester: 1, status: 'belegt', color: '#34d399', weeklyGoal: 1 }], sessions: [], topics: [], notes: [], exams: [],
+      homework: [{ id: 'h', moduleId: 'm', title: 'Blatt 1', due: day(3), status: 'ausgegeben' }],
+      logs: [{ id: 'l', date: day(0), minutes: 75, moduleId: 'm' }],
+      cards: [{ id: 'k', moduleId: 'm', front: 'Was ist {{c1::Stetigkeit}}?', back: 'ε-δ', tags: 'grenzwerte', due: day(5), reps: 2, lapses: 3, difficulty: 8, stability: 2 }] });
+  });
+  await page.reload();
+  // erstes Abzeichen meldet sich
+  await expect(page.getByText('Abzeichen freigeschaltet: „Erster Schritt“')).toBeVisible();
+  const goals = page.locator('#heute-ziele');
+  await expect(goals.getByText('1 h 15 min von 1 h')).toBeVisible();
+  await expect(page.locator('.streak')).toHaveAttribute('data-tier', '1');
+  // letzte Aufgabe abhaken: Münze springt, Invader wird abgeschossen
+  await page.getByRole('button', { name: 'Erledigt: Blatt 1' }).click();
+  await expect(page.locator('.px-burst')).toHaveCount(1);
+  await expect(page.locator('#heute-todo .px-shot')).toBeVisible();
+  await expect(page.locator('.px-burst')).toHaveCount(0);
+  // nach einem Bereichswechsel nicht noch einmal
+  await nav(page, 'Woche').click();
+  await nav(page, 'Heute').click();
+  await expect(page.getByText('Alles erledigt.')).toBeVisible();
+  await expect(page.locator('.px-shot')).toHaveCount(0);
+  // Timer-Begleiter
+  await nav(page, 'Lernen').click();
+  await expect(page.locator('.px-buddy')).toHaveAttribute('data-state', 'idle');
+  await page.getByRole('button', { name: 'Starten' }).click();
+  await expect(page.locator('.px-buddy')).toHaveAttribute('data-state', 'run');
+  await page.getByRole('button', { name: 'Pausieren' }).click();
+  // Schwachstellen üben, obwohl die Karte nicht fällig ist
+  await page.getByRole('tab', { name: 'Karteikarten' }).click();
+  await expect(page.getByText('3× vergessen')).toBeVisible();
+  await expect(page.getByText(/Am häufigsten: #grenzwerte \(1\)/)).toBeVisible();
+  await page.getByRole('button', { name: 'Schwachstellen üben (1)' }).click();
+  await page.getByRole('button', { name: /Antwort zeigen/ }).click();
+  await page.getByRole('button', { name: /^Gut/ }).click();
+  await expect.poll(async () => (await stored(page)).cards[0].reviews).toBe(3);
+  // Erfolge
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Erfolge' }).click();
+  await expect(page.getByText(/von 13 Abzeichen freigeschaltet/)).toBeVisible();
+  await expect(page.locator('.badge-done').filter({ hasText: 'Erster Schritt' })).toBeVisible();
+  await expect(page.locator('.badge-locked').filter({ hasText: 'Kartenstapler' })).toContainText('3 / 100');
 });
