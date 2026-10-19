@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.55.0",
     "deno": "^2.9.6",
     "esbuild": "^0.28.2",
