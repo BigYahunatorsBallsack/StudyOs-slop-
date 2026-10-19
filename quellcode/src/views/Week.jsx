@@ -6,6 +6,7 @@ import { Tabs } from "../ui/primitives.jsx";
 import { isActive } from "../lib/data.js";
 import { SessionPopover, useHoverCard } from "../ui/session.jsx";
 import { suggestBlocks } from "../lib/blocks.js";
+import { sessionCoverage } from "../lib/study.js";
 
 const HOUR_PX = 46;
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
@@ -127,14 +128,16 @@ function WeekGrid({ db, days, weekSes }) {
                     {tall && " "}{tall && <span>{m ? shortName(m.name) : "Lernen"}</span>}
                   </button>
                 );
+                const cov = ev.isExam || ev.cancelled ? null : sessionCoverage(ev);
                 const cls = ev.isExam ? "" : ev.cancelled ? "ev-cancelled" : ev.reviewed ? "ev-done" : isHeld(ev) ? "ev-review" : "";
-                const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}`);
+                const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}${cov ? `, ${cov.label}` : ""}`);
                 return (
                   <button key={ev.id} className={`ev ${cls} ${hover.card?.id === ev.id ? "ev-active" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
                     {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") } : hover.trigger(ev.id, () => db.openForm("session", ev)))}
                     style={{ "--mod": ev.isExam ? "var(--danger)" : m?.color, top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto", color: ev.isExam ? "#fff" : undefined }}>
                     <b>{ev.isExam ? "Prüfung" : shortName(m?.name)}</b>
                     {tall && " "}{tall && <span>{ev.isExam ? shortName(m?.name) : ev.type}</span>}
+                    {cov && <span className="ev-cov" data-tier={cov.ratio >= 0.9 ? "ok" : cov.ratio >= 0.34 ? "warn" : "low"} aria-hidden="true"><span style={{ width: `${Math.round(cov.ratio * 100)}%` }} /></span>}
                   </button>
                 );
               })}
@@ -142,7 +145,7 @@ function WeekGrid({ db, days, weekSes }) {
           );
         })}
       </div>
-      <p className="mt-3 text-xs text-slate-500">Gestrichelt: geplante Lernblöcke. Umrandet: stattgefunden, aber noch nicht nachbereitet. Zum Abhaken mit der Maus kurz auf einem Termin verweilen bzw. auf dem Handy antippen.</p>
+      <p className="mt-3 text-xs text-slate-500">Gestrichelt: geplante Lernblöcke. Umrandet: stattgefunden, aber noch nicht nachbereitet. Der Streifen unten zeigt, wie viel du besucht oder von der Aufzeichnung angeschaut hast (rot unter einem Drittel, gelb bis 90 %, grün darüber). Zum Abhaken mit der Maus kurz auf einem Termin verweilen bzw. auf dem Handy antippen.</p>
       {cardSession && <SessionPopover s={cardSession} db={db} anchor={hover.card.anchor} onClose={hover.close} onEnter={hover.keep} onLeave={hover.leave} />}
     </div>
   );

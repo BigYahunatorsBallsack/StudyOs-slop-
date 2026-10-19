@@ -3,7 +3,7 @@ import { useCloudSync } from "./cloud/useCloudSync.js";
 import { COLL, COLLS, DATA_VERSION, DONE_HW } from "./lib/constants.js";
 import { buildWeeklySeries } from "./lib/data.js";
 import { ENV } from "./lib/env.js";
-import { diffDays, iso, uid } from "./lib/util.js";
+import { diffDays, fmtMin, iso, uid } from "./lib/util.js";
 import { usePersistence } from "./app/usePersistence.js";
 import { useTheme } from "./app/useTheme.js";
 import { useTimer } from "./app/useTimer.js";
@@ -48,7 +48,7 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
-import { buildHomeworkSeries } from "./lib/study.js";
+import { buildHomeworkSeries, toggleAttended, watchLog } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
@@ -194,7 +194,10 @@ export default function App() {
     if (kind === "session" && !isNew) {
       const r = saveSessionEdit(d.sessions, item, !!extra.applySeries);
       if (r.count) setTimeout(() => toast(`Auch ${r.count} folgende ${r.count === 1 ? "Termin" : "Termine"} geändert.`), 0);
-      return { ...d, sessions: r.sessions };
+      /* weiter angeschaute Aufzeichnung zählt als Lernzeit */
+      const watched = watchLog(d.logs, item);
+      if (watched) setTimeout(() => toast(`${fmtMin(watched.minutes)} Aufzeichnung als Lernzeit eingetragen.`), 0);
+      return { ...d, sessions: r.sessions, ...(watched ? { logs: [...d.logs, watched] } : {}) };
     }
     return { ...d, [coll]: isNew ? [...d[coll], item] : d[coll].map((x) => (x.id === item.id ? item : x)) };
   });
@@ -278,7 +281,8 @@ export default function App() {
 
   const db = {
     data, getData: () => dataRef.current, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
-    toggleSession: (id, key) => patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] })),
+    toggleSession: (id, key) => (key === "attended" ? change((d) => toggleAttended(d, id))
+      : patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] }))),
     toggleSubtask: (id, sid) => {
       const h = dataRef.current.homework.find((x) => x.id === id);
       if (!h) return;
