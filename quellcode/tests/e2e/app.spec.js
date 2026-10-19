@@ -854,3 +854,20 @@ test('Timer: Musik in der Fokusphase, Signalton ausschalten, Pixel-Ring', async 
   await page.getByLabel('Signalton und Vibration am Ende einer Phase').uncheck();
   await expect.poll(async () => (await stored(page)).settings.sound).toBe(false);
 });
+
+test('Aufzeichnung: „angeschaut bis“ eintragen, Stand erscheint bei Zu erledigen', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399', liveUrl: 'https://live.rbg.tum.de/old/course/2026/W/ds' }],
+    sessions: [{ id: 's', moduleId: 'ds', type: 'Vorlesung', date: day(-1), start: '10:00', end: '11:30', room: 'MI HS 1' }] }));
+  await page.reload();
+  await page.getByRole('button', { name: /Nachbereiten: Vorlesung/ }).click();
+  const dlg = page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ });
+  await dlg.getByLabel(/Aufzeichnung angeschaut bis/).fill('7:99');
+  await dlg.getByRole('button', { name: 'Speichern' }).click();
+  await expect(dlg.getByText(/bitte als 47:12/)).toBeVisible();
+  await dlg.getByLabel(/Aufzeichnung angeschaut bis/).fill('45');
+  await dlg.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Geschaut bis 45:00 (50 %)').first()).toBeAttached();
+  await expect(page.locator('.todo-row .watch-bar > span')).toHaveAttribute('style', /width: 50%/);
+  await expect.poll(async () => (await stored(page)).sessions[0].watchedTo).toBe('45');
+});

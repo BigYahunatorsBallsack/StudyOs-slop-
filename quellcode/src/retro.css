@@ -246,6 +246,7 @@
 /* Fortschritt als segmentierte Lebensleiste */
 :root[data-theme="retro"] .bar { height: .75rem; box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc); }
 :root[data-theme="retro"] .bar > span { position: relative; transition: none; }
+:root[data-theme="retro"] .watch-bar { height: .45rem; }
 :root[data-theme="retro"] .bar > span::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(to right, transparent 0 7px, rgba(13, 2, 33, .85) 7px 9px); }
 
 /* Leere Listen: ein kleiner Space Invader */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gopStatus, gradeForecast, roomUrl } from "../../src/lib/tum.js";
+import { fmtWatch, gopStatus, gradeForecast, parseWatch, roomUrl, watchProgress } from "../../src/lib/tum.js";
 import { dishesOn, isoWeek, menuDay, menuDays, menuUrl, mensaOf } from "../../src/lib/mensa.js";
 import { applyMoodle, cleanTitle, dueOf, isMoodleDeadline, unmappedCourses } from "../../src/lib/moodle.js";
 import { parseICS } from "../../src/lib/ics.js";
@@ -115,5 +115,25 @@ describe("Moodle-Abgaben", () => {
     const locked = [{ ...r1.homework[0], due: "2026-11-02", locked: ["due"] }];
     expect(applyMoodle({ ...d0, homework: locked }, moved, map, "2026-10-20").homework[0].due).toBe("2026-11-02");
     expect(applyMoodle(d0, events, map, "2026-10-20", ["moodle|101@moodle.tum.de"]).homework).toHaveLength(0);
+  });
+});
+
+describe("TUM-Live: angeschaut bis", () => {
+  it("liest Minuten:Sekunden, Stunden:Minuten:Sekunden und reine Minuten", () => {
+    expect(parseWatch("47:12")).toBe(47 * 60 + 12);
+    expect(parseWatch("1:05:30")).toBe(3930);
+    expect(parseWatch(" 45 ")).toBe(2700);
+    expect(parseWatch("")).toBeNull();
+    expect(parseWatch(undefined)).toBeNull();
+    expect(parseWatch("12:75")).toBeNaN();
+    expect(parseWatch("viel")).toBeNaN();
+  });
+  it("Anteil an der Termindauer, höchstens 100 %", () => {
+    expect(watchProgress({ watchedTo: "45:00", start: "10:00", end: "11:30" })).toEqual({ label: "45:00", ratio: 0.5 });
+    expect(watchProgress({ watchedTo: "2:00:00", start: "10:00", end: "11:30" }).ratio).toBe(1);
+    expect(watchProgress({ watchedTo: "65", start: "", end: "" })).toEqual({ label: "1:05:00", ratio: null });
+    expect(watchProgress({ watchedTo: "" })).toBeNull();
+    expect(watchProgress({ watchedTo: "x" })).toBeNull();
+    expect(fmtWatch(3930)).toBe("1:05:30");
   });
 });

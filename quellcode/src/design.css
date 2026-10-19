@@ -88,6 +88,9 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 /* ---- Fortschritt ---- */
 .bar { height: .5rem; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
 .bar > span { display: block; height: 100%; border-radius: 999px; transition: width .4s ease; }
+.watch { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.watch > .row-meta { flex-shrink: 0; white-space: nowrap; }
+.watch-bar { display: block; flex: 1; min-width: 1.5rem; max-width: 8rem; height: .3rem; }
 
 /* ---- Kennzahlen ---- */
 .stats { display: flex; gap: .5rem; overflow-x: auto; scrollbar-width: none; margin-left: -1rem; margin-right: -1rem; padding: 0 1rem; }

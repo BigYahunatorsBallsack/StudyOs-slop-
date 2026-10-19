@@ -21,6 +21,7 @@
 - Karteikarten zählen ihre Wiederholungen jetzt mit (`reviews`), auch über ein „Nochmal“ hinweg; ältere Karten starten mit ihren bisherigen Wiederholungen.
 
 ## Unveröffentlicht
+- **Aufzeichnung: angeschaut bis.** Im Termin (bearbeiten) lässt sich eintragen, bis wohin du die Aufzeichnung in TUM-Live geschaut hast, z. B. „47:12“. Der Stand erscheint mit Balken (Anteil an der Termindauer) bei „Zu erledigen“, in den Terminlisten und in der Terminkarte und synct mit. Automatisch aus TUM-Live holen geht nicht, weil TUM-Live den Fortschritt nicht nach außen gibt.
 - **Behoben: Weg zur Uni zeigte schon morgen,** sobald die erste Veranstaltung des Tages begonnen hatte, auch wenn heute noch eine weitere kam. Jetzt gilt die nächste Veranstaltung, die noch nicht begonnen hat.
 - **Weg zur Uni: Ziel wählen.** Unter „Pünktlich sein für“ stehen die restlichen Veranstaltungen von heute und die des nächsten Uni-Tages.
 - **Weg zur Uni mit dem Auto ab Standort:** „Ab meinem Standort“ rechnet die Fahrzeit vom aktuellen Standort (auf etwa 10 m gerundet an den Kartendienst), ohne Freigabe weiter ab dem eingetragenen Start. Der Google-Maps-Link startet dann ebenfalls am Standort.

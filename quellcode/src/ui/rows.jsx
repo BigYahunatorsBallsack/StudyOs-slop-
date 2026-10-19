@@ -5,6 +5,7 @@ import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";
 import { Chip, Empty } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
 import { SwipeRow } from "./swipe.jsx";
+import { WatchProgress } from "./links.jsx";
 
 /* ---------------- Zeilen ---------------- */
 export function SessionRow({ s, db, showDate }) {
@@ -22,6 +23,7 @@ export function SessionRow({ s, db, showDate }) {
           {showDate && <>{fmtShort(s.date)}, </>}{s.start}–{s.end}{s.room ? <>{", "}{s.room}</> : null}
           {s.cancelled && <span className="ml-2 font-semibold">fällt aus</span>}
         </p>
+        {!s.cancelled && <WatchProgress s={s} color={m?.color} className="mt-1" />}
       </button>
       {!s.cancelled && (
         <div className="mt-2 flex flex-wrap gap-1.5">
