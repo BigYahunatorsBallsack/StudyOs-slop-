@@ -203,6 +203,44 @@ describe("Edge Function", () => {
   });
 });
 
+describe("Weg zur Uni: schneller laden", () => {
+  const jwt = (exp) => `x.${btoa(JSON.stringify({ exp })).replace(/=+$/, "")}.y`;
+  function world() {
+    const w = fakeWorld(), base = w.fetch;
+    w.auth = 0; w.mvg = [];
+    w.fetch = async (url, init = {}) => {
+      const u = new URL(url);
+      if (u.pathname === "/auth/v1/user") { w.auth++; return init.headers.Authorization.startsWith("Bearer x.") ? Response.json({ id: "u1" }) : base(url, init); }
+      if (u.host === "www.mvg.de") { w.mvg.push(u.searchParams.get("offsetInMinutes")); return Response.json([{ label: "230", destination: "Garching", plannedDepartureTime: 1, realtimeDepartureTime: 2 }]); }
+      return base(url, init);
+    };
+    return w;
+  }
+  const dep = (offset) => ({ kind: "departures", station: "de:09184:2140", types: "BUS", offset, limit: 40 });
+
+  it("mehrere Abfragen in einem Aufruf, Fehler je Abfrage", async () => {
+    const w = world(), h = createHandler({ env: w.env, fetchImpl: w.fetch });
+    const res = await h(req("mvg", { method: "POST", headers: { authorization: `Bearer ${jwt(Date.now() / 1000 + 3600)}` }, body: { batch: [dep(0), dep(90), { kind: "departures", station: "kaputt" }] } }));
+    const out = await res.json();
+    expect(out).toHaveLength(3);
+    expect(out[0].data[0]).toMatchObject({ line: "230", time: 2 });
+    expect(out[2]).toEqual({ error: "Ungültige Haltestelle." });
+    expect(w.mvg.sort()).toEqual(["0", "90"]);
+    expect((await h(req("mvg", { method: "POST", headers: { authorization: `Bearer ${jwt(Date.now() / 1000 + 3600)}` }, body: { batch: Array(7).fill(dep(0)) } }))).status).toBe(400);
+  });
+
+  it("merkt sich die Anmeldung kurz, aber nie über den Ablauf des Tokens hinaus", async () => {
+    const w = world(), h = createHandler({ env: w.env, fetchImpl: w.fetch });
+    const token = jwt(Math.floor(Date.now() / 1000) + 3600);
+    for (let i = 0; i < 3; i++) await h(req("mvg", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: dep(0) }));
+    expect(w.auth).toBe(1);
+    const expired = jwt(Math.floor(Date.now() / 1000) - 10);
+    await h(req("mvg", { method: "POST", headers: { authorization: `Bearer ${expired}` }, body: dep(0) }));
+    await h(req("mvg", { method: "POST", headers: { authorization: `Bearer ${expired}` }, body: dep(0) }));
+    expect(w.auth).toBe(3);
+  });
+});
+
 describe("Kalender-Abo der Fristen", () => {
   it("liefert iCal nur mit gültigem Token", async () => {
     const w = fakeWorld();

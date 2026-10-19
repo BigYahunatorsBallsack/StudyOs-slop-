@@ -9,6 +9,7 @@ import { DataView } from "./Data.jsx";
 import { gopStatus, gradeForecast } from "../lib/tum.js";
 import { achievements } from "../lib/progress.js";
 import { effortVsGrade, gradeTimeline, heatmap, learningRhythm, minutesBySemester } from "../lib/stats.js";
+import { Select } from "../ui/select.jsx";
 
 /* ---------------- Mehr ---------------- */
 export function More({ db, sub, setSub }) {
@@ -64,10 +65,10 @@ export function HomeworkAll({ db }) {
       <div className="flex flex-wrap items-center gap-2">
         <Tabs items={[["offen", "Offen"], ["erledigt", "Erledigt"], ["alle", "Alle"]]} value={filter} onChange={setFilter} label="Filter Hausaufgaben" />
         <label htmlFor="hwa-mod" className="sr-only">Modul filtern</label>
-        <select id="hwa-mod" className={inputFlex} value={mod} onChange={(e) => setMod(e.target.value)}>
+        <Select id="hwa-mod" className={inputFlex} value={mod} onChange={(e) => setMod(e.target.value)}>
           <option value="all">Alle Module</option>
           {data.modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
+        </Select>
         <button className={btnPrimary} onClick={() => db.openForm("homework", mod === "all" ? null : { moduleId: mod }, true)}>+ Hausaufgabe</button>
       </div>
       {list.length ? <ul className="rows">{list.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}</ul> : <Empty>Keine Hausaufgaben in dieser Ansicht.</Empty>}

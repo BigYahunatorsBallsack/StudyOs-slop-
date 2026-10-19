@@ -265,6 +265,21 @@ yyyyyyy
 ..yyy..
 ...y...
 """,
+    # Haken für Kästchen (dunkel auf Pink) und Pfeil für Auswahlfelder
+    'tick': """
+......dd
+.....dd.
+d...dd..
+dd.dd...
+.ddd....
+..d.....
+""",
+    'caret': """
+ccccccc
+.ccccc.
+..ccc..
+...c...
+""",
 }
 
 

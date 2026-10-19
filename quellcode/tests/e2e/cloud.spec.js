@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { choose } from './select.js';
 
 /* Cloud-Sync mit zwei simulierten Geräten. Das Backend liegt im Testprozess und verhält sich wie
    die Supabase-Tabelle (eine Zeile pro Nutzer, Versionsnummer für Konflikterkennung). */
@@ -14,6 +15,7 @@ function createBackend() {
       if (op === 'push.saveSubscription') { const r = pushRow(args[0]); r.subscriptions = [...r.subscriptions.filter((x) => x.endpoint !== args[1].endpoint), args[1]]; r.tz = args[2]; return true; }
       if (op === 'push.removeSubscription') { const r = pushRow(args[0]); r.subscriptions = r.subscriptions.filter((x) => x.endpoint !== args[1]); return true; }
       if (op === 'push.saveDeadlines') { const r = pushRow(args[0]); r.deadlines = args[1]; r.tz = args[2]; return true; }
+      if (op === 'mvg' && args[1] && args[1].batch) { this.batches = (this.batches || 0) + 1; return Promise.all(args[1].batch.map(async (b) => ({ data: this.mvg ? await this.mvg(b) : [] }))); }
       if (op === 'mvg') return this.mvg ? this.mvg(args[1]) : [];
       if (op === 'drive') return this.drive ? this.drive(args[1]) : { error: 'kein Schlüssel' };
       if (op === 'files.put') { this.files.set(args[0] + '/' + args[1], args[2]); return true; }
@@ -37,7 +39,7 @@ function createBackend() {
   };
 }
 
-async function newDevice(browser, backend) {
+async function newDevice(browser, backend, { time } = {}) {
   const context = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'de-DE', permissions: ['notifications'] });
   /* Push-Dienst des Browsers durch eine Attrappe ersetzen (Headless-Chromium erreicht keinen echten Push-Dienst) */
   await context.addInitScript(() => {
@@ -56,6 +58,7 @@ async function newDevice(browser, backend) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.exposeFunction('__studyosFakeCloud', (...a) => backend.handle(...a));
+  if (time) await page.clock.install({ time }); /* feste Startzeit, wo das Ergebnis von der Tageszeit abhängt; die Uhr läuft weiter, sonst kollidieren die Sync-Zeitstempel */
   await page.goto('./');
   return { context, page, errors };
 }
@@ -207,7 +210,7 @@ test('Stundenplan-Abo: einrichten, Änderungen übernehmen, neue Veranstaltung z
   await A.page.getByLabel('TUMonline-Kalender-Link').fill('https://campus.tum.de/tumonline/ical?pToken=abc');
   await A.page.getByRole('button', { name: 'Abrufen', exact: true }).first().click();
   await expect(A.page.getByText('2 Termine in 1 Veranstaltungen gefunden.')).toBeVisible();
-  await expect(A.page.getByLabel('Modul für Analysis für Informatik VO')).toHaveValue('__new');
+  await expect(A.page.getByLabel('Modul für Analysis für Informatik VO')).toHaveAttribute('data-value', '__new');
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
   await expect(A.page.getByText('Abonniert: 2 Termine übernommen.')).toBeVisible();
   const sessions = () => A.page.evaluate(async () => ((await window.STUDYOS_ENV.load()) || { sessions: [] }).sessions.map((s) => `${s.room}|${!!s.cancelled}`).sort());
@@ -281,7 +284,7 @@ test('Karteikarten teilen: Link erzeugen, ohne Konto öffnen und importieren', a
   });
   await nav(A.page, 'Lernen').click();
   await A.page.getByRole('tab', { name: 'Karteikarten' }).click();
-  await A.page.getByLabel('Modul filtern').selectOption(moduleId);
+  await choose(A.page.getByLabel('Modul filtern'), moduleId);
   await A.page.getByRole('button', { name: `Link erstellen (${n})` }).click();
   const link = await A.page.getByLabel('Link zum Stapel').inputValue();
   expect(link).toMatch(/\?teilen=[\w-]+#k=[\w-]+$/);
@@ -321,8 +324,8 @@ test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser
   await A.page.getByLabel('Moodle-Kalender-Link').fill('https://www.moodle.tum.de/calendar/export_execute.php?userid=1&authtoken=x');
   await A.page.getByRole('button', { name: 'Abrufen', exact: true }).nth(1).click();
   await expect(A.page.getByText('2 Abgaben in 2 Kursen.', { exact: false })).toBeVisible();
-  await expect(A.page.getByLabel('Modul für Diskrete Strukturen')).toHaveValue('ds');
-  await A.page.getByLabel('Modul für WiSe EIDI').selectOption('__skip');
+  await expect(A.page.getByLabel('Modul für Diskrete Strukturen')).toHaveAttribute('data-value', 'ds');
+  await choose(A.page.getByLabel('Modul für WiSe EIDI'), '__skip');
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
   await expect(A.page.getByText('Abonniert: 1 Abgabe übernommen.')).toBeVisible();
   await expect.poll(() => A.page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework.map((h) => `${h.title}|${h.moduleId}|${h.dueTime}`))).toEqual([expect.stringMatching(/^Hausaufgabe 3\|ds\|\d\d:00$/)]);
@@ -345,18 +348,20 @@ test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser
 test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in der Cloud', async ({ browser }) => {
   test.setTimeout(60000);
   const backend = createBackend();
+  /* feste Startzeit (Montag 10 Uhr): Abfahrten, „morgen“ und die Empfehlung hängen sonst von der Tageszeit ab */
+  const NOW = new Date('2026-10-19T10:00:00+02:00');
   backend.mvg = (body) => {
     if (body.kind === 'stations') return [{ id: 'de:09184:2222', name: 'Haar, Gymnasium', place: 'Haar (b München)', types: ['BUS'] }];
     if (body.kind === 'messages') return [{ title: 'Weichenstörung bei Haar', text: 'Unregelmäßige Abstände.', incident: true, from: 0, to: null, lines: ['S6'] }];
-    const base = new Date(); base.setHours(0, 0, 0, 0);
+    const base = new Date(NOW); base.setHours(0, 0, 0, 0);
     const t = (d, hm) => base.getTime() + d * 86400000 + (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60000;
     if (body.station === 'de:09175:4020') return [0, 1].flatMap((d) => ['07:32', '07:52', '08:12'].flatMap((hm) => [
       { line: 'S6', destination: 'Leuchtenbergring', type: 'SBAHN', planned: t(d, hm), time: t(d, hm), delay: 0, realtime: true, cancelled: false, platform: '5' },
       { line: 'S6', destination: 'Grafing-Bahnhof', type: 'SBAHN', planned: t(d, hm) + 60000, time: t(d, hm) + 60000, delay: 0, realtime: true, cancelled: false, platform: '4' }]));
     return [0, 1].flatMap((d) => ['07:53', '08:13', '08:33', '09:13'].map((hm) => ({ line: '230', destination: 'Garching, Forschungszentrum (U)', type: 'REGIONAL_BUS', planned: t(d, hm), time: t(d, hm) + (hm === '08:13' ? 120000 : 0), delay: hm === '08:13' ? 2 : 0, realtime: true, cancelled: false })))
-      .concat([{ line: '241', destination: 'Taufkirchen', type: 'REGIONAL_BUS', planned: Date.now() + 600000, time: Date.now() + 600000, delay: 0, realtime: true, cancelled: false }]);
+      .concat([{ line: '241', destination: 'Taufkirchen', type: 'REGIONAL_BUS', planned: NOW.getTime() + 600000, time: NOW.getTime() + 600000, delay: 0, realtime: true, cancelled: false }]);
   };
-  const A = await newDevice(browser, backend);
+  const A = await newDevice(browser, backend, { time: NOW });
   await A.page.evaluate(async () => {
     const d = new Date(); d.setDate(d.getDate() + 1); const tomorrow = d.toLocaleDateString('sv-SE');
     await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '' }, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
@@ -397,9 +402,9 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(card.getByText('Weichenstörung bei Haar')).toHaveCount(0);
 
   // Ziel wählen: die Übung um 12:00 → 12:00 − 67 Min. = 10:53
-  await card.getByLabel('Pünktlich sein für').selectOption({ label: 'Morgen 12:00: Diskrete Strukturen' });
+  await choose(card.getByLabel('Pünktlich sein für'), { label: 'Morgen 12:00: Diskrete Strukturen' });
   await expect(card.getByText(/10:53 losfahren in Zorneding, damit du morgen um 12:00/)).toBeVisible();
-  await card.getByLabel('Pünktlich sein für').selectOption({ index: 0 });
+  await choose(card.getByLabel('Pünktlich sein für'), { index: 0 });
 
   // Ab dem aktuellen Standort
   await A.context.grantPermissions(['geolocation']);
@@ -412,6 +417,11 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await card.getByRole('tab', { name: 'Öffis' }).click();
   await expect(card.locator('.px-ride.px-bus')).toHaveCount(1); // Pixel-Bus fährt einmal durch die Karte
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
+  // Abfahrten kommen gebündelt in einem Aufruf; nach dem Neuladen steht der letzte Stand sofort da, auch wenn die MVG hängt
+  expect(backend.batches).toBeGreaterThan(0);
+  backend.mvg = () => new Promise(() => {});
+  await A.page.reload();
+  await expect(A.page.getByRole('region', { name: 'Weg zur Uni' }).getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
 
   // Anhang: verschlüsselt hochgeladen
   await nav(A.page, 'Mehr').click();
@@ -445,7 +455,7 @@ test('Artemis: Abo auch ohne Abgaben, übernimmt sie später automatisch', async
   await A.page.getByLabel('Artemis-Kalender-Link').fill('https://artemis.tum.de/api/calendar/courses/621/calendar-events-ics?token=abc');
   await A.page.getByRole('button', { name: 'Prüfen', exact: true }).click();
   await expect(A.page.getByText('Noch keine Abgabefristen im Kalender (nur 2 Vorlesungen).', { exact: false })).toBeVisible();
-  await A.page.getByLabel('Modul für den Artemis-Kurs').selectOption('eidi');
+  await choose(A.page.getByLabel('Modul für den Artemis-Kurs'), 'eidi');
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
   await expect(A.page.getByText('Abonniert: 0 Abgaben übernommen.')).toBeVisible();
   // später erscheinen Aufgaben im Kalender
