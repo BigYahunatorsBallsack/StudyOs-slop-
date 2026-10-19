@@ -415,6 +415,9 @@
 :root[data-theme="retro"] .px-sky { display: block; position: fixed; z-index: -2; pointer-events: none; left: calc(4% + var(--sky-x) * 92% - 24px); bottom: calc(84px + var(--sky-y) * 96px); width: 48px; height: 48px; background: var(--px-sun) center / contain no-repeat; image-rendering: pixelated; }
 :root[data-theme="retro"] .px-sky-moon { width: 36px; height: 36px; background-image: var(--px-moon); filter: drop-shadow(0 0 6px rgba(245, 233, 255, .35)); }
 
+/* Timer: Fortschritt als Ring aus Pixel-Blöcken, der jüngste Block springt beim Füllen kurz auf */
+:root[data-theme="retro"] .px-ring .px-ring-new { transform-box: fill-box; transform-origin: center; animation: px-p-blip .3s steps(3, end); }
+
 /* Wochenkarte, Wochenziele, Erfolge */
 :root[data-theme="retro"] .week-card { --pxc: #ffd319; }
 :root[data-theme="retro"] .week-trophy { width: 36px; height: 33px; margin-top: 2px; }
