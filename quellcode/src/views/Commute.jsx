@@ -2,7 +2,7 @@
    Zeigt die nächsten Abfahrten und welche Verbindung für die erste Lehrveranstaltung reicht.
    Alternativ mit dem Auto: Fahrzeit bei aktueller Verkehrslage und wann man losfahren sollte. */
 import React, { useEffect, useState } from "react";
-import { carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, DEFAULT_FEEDER, hhmm, mapsLink, matches, nextFirstSession, queryOffset, recommend, vehicle } from "../lib/transit.js";
+import { carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, DEFAULT_FEEDER, hhmm, mapsLink, matches, queryOffset, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
 import { fmtShort, iso } from "../lib/util.js";
 import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
 
@@ -34,15 +34,30 @@ const MODES = [["transit", "Öffis"], ["car", "Auto"]];
 /* Mit dem Auto: Fahrzeit mit Verkehr alle 5 Minuten neu, solange die Seite offen ist */
 function CarView({ db, c, session, ready, tick }) {
   const [state, setState] = useState({ route: null, err: "" });
+  const [here, setHere] = useState({ pos: "", err: "" }); /* aktueller Standort als „Breite,Länge“ (auf ca. 10 m gerundet) */
   const slot = Math.floor(tick / 5);
+  const fromHere = !!c.car.fromHere;
   useEffect(() => {
-    if (!ready) return;
+    if (!fromHere) return;
+    if (!navigator.geolocation) { setHere({ pos: "", err: "Dieses Gerät kennt keinen Standort" }); return; }
     let live = true;
-    db.cloud.drive({ from: c.car.from, to: c.car.to })
+    navigator.geolocation.getCurrentPosition(
+      (p) => { if (live) setHere({ pos: `${p.coords.latitude.toFixed(4)},${p.coords.longitude.toFixed(4)}`, err: "" }); },
+      (e) => { if (live) setHere((h) => (h.pos ? h : { pos: "", err: e.code === 1 ? "Standort nicht freigegeben" : "Standort gerade nicht verfügbar" })); },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+    return () => { live = false; };
+  }, [fromHere, slot]);
+  const useHere = fromHere && !!here.pos;
+  const waiting = fromHere && !here.pos && !here.err;
+  const from = useHere ? here.pos : c.car.from;
+  useEffect(() => {
+    if (!ready || waiting) return;
+    let live = true;
+    db.cloud.drive({ from, to: c.car.to })
       .then((route) => { if (live) setState({ route, err: "" }); })
       .catch((e) => { if (live) setState({ route: null, err: e.message || "Fahrzeit gerade nicht verfügbar." }); });
     return () => { live = false; };
-  }, [ready, slot, c.car.from, c.car.to]);
+  }, [ready, slot, from, c.car.to, waiting]);
   const r = state.route, p = carPlan(r, session, c);
   const m = session ? db.mod(session.moduleId) : null;
   const jam = r ? r.minutes - r.normal : 0;
@@ -56,14 +71,18 @@ function CarView({ db, c, session, ready, tick }) {
             <p><b className="font-num">{r.minutes} Min.</b> mit dem Auto ({r.km.toLocaleString("de-DE")} km){jam >= 2 ? <span className="text-amber-300">, {jam} Min. Verzögerung durch Verkehr</span> : ", Verkehr fließt"}</p>
             {session && p && (
               <ol className="commute-steps mt-1.5">
-                <li><PxIcon name="car" /><span><b className="font-num">{hhmm(p.leaveAt)}</b> losfahren in {c.car.from}, damit du {dayWord(session.date)} um {session.start} bei {m?.name || "deiner Vorlesung"} bist</span></li>
+                <li><PxIcon name="car" /><span><b className="font-num">{hhmm(p.leaveAt)}</b> losfahren {useHere ? "ab deinem Standort" : `in ${c.car.from}`}, damit du {dayWord(session.date)} um {session.start} bei {m?.name || "deiner Vorlesung"} bist</span></li>
                 <li><PxIcon name="flag" /><span><b className="font-num">{hhmm(p.arriveAt)}</b> voraussichtlich am Ziel{c.car.park ? `, dann ${c.car.park} Min. Parken und Fußweg` : ""}</span></li>
               </ol>
             )}
           </div>
         )}
-      <p className="mt-3 text-sm"><a className="ext-link" href={mapsLink(c.car)} target="_blank" rel="noopener noreferrer">Route in Google Maps öffnen ↗</a></p>
-      {r && <p className="mt-1 text-[11px] text-slate-500">Verkehrslage laut {r.provider === "tomtom" ? "TomTom" : "Google"}, wird alle 5 Minuten aktualisiert. Die Abfahrtszeit gilt für jetzt losfahren, später kann es anders aussehen.</p>}
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={fromHere} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, fromHere: e.target.checked } } })} /> Ab meinem Standort
+      </label>
+      {fromHere && here.err && <p className="mt-1 text-xs text-slate-400">{here.err}, gerechnet ab {c.car.from}.</p>}
+      <p className="mt-3 text-sm"><a className="ext-link" href={mapsLink(c.car, fromHere)} target="_blank" rel="noopener noreferrer">Route in Google Maps öffnen ↗</a></p>
+      {r && <p className="mt-1 text-[11px] text-slate-500">Verkehrslage laut {r.provider === "tomtom" ? "TomTom" : "Google"}, wird alle 5 Minuten aktualisiert{useHere ? ", dein Standort geht dafür gerundet an den Kartendienst" : ""}. Die Abfahrtszeit gilt für jetzt losfahren, später kann es anders aussehen.</p>}
     </>
   );
 }
@@ -75,7 +94,9 @@ export function CommuteCard({ db, sessions }) {
   const [state, setState] = useState({ main: null, feeder: null, plan: null, err: "" });
   const [notes, setNotes] = useState([]); /* Störungsmeldungen der MVG zu den eigenen Linien */
   const [tick, setTick] = useState(0);
-  const session = c ? nextFirstSession(sessions) : null;
+  const options = c ? upcomingSessions(sessions) : [];
+  const [pick, setPick] = useState("");
+  const session = options.find((s) => s.id === pick) || options[0] || null;
   const key = JSON.stringify(c);
   const incomplete = !!c && commuteIncomplete(c);
 
@@ -118,6 +139,13 @@ export function CommuteCard({ db, sessions }) {
     <section className="surface" aria-label="Weg zur Uni">
       <h3 className="section-title">Weg zur Uni</h3>
       <div className="mt-2"><Tabs label="Verkehrsmittel" items={MODES} value={c.mode} onChange={(mode) => db.patchSettings({ commute: { ...c, mode } })} /></div>
+      {!incomplete && options.length > 1 && (
+        <label className="mt-3 block text-xs text-slate-400">Pünktlich sein für
+          <select className="field mt-1 w-full text-sm" value={session.id} onChange={(e) => setPick(e.target.value)}>
+            {options.map((s) => <option key={s.id} value={s.id}>{dayWord(s.date)[0].toUpperCase() + dayWord(s.date).slice(1)} {s.start}: {db.mod(s.moduleId)?.name || s.type || "Termin"}</option>)}
+          </select>
+        </label>
+      )}
       {incomplete ? <p className="mt-2 text-sm text-slate-400">{car ? "Start und Ziel" : "Haltestelle"} unter „Daten & Einstellungen“ → „Weg zur Uni“ eintragen.</p>
         : car ? <CarView db={db} c={c} session={session} ready={ready} tick={tick} />
         : !ready ? <p className="mt-2 text-sm text-slate-400">Für Abfahrten unter „Daten“ beim Cloud-Sync anmelden.</p>

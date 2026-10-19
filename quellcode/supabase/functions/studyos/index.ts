@@ -173,11 +173,15 @@ async function getJson(fetchImpl, url, opts = {}) {
   if (!res.ok) return { error: res.status === 401 || res.status === 403 ? "Der Kartendienst lehnt den Schl\xFCssel ab. Ist die Routen-API daf\xFCr freigeschaltet?" : `Der Kartendienst meldet Fehler ${res.status}.`, status: 502 };
   return { data };
 }
+var waypoint = (s) => {
+  const m = COORD.exec(s);
+  return m ? { location: { latLng: { latitude: Number(m[1]), longitude: Number(m[2]) } } } : { address: s };
+};
 async function google(from, to, key, fetchImpl) {
   const r = await getJson(fetchImpl, "https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters" },
-    body: JSON.stringify({ origin: { address: from }, destination: { address: to }, travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE", languageCode: "de-DE", regionCode: "de" })
+    body: JSON.stringify({ origin: waypoint(from), destination: waypoint(to), travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE", languageCode: "de-DE", regionCode: "de" })
   });
   if (r.error) return r;
   const route = r.data?.routes?.[0];

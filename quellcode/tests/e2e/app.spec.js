@@ -736,9 +736,9 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await page.getByRole('button', { name: /^Tagesplan/ }).click();
   await expect(page.locator('#heute-plan')).toBeVisible();
   // Mensa lässt sich genauso einklappen
-  await page.getByRole('button', { name: /^Mensa / }).click();
+  await page.getByRole('button', { name: 'Mensa', exact: true }).click();
   await expect(page.locator('#heute-mensa')).toBeHidden();
-  await page.getByRole('button', { name: /^Mensa / }).click();
+  await page.getByRole('button', { name: 'Mensa', exact: true }).click();
   await expect(page.locator('#heute-mensa')).toBeVisible();
   // gespeicherte Varianten aus 2.7.x gelten weiter (glitch → scan)
   await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); d.settings.retroMotion = 'glitch'; await window.STUDYOS_ENV.save(d); });
@@ -759,7 +759,7 @@ test('neuer Nutzer: keine fremden Vorgaben, Studienplan Pharmazeutische Bioproze
   expect(d.settings).toMatchObject({ curriculum: 'tum-bsc-pbt-2022', program: 'Pharmazeutische Bioprozesstechnik', mensa: '', commute: null });
   expect(d.modules.filter((m) => m.gop).map((m) => m.code).sort()).toEqual(['LS30040', 'MA9615', 'PH9035', 'WZ5322']);
   await nav(page, 'Heute').click();
-  await expect(page.getByRole('button', { name: /^Mensa / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Mensa', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Weg zur Uni/ })).toHaveCount(0);
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Studienfortschritt' }).click();

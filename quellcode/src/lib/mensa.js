@@ -47,5 +47,17 @@ export function menuDay(now = new Date()) {
   return { date: iso, label };
 }
 
+/** Zur Auswahl: heute (an Werktagen) und der nächste Werktag; Vorauswahl wie menuDay */
+export function menuDays(now = new Date()) {
+  const d = new Date(now), out = [];
+  const day = (x) => x.toLocaleDateString("sv-SE");
+  const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
+  const label = (x) => (day(x) === day(now) ? "heute" : day(x) === day(t1) ? "morgen" : "am " + x.toLocaleDateString("de-DE", { weekday: "long" }));
+  if (d.getDay() !== 0 && d.getDay() !== 6) out.push({ date: day(d), label: label(d) });
+  do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
+  out.push({ date: day(d), label: label(d) });
+  return out;
+}
+
 /** Gewählte Mensa, leer = keine anzeigen */
 export const mensaOf = (settings = {}) => settings.mensa || "";
