@@ -200,6 +200,155 @@
 :root[data-theme="retro"] .bar { background: var(--surface-3); height: .6rem; }
 :root[data-theme="retro"] .md pre.code-block { background: var(--bg); box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc); }
 
+/* ==== Animationen (Mehr → Daten & Einstellungen → Retro-Animationen), drei Stile zur Wahl ====
+   data-fx auf <html>: arcade (Standard), crt („Röhre“), glitch, off. Alles in harten Stufen (steps), wie bei 8-Bit-Spielen.
+   Regeln dafür: Text wird nie über opacity ausgeblendet (sonst stolpert die Kontrastprüfung mitten in der Animation), und
+   bewegt wird über translate/scale statt transform, damit Wischgesten (.swipe > .row) und :active-Effekte weiter greifen.
+   Endwerte sind „none“, damit nach der Animation kein Stapelkontext oder Bezugsrahmen für fixierte Elemente übrig bleibt. */
+
+/* ---- Für alle drei Stile ---- */
+/* Was beim Hereingleiten seitlich übersteht, erzeugt keinen waagerechten Bildlauf (clip statt hidden: Sticky bleibt intakt) */
+:root[data-theme="retro"] main { overflow-x: clip; }
+/* Blinkender Block-Cursor hinter dem Seitentitel (leerer Inhalt: zählt nicht zum Namen der Überschrift) */
+:root[data-theme="retro"]:is([data-fx="arcade"], [data-fx="crt"], [data-fx="glitch"]) .page-title::after {
+  content: ""; display: inline-block; width: .45em; height: .8em; margin-left: .2em; vertical-align: -.04em;
+  background: var(--accent-2); box-shadow: 0 0 8px rgba(5, 217, 232, .6); animation: rx-blink 1.06s steps(1) infinite;
+}
+/* Synthwave-Sonne steigt und sinkt in Pixelschritten */
+:root[data-theme="retro"]:is([data-fx="arcade"], [data-fx="crt"], [data-fx="glitch"]) .hero::after { animation: rx-sun 7s steps(4) infinite alternate; }
+/* Bildlaufbalken: Neon-Linie unter der Kopfzeile wächst beim Scrollen (nur wo Scroll-Animationen gehen) */
+@supports (animation-timeline: scroll()) {
+  :root[data-theme="retro"]:is([data-fx="arcade"], [data-fx="crt"], [data-fx="glitch"]) .appbar::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; pointer-events: none;
+    background: linear-gradient(to right, var(--accent), var(--warn) 50%, var(--accent-2));
+    transform-origin: left; scale: 0 1; animation: rx-progress linear both; animation-timeline: scroll(root block);
+  }
+}
+/* Tasten: gedrückt hält der Schatten kurz nach (sieht nach Mechanik aus) */
+:root[data-theme="retro"]:is([data-fx="arcade"], [data-fx="crt"], [data-fx="glitch"]) :is(.chip, .tri-btn)[aria-pressed="true"] { animation: rx-press .2s steps(2); }
+/* Abhaken: Pixel-Funken springen aus dem Kästchen */
+:root[data-theme="retro"]:is([data-fx="arcade"], [data-fx="crt"], [data-fx="glitch"]) .row-block .todo-check[aria-checked="true"] { position: relative; animation: rx-check .36s steps(3); }
+:root[data-theme="retro"]:is([data-fx="arcade"], [data-fx="crt"], [data-fx="glitch"]) .row-block .todo-check[aria-checked="true"]::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; pointer-events: none; background: transparent;
+  animation: rx-sparks .5s steps(4) forwards;
+}
+
+@keyframes rx-blink { 0%, 50% { visibility: visible; } 50.01%, 100% { visibility: hidden; } }
+@keyframes rx-sun { from { translate: 0 0; } to { translate: 0 -10px; } }
+@keyframes rx-progress { to { scale: 1 1; } }
+@keyframes rx-press { 0% { translate: 2px 2px; } 100% { translate: none; } }
+@keyframes rx-check { 0% { scale: .6; } 50% { scale: 1.25; } 100% { scale: none; } }
+@keyframes rx-sparks {
+  0% { box-shadow: 0 -8px 0 0 var(--warn), 8px 0 0 0 var(--accent-2), 0 8px 0 0 var(--accent), -8px 0 0 0 var(--ok), 6px -6px 0 0 var(--accent), -6px 6px 0 0 var(--warn), 6px 6px 0 0 var(--ok), -6px -6px 0 0 var(--accent-2); }
+  60% { box-shadow: 0 -16px 0 0 var(--warn), 16px 0 0 0 var(--accent-2), 0 16px 0 0 var(--accent), -16px 0 0 0 var(--ok), 12px -12px 0 0 var(--accent), -12px 12px 0 0 var(--warn), 12px 12px 0 0 var(--ok), -12px -12px 0 0 var(--accent-2); }
+  100% { box-shadow: 0 -20px 0 -2px transparent, 20px 0 0 -2px transparent, 0 20px 0 -2px transparent, -20px 0 0 -2px transparent, 15px -15px 0 -2px transparent, -15px 15px 0 -2px transparent, 15px 15px 0 -2px transparent, -15px -15px 0 -2px transparent; }
+}
+
+/* ---- Stil „Arcade“: Level-Wechsel. Bildschirme gleiten in 5 Pixelschritten aus der Richtung des Tabs herein ---- */
+:root[data-theme="retro"][data-fx="arcade"] .view { animation: rx-slide-next .26s steps(5); }
+:root[data-theme="retro"][data-fx="arcade"] .view[data-dir="prev"] { animation-name: rx-slide-prev; }
+/* Aktiver Tab hüpft, sein Symbol springt hoch wie eine Spielfigur */
+:root[data-theme="retro"][data-fx="arcade"] .tab[aria-current="page"] { animation: rx-hop .3s steps(3); }
+:root[data-theme="retro"][data-fx="arcade"] .tab[aria-current="page"] svg { animation: rx-jump .42s steps(4); }
+:root[data-theme="retro"][data-fx="arcade"] .seg-item[aria-selected="true"] { animation: rx-hop .24s steps(3); }
+/* Dialoge fahren in Stufen hoch, Meldungen rutschen von rechts herein */
+:root[data-theme="retro"][data-fx="arcade"] .sheet-panel { animation: rx-rise .28s steps(6); }
+:root[data-theme="retro"][data-fx="arcade"] .sheet-backdrop { animation: fade .2s steps(4); }
+:root[data-theme="retro"][data-fx="arcade"] .toast { animation: rx-toast-arcade .3s steps(5); }
+:root[data-theme="retro"][data-fx="arcade"] .popover { animation: rx-hop .2s steps(2); }
+/* Beim Scrollen rasten Einträge von links in die Zeile ein */
+@supports (animation-timeline: view()) {
+  :root[data-theme="retro"][data-fx="arcade"] .view :is(.row, .tile, .tl-body) {
+    animation: rx-row-arcade steps(4) both; animation-timeline: view(); animation-range: entry 0% entry 90%;
+  }
+}
+@keyframes rx-slide-next { from { translate: 32px 0; } to { translate: none; } }
+@keyframes rx-slide-prev { from { translate: -32px 0; } to { translate: none; } }
+@keyframes rx-hop { 0% { scale: .86; } 60% { scale: 1.08; } 100% { scale: none; } }
+@keyframes rx-jump { 0% { translate: 0 0; } 40% { translate: 0 -6px; } 70% { translate: 0 1px; } 100% { translate: none; } }
+@keyframes rx-rise { from { translate: 0 48px; } to { translate: none; } }
+@keyframes rx-toast-arcade { 0% { translate: 110% 0; } 70% { translate: -6px 0; } 100% { translate: none; } }
+@keyframes rx-row-arcade { from { translate: -18px 0; } to { translate: none; } }
+
+/* ---- Stil „Röhre“: alter Fernseher. Bildschirme schalten sich als heller Strich ein, ein Lichtstreifen wandert übers Bild ---- */
+:root[data-theme="retro"][data-fx="crt"] .view { transform-origin: 50% 35vh; animation: rx-crt-on .38s steps(8); }
+:root[data-theme="retro"][data-fx="crt"] .sheet-panel { transform-origin: 50% 50%; animation: rx-crt-on .34s steps(8); }
+:root[data-theme="retro"][data-fx="crt"] .sheet-backdrop { animation: fade .16s steps(2); }
+:root[data-theme="retro"][data-fx="crt"] .toast { animation: rx-crt-line .3s steps(6); }
+:root[data-theme="retro"][data-fx="crt"] .popover { animation: rx-flicker .24s steps(4); }
+:root[data-theme="retro"][data-fx="crt"] :is(.tab[aria-current="page"], .seg-item[aria-selected="true"]) { animation: rx-flicker .28s steps(4); }
+/* Seitentitel glimmt leicht nach wie Phosphor */
+:root[data-theme="retro"][data-fx="crt"] .page-title { animation: rx-phosphor 4.2s steps(1) infinite; }
+/* Wandernder Lichtstreifen (über dem Inhalt, unter den Scanlines; klickt nichts weg) */
+:root[data-theme="retro"][data-fx="crt"] #root::after {
+  content: ""; position: fixed; left: 0; right: 0; top: 0; height: 22vh; z-index: 99; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, rgba(5, 217, 232, .035) 45%, rgba(245, 233, 255, .06) 50%, rgba(5, 217, 232, .035) 55%, transparent);
+  animation: rx-roll 9s linear infinite;
+}
+@supports (animation-timeline: view()) {
+  :root[data-theme="retro"][data-fx="crt"] .view :is(.row, .tile, .tl-body) {
+    transform-origin: 50% 50%; animation: rx-row-crt steps(5) both; animation-timeline: view(); animation-range: entry 0% entry 80%;
+  }
+}
+@keyframes rx-crt-on {
+  0% { scale: .5 .012; filter: brightness(4) saturate(0); }
+  35% { scale: 1 .012; filter: brightness(3) saturate(.3); }
+  70% { scale: 1 1.03; filter: brightness(1.6); }
+  100% { scale: none; filter: none; }
+}
+@keyframes rx-crt-line { 0% { scale: .04 .1; filter: brightness(3); } 50% { scale: 1 .1; filter: brightness(2); } 100% { scale: none; filter: none; } }
+@keyframes rx-flicker { 0% { filter: brightness(2.2); } 25% { filter: brightness(.7); } 50% { filter: brightness(1.7); } 100% { filter: none; } }
+@keyframes rx-phosphor {
+  0%, 92%, 100% { text-shadow: -2px 0 0 rgba(5, 217, 232, .7), 2px 0 0 rgba(255, 42, 109, .7), 0 0 10px rgba(255, 42, 109, .35); }
+  94% { text-shadow: -2px 0 0 rgba(5, 217, 232, .9), 2px 0 0 rgba(255, 42, 109, .9), 0 0 18px rgba(255, 42, 109, .7); }
+  96% { text-shadow: -1px 0 0 rgba(5, 217, 232, .5), 1px 0 0 rgba(255, 42, 109, .5), 0 0 4px rgba(255, 42, 109, .2); }
+}
+@keyframes rx-roll { from { translate: 0 -22vh; } to { translate: 0 100vh; } }
+@keyframes rx-row-crt { 0% { scale: 1 .1; filter: brightness(2.4); } 60% { scale: 1 1; filter: brightness(1.5); } 100% { scale: none; filter: none; } }
+
+/* ---- Stil „Glitch“: digitale Störung. Bildschirme bauen sich aus versetzten Streifen auf, Farbränder zittern ---- */
+:root[data-theme="retro"][data-fx="glitch"] .view { animation: rx-glitch-in .34s steps(1); }
+:root[data-theme="retro"][data-fx="glitch"] .sheet-panel { animation: rx-wipe .3s steps(8); }
+:root[data-theme="retro"][data-fx="glitch"] .sheet-backdrop { animation: fade .16s steps(2); }
+:root[data-theme="retro"][data-fx="glitch"] .toast { animation: rx-jitter .3s steps(1); }
+:root[data-theme="retro"][data-fx="glitch"] .popover { animation: rx-jitter .24s steps(1); }
+:root[data-theme="retro"][data-fx="glitch"] :is(.tab[aria-current="page"], .seg-item[aria-selected="true"]) { animation: rx-jitter .26s steps(1); }
+/* Ab und zu zuckt das Logo */
+:root[data-theme="retro"][data-fx="glitch"] .brand { animation: rx-brand 6.5s steps(1) infinite; }
+@supports (animation-timeline: view()) {
+  :root[data-theme="retro"][data-fx="glitch"] .view :is(.row, .tile, .tl-body) {
+    animation: rx-row-glitch steps(6) both; animation-timeline: view(); animation-range: entry 0% entry 80%;
+  }
+}
+@keyframes rx-glitch-in {
+  0% { clip-path: inset(0 0 72% 0); translate: -10px 0; filter: drop-shadow(-4px 0 0 #05d9e8) drop-shadow(4px 0 0 #ff2a6d); }
+  15% { clip-path: inset(28% 0 38% 0); translate: 12px 0; filter: drop-shadow(4px 0 0 #05d9e8) drop-shadow(-4px 0 0 #ff2a6d); }
+  30% { clip-path: inset(8% 0 18% 0); translate: -6px 0; filter: drop-shadow(-3px 0 0 #05d9e8) drop-shadow(3px 0 0 #ff2a6d); }
+  45% { clip-path: inset(0 0 46% 0); translate: 4px 0; filter: drop-shadow(2px 0 0 #05d9e8) drop-shadow(-2px 0 0 #ff2a6d); }
+  60% { clip-path: inset(-40px -40px 6% -40px); translate: -2px 0; filter: drop-shadow(-2px 0 0 #05d9e8) drop-shadow(2px 0 0 #ff2a6d); }
+  80% { clip-path: none; translate: 1px 0; filter: drop-shadow(1px 0 0 #05d9e8) drop-shadow(-1px 0 0 #ff2a6d); }
+  100% { clip-path: none; translate: none; filter: none; }
+}
+@keyframes rx-wipe { from { clip-path: inset(0 0 100% 0); } 99% { clip-path: inset(0 0 0 0); } to { clip-path: none; } }
+@keyframes rx-jitter {
+  0% { translate: -3px 0; filter: drop-shadow(-3px 0 0 #05d9e8) drop-shadow(3px 0 0 #ff2a6d); }
+  25% { translate: 3px 1px; filter: drop-shadow(3px 0 0 #05d9e8) drop-shadow(-3px 0 0 #ff2a6d); }
+  50% { translate: -1px -1px; filter: drop-shadow(-1px 0 0 #05d9e8) drop-shadow(1px 0 0 #ff2a6d); }
+  75% { translate: 1px 0; filter: none; }
+  100% { translate: none; filter: none; }
+}
+@keyframes rx-brand {
+  0%, 95% { translate: none; text-shadow: 2px 2px 0 #4a0e2a, 0 0 8px rgba(255, 42, 109, .45); }
+  96% { translate: -2px 0; text-shadow: -3px 0 0 #05d9e8, 3px 0 0 #ff2a6d; }
+  97% { translate: 3px 0; text-shadow: 3px 0 0 #05d9e8, -3px 0 0 #ff2a6d; }
+  98% { translate: -1px 0; text-shadow: -1px 0 0 #05d9e8, 1px 0 0 #ff2a6d; }
+}
+@keyframes rx-row-glitch {
+  0% { translate: 24px 0; filter: drop-shadow(-4px 0 0 #05d9e8) drop-shadow(4px 0 0 #ff2a6d); }
+  50% { translate: -6px 0; filter: drop-shadow(2px 0 0 #05d9e8) drop-shadow(-2px 0 0 #ff2a6d); }
+  100% { translate: none; filter: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme="retro"] *, :root[data-theme="retro"] *::before, :root[data-theme="retro"] *::after { animation: none !important; transition: none !important; }
 }

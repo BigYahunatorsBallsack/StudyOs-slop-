@@ -221,6 +221,13 @@ export function DataView({ db }) {
             <span className="mb-1 block text-xs text-slate-400">Darstellung</span>
             <Tabs items={[["dark", "Dunkel"], ["light", "Hell"], ["retro", "Retro"], ["system", "Wie System"]]} value={data.settings.theme || "dark"} onChange={(v) => db.patchSettings({ theme: v })} label="Darstellung" />
           </div>
+          {data.settings.theme === "retro" && (
+            <div className="col-span-2">
+              <span className="mb-1 block text-xs text-slate-400">Retro-Animationen</span>
+              <Tabs items={[["arcade", "Arcade"], ["crt", "Röhre"], ["glitch", "Glitch"], ["off", "Keine"]]} value={data.settings.retroFx || "arcade"} onChange={(v) => db.patchSettings({ retroFx: v })} label="Retro-Animationen" />
+              <p className="mt-1 text-xs text-slate-500">{{ arcade: "Bildschirme gleiten in Pixel-Schritten herein, Tabs hüpfen, Erledigtes blinkt wie eingesammelte Münzen.", crt: "Wie ein alter Röhrenfernseher: Bildschirme schalten sich ein, ein Lichtstreifen läuft über das Bild.", glitch: "Digitale Störungen: Bildschirme bauen sich aus versetzten Streifen auf, Farbränder zittern kurz.", off: "Keine Animationen im Retro-Theme." }[data.settings.retroFx || "arcade"]}</p>
+            </div>
+          )}
           <div>
             <label htmlFor="st-ects" className="mb-1 block text-xs text-slate-400">ECTS-Ziel (Studiengang)</label>
             <input id="st-ects" type="number" min="1" className={inputCls} value={data.settings.targetEcts} onChange={(e) => db.patchSettings({ targetEcts: Math.max(1, Number(e.target.value) || 1) })} />

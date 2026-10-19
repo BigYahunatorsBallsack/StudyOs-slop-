@@ -1,7 +1,7 @@
-/* Farbschema: dunkel, hell, retro oder wie das System */
-import { useEffect } from "react";
+/* Farbschema: dunkel, hell, retro oder wie das System; fx = Animationsstil im Retro-Theme (arcade, crt, glitch, off) */
+import { useEffect, useRef } from "react";
 
-export function useTheme(theme) {
+export function useTheme(theme, fx = "arcade") {
   useEffect(() => {
     const root = document.documentElement;
     const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -15,4 +15,12 @@ export function useTheme(theme) {
     apply();
     if (theme === "system" && mq && mq.addEventListener) { mq.addEventListener("change", apply); return () => mq.removeEventListener("change", apply); }
   }, [theme]);
+  // Neuer Stil: Bildschirmwechsel einmal abspielen, damit man ihn in den Einstellungen gleich sieht
+  const first = useRef(true);
+  useEffect(() => {
+    document.documentElement.dataset.fx = fx;
+    if (first.current) { first.current = false; return; }
+    const view = document.querySelector(".view");
+    if (view) { view.style.animation = "none"; void view.offsetWidth; view.style.animation = ""; }
+  }, [fx]);
 }

@@ -41,6 +41,7 @@ export default function App() {
   const { data, setData, dataRef, ready, loadError, saveState, saveNow, updateReady, installReady, setInstallReady } = usePersistence();
   const [tab, setTab] = useState("heute");
   const [moduleId, setModuleId] = useState(null);
+  const lastView = useRef({ key: tab, tab, dir: "next" });
   const [learnTab, setLearnTab] = useState("timer");
   const [moreTab, setMoreTab] = useState("rueckblick");
   const [cardFilter, setCardFilter] = useState("");
@@ -59,7 +60,7 @@ export default function App() {
   const closeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
 
   /* Farbschema: dunkel, hell oder wie das System */
-  useTheme(data.settings.theme || "dark");
+  useTheme(data.settings.theme || "dark", data.settings.retroFx || "arcade");
 
   /* Geteilter Kartenstapel (?teilen=…#k=…) */
   const [shareIn, setShareIn] = useState(null);
@@ -282,6 +283,13 @@ export default function App() {
   };
 
   const nav = [["heute", "Heute", "today"], ["module", "Module", "modules"], ["woche", "Woche", "week"], ["lernen", "Lernen", "learn"], ["mehr", "Mehr", "more"]];
+  /* Bildschirm und Richtung des Wechsels (für die Retro-Animationen): nach rechts in der Leiste oder ins Modul = „next“ */
+  const order = (k) => nav.findIndex((n) => n[0] === k);
+  const viewKey = tab + (tab === "module" && moduleId ? ":" + moduleId : "");
+  if (lastView.current.key !== viewKey) {
+    const prev = lastView.current;
+    lastView.current = { key: viewKey, tab, dir: (prev.tab === tab ? !moduleId : order(tab) < order(prev.tab)) ? "prev" : "next" };
+  }
   const backupAge = data.meta?.lastBackup ? diffDays(data.meta.lastBackup.slice(0, 10), iso()) : null;
   const hasData = data.modules.length + data.logs.length + data.notes.length > 0;
   const noteObj = noteView ? data.notes.find((n) => n.id === noteView) : null;
@@ -347,6 +355,7 @@ export default function App() {
           </div>
         )}
         <Suspense fallback={<Loading />}>
+        <div key={viewKey} className="view" data-dir={lastView.current.dir}>
         {tab === "heute" && <Today db={db} onQuick={() => setQuickOpen(true)} whatNowOpen={whatNowOpen} setWhatNowOpen={setWhatNowOpen} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
           <div className="notice notice-plain flex items-center gap-3">
             <p className="flex-1">{backupAge === null ? "Du hast noch keine Sicherung exportiert." : `Letzte Sicherung vor ${backupAge} Tagen.`} Deine Daten liegen nur auf diesem Gerät. Sichere sie oder schalte den Cloud-Sync ein.</p>
@@ -357,6 +366,7 @@ export default function App() {
         {tab === "woche" && <WeekView db={db} />}
         {tab === "lernen" && <Learn db={db} sub={learnTab} setSub={setLearnTab} timer={timerApi} cardFilter={cardFilter} setCardFilter={setCardFilter} />}
         {tab === "mehr" && <More db={db} sub={moreTab} setSub={setMoreTab} />}
+        </div>
         </Suspense>
         <p className="mt-10 text-center text-[11px] text-slate-600">StudyOS {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}, Datenformat {DATA_VERSION}</p>
       </main>

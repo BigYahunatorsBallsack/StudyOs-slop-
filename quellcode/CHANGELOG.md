@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2.8.0
+- **Retro-Animationen** (Mehr → Daten & Einstellungen → Retro-Animationen, nur im Farbschema Retro): drei Stile zur Wahl, alle in harten 8-Bit-Stufen.
+  - **Arcade** (Standard): Bildschirme gleiten aus der Richtung des gewählten Tabs herein (nach rechts in der Leiste von rechts, zurück von links; ins Modul hinein und wieder heraus genauso), der aktive Tab hüpft und sein Symbol springt, Dialoge fahren stufenweise hoch, Meldungen rutschen von rechts herein, Einträge rasten beim Scrollen von links ein.
+  - **Röhre:** wie ein alter Fernseher. Bildschirme und Dialoge schalten sich als heller Strich ein, Tabs flackern, der Seitentitel glimmt nach, ein schwacher Lichtstreifen läuft über das Bild.
+  - **Glitch:** Bildschirme bauen sich aus versetzten Streifen mit Cyan/Pink-Farbrändern auf, Dialoge werden zeilenweise aufgedeckt, Tabs und Meldungen zittern kurz, das Logo zuckt ab und zu.
+  - **Keine:** schaltet die Animationen ab.
+  - In allen Stilen: blinkender Cursor hinter dem Seitentitel, die Synthwave-Sonne steigt und sinkt, eine Neon-Linie unter der Kopfzeile zeigt, wie weit gescrollt ist, abgehakte Lernblöcke sprühen Pixel-Funken. Beim Wechsel des Stils wird er einmal vorgeführt.
+- „Bewegung reduzieren“ im System schaltet weiterhin alle Animationen ab. Dunkel und Hell sind unverändert.
+- Tests: eigener E2E-Test für die Stile.
+
 ## 2.7.0
 - **Farbschema „Retro“** (Mehr → Daten & Einstellungen → Darstellung): Neon-Pixel-Look wie ein Videospiel-Menü. Nachtviolett mit Neon-Pink und Cyan, Pixel-Schrift (Silkscreen) für Überschriften, Knöpfe und Tabs, JetBrains Mono für Text, VT323 für große Zahlen. Keine Rundungen, Pixel-Ränder mit ausgeschnittenen Ecken und harte Schatten, dezente Scanlines, eine Pixel-Skyline bei Nacht im Hintergrund und eine Synthwave-Sonne auf „Als Nächstes“. Modulfarben erscheinen als Neon-Rand statt als Fläche. Alle Texte erfüllen WCAG AA; Dunkel und Hell sind unverändert.
 - Die Schriften liegen in der App (kein externes CDN) und werden nur geladen, wenn Retro aktiv ist.

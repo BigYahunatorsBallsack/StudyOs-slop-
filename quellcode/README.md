@@ -18,7 +18,7 @@ StudyOS ist eine private, offlinefähige Progressive Web App fürs Studium. Alle
 | `supabase/functions/studyos/index.ts` | Gebaute Edge Function zum Einfügen im Dashboard |
 | `supabase/EINRICHTUNG.md` | Einrichtung von Erinnerungen und Stundenplan-Abo |
 | `src/design.css` | Designsystem (Tokens, Komponenten, hell/dunkel) |
-| `src/retro.css` | Farbschema „Retro“ (nur unter `data-theme="retro"`, eigene Schriften); Grafiken aus `tools/retro_skyline.py` |
+| `src/retro.css` | Farbschema „Retro“ (nur unter `data-theme="retro"`, eigene Schriften) samt Animationsstilen Arcade/Röhre/Glitch (`data-fx`); Grafiken aus `tools/retro_skyline.py` |
 | `src/runtime.js` | Lokale Speicherung (IndexedDB + Notfallkopie), Wiederherstellungspunkte, PWA |
 | `src/style.css` | Utility-Klassen (Farben über Tokens) |
 | `tests/unit/` | Unit-Tests (Vitest) für `src/lib/` |

@@ -689,3 +689,32 @@ test('Farbschema Retro: alle Bereiche ohne horizontales Scrollen, Dunkel und Hel
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe(darkBg);
 });
+
+test('Retro-Animationen: Stil wählen, Bildschirmwechsel animiert, „Keine“ schaltet ab', async ({ page }) => {
+  await loadDemo(page);
+  await openData(page);
+  await expect(page.getByRole('tablist', { name: 'Retro-Animationen' })).toHaveCount(0); // nur im Retro-Theme
+  await page.getByRole('tab', { name: 'Retro' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-fx', 'arcade');
+  const viewAnim = () => page.evaluate(() => document.querySelector('.view').getAnimations().map((a) => a.animationName));
+  for (const [label, fx, anim] of [['Röhre', 'crt', 'rx-crt-on'], ['Glitch', 'glitch', 'rx-glitch-in'], ['Arcade', 'arcade', 'rx-slide-prev']]) {
+    await page.getByRole('tab', { name: label }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-fx', fx);
+    await nav(page, 'Woche').click();
+    expect(await viewAnim()).toContain(anim);
+    await expect.poll(viewAnim).toEqual([]); // läuft nur einmal
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), fx).toBe(true);
+    await openData(page);
+  }
+  // Arcade: nach links in der Leiste (Mehr → Woche oben) gleitet der Bildschirm von links herein, nach rechts von rechts
+  await nav(page, 'Heute').click();
+  await nav(page, 'Woche').click();
+  expect(await viewAnim()).toContain('rx-slide-next');
+  await openData(page);
+  await page.getByRole('tab', { name: 'Keine' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-fx', 'off');
+  await nav(page, 'Woche').click();
+  expect(await viewAnim()).toEqual([]);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-fx', 'off');
+});
