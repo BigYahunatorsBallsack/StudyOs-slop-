@@ -3,7 +3,7 @@
    wiedererkannt wird. Eigene Häkchen (vorbereitet, besucht, nachbereitet) bleiben dabei erhalten. */
 import { guessType } from "./ics.js";
 import { PALETTE } from "./constants.js";
-import { iso, uid as newId } from "./util.js";
+import { addDays, iso, uid as newId } from "./util.js";
 import { baseName } from "./modules.js";
 
 export const SKIP = "__skip";
@@ -48,6 +48,37 @@ export function resolveNewModules(data, map) {
     resolved[summary] = m.id;
   }
   return { modules, map: resolved };
+}
+
+/* Änderungen an Terminen der nächsten drei Wochen werden auf „Heute“ gemeldet: `change.was` hält die Werte vor der ersten
+   noch nicht bestätigten Änderung (Raum, Zeit, Datum), `change.wasCancelled` ob er damals ausfiel. „Verstanden“ setzt `change` auf null. */
+export const CHANGE_FIELDS = ["date", "start", "end", "room"];
+export const SOON_DAYS = 7; /* so bald anstehende Termine, die aus dem Kalender verschwinden, bleiben als „fällt aus“ stehen */
+export const CHANGE_DAYS = 21;
+function noteChange(cur, apply, today) {
+  const soon = (d) => !!d && d >= today && d <= addDays(today, CHANGE_DAYS);
+  if (!soon(cur.date) && !soon(apply.date)) return cur;
+  const next = { ...cur, ...apply }, prev = cur.change || null;
+  const was = { ...Object.fromEntries(CHANGE_FIELDS.filter((k) => (cur[k] ?? "") !== (next[k] ?? "")).map((k) => [k, cur[k] ?? ""])), ...(prev?.was || {}) };
+  /* zurück auf den alten Stand: nichts mehr zu melden */
+  const moved = Object.fromEntries(Object.entries(was).filter(([k, v]) => v !== (next[k] ?? "")));
+  const wasCancelled = prev ? !!prev.wasCancelled : !!cur.cancelled;
+  if (!Object.keys(moved).length && wasCancelled === !!next.cancelled) return prev ? { ...cur, change: null } : cur;
+  return { ...cur, change: { at: new Date().toISOString(), was: moved, wasCancelled } };
+}
+
+/** Gemeldete, noch nicht bestätigte Änderungen ab heute, nach Datum. */
+export const feedChanges = (sessions, today = iso()) => sessions.filter((s) => s.change && s.date >= today).sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
+
+/** Lesbare Beschreibung einer Änderung, z. B. „Raum: MI HS 1 → Interims 1“ oder „fällt aus“. */
+export function describeChange(s) {
+  const c = s.change || {}, was = c.was || {}, parts = [];
+  if (s.cancelled && !c.wasCancelled) parts.push("fällt aus");
+  if (!s.cancelled && c.wasCancelled) parts.push("findet wieder statt");
+  if ("date" in was) parts.push(`verschoben vom ${was.date.split("-").reverse().join(".")}`);
+  if ("start" in was || "end" in was) parts.push(`Zeit: ${was.start ?? s.start}–${was.end ?? s.end} → ${s.start}–${s.end}`);
+  if ("room" in was) parts.push(`Raum: ${was.room || "ohne"} → ${s.room || "ohne"}`);
+  return parts.join(", ") || "geändert";
 }
 
 const touched = (s, notes) => s.prepared || s.attended || s.reviewed || notes.some((n) => n.sessionId === s.id);
@@ -126,7 +157,7 @@ export function applyFeed(data, events, map, today = iso()) {
     const changed = Object.keys(apply).some((k) => (cur[k] ?? "") !== (apply[k] ?? ""));
     if (changed) {
       if (apply.cancelled && !cur.cancelled) stats.cancelled++; else stats.updated++;
-      cur = { ...cur, ...apply };
+      cur = { ...noteChange(cur, apply, today), ...apply };
     }
     if (changed || existing.length > 1) put(cur);
   }
@@ -137,7 +168,8 @@ export function applyFeed(data, events, map, today = iso()) {
     if (drop.has(s.id)) continue;
     /* Schutz: Ein leerer Kalender (z. B. Störung beim Anbieter) löscht nichts */
     if (events.length && s.feedKey && !seen.has(s.feedKey) && s.date >= today) {
-      if (touched(s, data.notes)) { if (!s.cancelled) { final.push({ ...s, cancelled: true }); stats.cancelled++; continue; } }
+      /* bearbeitete und bald anstehende Termine bleiben als „fällt aus“ stehen, damit man den Ausfall sieht */
+      if (touched(s, data.notes) || s.date <= addDays(today, SOON_DAYS)) { if (!s.cancelled) { final.push({ ...noteChange(s, { cancelled: true }, today), cancelled: true }); stats.cancelled++; continue; } }
       else { stats.removed++; continue; }
     }
     final.push(s);

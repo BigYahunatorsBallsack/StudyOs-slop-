@@ -233,6 +233,41 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .allday span { border-radius: 6px; font-size: .6rem; font-weight: 700; padding: .12rem .25rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .allday .ad-hw { background: color-mix(in srgb, var(--mod) 30%, var(--surface)); color: var(--text); }
 .allday .ad-exam { background: var(--danger); color: #fff; }
+.grid-day.off { color: var(--faint); }
+.grid-off { display: block; font-size: .55rem; font-weight: 600; line-height: 1.1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 2px; }
+
+/* ---- Breiter Bildschirm: „Heute“ links, Woche rechts ---- */
+.main-wide { max-width: 78rem; }
+.split { display: grid; grid-template-columns: minmax(0, 44rem) minmax(0, 1fr); gap: 2rem; align-items: start; }
+.split-main { min-width: 0; }
+.split-side { position: sticky; top: 4.2rem; max-height: calc(100vh - 5rem); overflow-y: auto; overscroll-behavior: contain; padding-right: .25rem; }
+.split-side .grid-head { top: 0; }
+
+/* ---- Monatsansicht ---- */
+.month { display: flex; flex-direction: column; gap: 4px; }
+.month-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.month-head span { text-align: center; font-size: .7rem; font-weight: 600; color: var(--muted); }
+.month-day { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 3.6rem; padding: .3rem; border-radius: 10px; background: var(--surface); color: var(--text); text-align: left; }
+.month-day.other { opacity: .45; }
+.month-day.off { background: repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--surface-2) 6px 12px); color: var(--muted); }
+.month-day.today { box-shadow: inset 0 0 0 2px var(--accent); }
+.month-day.has-exam { box-shadow: inset 0 0 0 2px var(--danger); }
+.month-day.today.has-exam { box-shadow: inset 0 0 0 2px var(--danger), inset 0 0 0 4px var(--accent); }
+.month-num { font-family: var(--font-display); font-weight: 700; font-size: .85rem; line-height: 1; }
+.month-dots { display: flex; flex-wrap: wrap; gap: 3px; }
+.mdot { width: 7px; height: 7px; border-radius: 50%; background: var(--mod, var(--accent)); }
+.mdot-done { opacity: .35; }
+.mdot-exam { background: var(--danger); width: 9px; height: 9px; }
+.mdot-more { font-size: .55rem; color: var(--muted); line-height: 7px; }
+.month-ses { position: absolute; right: .3rem; bottom: .2rem; font-size: .6rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+/* ---- Stundenplan-Änderungen auf „Heute“ ---- */
+.changes { border-left: 3px solid var(--warn); }
+.change-row { display: flex; align-items: center; gap: .5rem; padding-left: .5rem; border-left: 3px solid var(--mod, var(--line-strong)); }
+
+/* ---- Verlinkte Notizen ---- */
+.wiki-link { color: var(--accent-text); text-decoration: underline dotted; text-underline-offset: 2px; }
+.wiki-link.missing { color: var(--muted); text-decoration-style: dashed; cursor: help; }
 
 /* ---- Bewegung (nur als Antwort auf Aktionen) ---- */
 @keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }

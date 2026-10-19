@@ -23,8 +23,19 @@ function CodeBlock({ code, lang }) {
   );
 }
 
+/* Verlinkte Notizen ([[Titel]]): nur in der Notizansicht klickbar, sonst einfacher Text */
+export const WikiCtx = React.createContext(null);
+function WikiLink({ name, label }) {
+  const w = React.useContext(WikiCtx);
+  const text = label || name;
+  if (!w) return <span>{text}</span>;
+  const target = w.resolve(name);
+  if (!target) return <span className="wiki-link missing" title={`Keine Notiz „${name}“`}>{text}</span>;
+  return <button type="button" className="wiki-link" onClick={() => w.open(target.id)}>{text}</button>;
+}
+
 export function mdInline(text, keyBase) {
-  const out = []; const re = /(`[^`]+`)|(\$(?=\S)[^$\n]*?\S\$|\$\S\$)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
+  const out = []; const re = /(`[^`]+`)|(\$(?=\S)[^$\n]*?\S\$|\$\S\$)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[\[[^\]\n]+\]\])|(\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
   let last = 0, m, i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
@@ -33,7 +44,8 @@ export function mdInline(text, keyBase) {
     else if (m[2]) out.push(<MathTex key={k} tex={m[2].slice(1, -1)} />);
     else if (m[3]) out.push(<strong key={k}>{mdInline(m[3].slice(2, -2), k)}</strong>);
     else if (m[4]) out.push(<em key={k}>{m[4].slice(1, -1)}</em>);
-    else if (m[5]) out.push(<a key={k} href={m[6]} target="_blank" rel="noopener noreferrer">{m[5].slice(1, m[5].indexOf("]"))}</a>);
+    else if (m[5]) { const [name, label] = m[5].slice(2, -2).split("|"); out.push(<WikiLink key={k} name={name.trim()} label={label?.trim()} />); }
+    else if (m[6]) out.push(<a key={k} href={m[7]} target="_blank" rel="noopener noreferrer">{m[6].slice(1, m[6].indexOf("]"))}</a>);
     last = re.lastIndex;
   }
   if (last < text.length) out.push(text.slice(last));

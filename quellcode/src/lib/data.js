@@ -1,11 +1,13 @@
 import { COLLS, DATA_VERSION, DEFAULT_SETTINGS, DONE_HW, PALETTE } from "./constants.js";
 import { LEGACY_COMMUTE } from "./transit.js";
 import { addDays, diffDays, fmt, fmtMin, fmtShort, isHeld, iso, sum, uid, weekStart } from "./util.js";
+import { offDay } from "./holidays.js";
 
-export function buildWeeklySeries(base, repeatUntil) {
+/* Wöchentliche Serie; Feiertage und vorlesungsfreie Wochen werden übersprungen (der erste Termin bleibt immer) */
+export function buildWeeklySeries(base, repeatUntil, settings = null) {
   const seriesId = uid(); const items = []; let date = base.date;
-  while (date <= repeatUntil && items.length < 52) {
-    items.push({ ...base, date, id: uid(), seriesId, cancelled: false, prepared: false, attended: false, reviewed: false, reviewedAt: null });
+  for (let i = 0; date <= repeatUntil && items.length < 52 && i < 104; i++) {
+    if (!i || !settings || !offDay(date, settings)) items.push({ ...base, date, id: uid(), seriesId, cancelled: false, prepared: false, attended: false, reviewed: false, reviewedAt: null });
     date = addDays(date, 7);
   }
   return items;

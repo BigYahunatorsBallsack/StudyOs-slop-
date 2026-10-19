@@ -1160,3 +1160,97 @@ test('Tab-Zeilen brechen am PC um, statt rechts abgeschnitten zu werden', async 
   }
   await expect(page.getByRole('tab', { name: 'Daten & Einstellungen' })).toBeInViewport({ ratio: 1 });
 });
+
+test('Monatsansicht: Punkte für Abgaben und Prüfungen, ein Tag öffnet seine Woche', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Monat' }).click();
+  const grid = page.getByRole('grid');
+  await expect(grid).toBeVisible();
+  const t = new Date().toLocaleDateString('sv-SE');
+  const month = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][Number(t.slice(5, 7)) - 1];
+  await expect(page.getByRole('heading', { name: `${month} ${t.slice(0, 4)}` })).toBeVisible();
+  await expect(grid.locator('.mdot').first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Nächster Monat' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Heute', exact: true }).click();
+  await grid.getByRole('gridcell', { name: new RegExp(`^${Number(t.slice(8))}\\. ${month}`) }).click();
+  await expect(page.getByRole('tab', { name: 'Raster' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.grid-day.today')).toBeVisible();
+});
+
+test('Breiter Bildschirm: Heute und Woche nebeneinander, abschaltbar', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  const side = page.getByRole('complementary', { name: 'Woche' });
+  await expect(side.locator('.grid-col').first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Als Nächstes' })).toBeVisible();
+  const [a, b] = await Promise.all([page.locator('.split-main').boundingBox(), side.boundingBox()]);
+  expect(b.x).toBeGreaterThan(a.x + a.width - 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await openData(page);
+  await page.getByLabel('Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen').uncheck();
+  await nav(page, 'Heute').click();
+  await expect(side).toHaveCount(0);
+});
+
+test('Feiertage: Termin an Allerheiligen fällt aus, Rückgängig holt ihn zurück', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const y = new Date().getFullYear() + 1;
+    await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '', defaultsRev: 2 }, meta: { lastBackup: new Date().toISOString() },
+      modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
+      sessions: [{ id: 'fei', moduleId: 'ds', type: 'Vorlesung', date: `${y}-11-01`, start: '10:00', end: '12:00' }, { id: 'nor', moduleId: 'ds', type: 'Vorlesung', date: `${y}-11-02`, start: '10:00', end: '12:00' }],
+      homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await page.reload();
+  await expect(page.getByText('1 Termin fällt wegen Feiertag oder vorlesungsfreier Zeit aus.')).toBeVisible();
+  await expect.poll(async () => (await session(page, 'fei'))?.cancelled).toBe(true);
+  expect(await session(page, 'fei')).toMatchObject({ offReason: 'Allerheiligen', offChecked: true });
+  expect((await session(page, 'nor')).cancelled).toBeFalsy();
+  await page.getByRole('button', { name: 'Rückgängig' }).click();
+  await expect.poll(async () => (await session(page, 'fei'))?.cancelled).toBe(false);
+  await page.reload();
+  await expect(page.getByText('wegen Feiertag')).toHaveCount(0);
+  expect((await session(page, 'fei')).cancelled).toBe(false);
+});
+
+test('Stundenplan-Änderung erscheint auf Heute, „Verstanden“ blendet sie aus', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const t = new Date(); t.setDate(t.getDate() + 2);
+    const d = t.toLocaleDateString('sv-SE');
+    await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '', defaultsRev: 2 }, meta: { lastBackup: new Date().toISOString() },
+      modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
+      sessions: [{ id: 'chg', moduleId: 'ds', type: 'Vorlesung', date: d, start: '12:00', end: '14:00', room: 'Interims 1', feedKey: 'x|1', change: { at: new Date().toISOString(), was: { room: 'MI HS 1', start: '10:00' }, wasCancelled: false } }],
+      homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await page.reload();
+  const box = page.getByRole('region', { name: 'Stundenplan geändert' });
+  await expect(box.getByText('Zeit: 10:00–14:00 → 12:00–14:00, Raum: MI HS 1 → Interims 1')).toBeVisible();
+  await box.getByRole('button', { name: /^Verstanden/ }).click();
+  await expect(box).toHaveCount(0);
+  await expect.poll(async () => (await session(page, 'chg'))?.change).toBeNull();
+});
+
+test('Notizen verlinken: [[Titel]] öffnet die andere Notiz, dort steht „Verlinkt von“', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '', defaultsRev: 2 }, meta: { lastBackup: new Date().toISOString() },
+      modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
+      notes: [{ id: 'n1', moduleId: 'ds', title: 'Rekursion', text: 'Beweis per [[Induktion]], offen: [[Graphen]]', updated: '2026-10-19' }, { id: 'n2', moduleId: 'ds', title: 'Induktion', text: 'Basisfall und Schritt.', updated: '2026-10-19' }],
+      sessions: [], homework: [], topics: [], logs: [], cards: [], exams: [] });
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click(); /* Knopf statt Tastenkürzel: wartet, bis die App bereit ist */
+  await page.getByLabel('Suchbegriff').fill('Rekursion');
+  await page.keyboard.press('Enter');
+  const dlg = page.getByRole('dialog', { name: 'Rekursion' });
+  await expect(dlg.getByText('Graphen')).toHaveAttribute('title', 'Keine Notiz „Graphen“');
+  await dlg.getByRole('button', { name: 'Induktion' }).click();
+  const other = page.getByRole('dialog', { name: 'Induktion' });
+  await expect(other.getByText('Basisfall und Schritt.')).toBeVisible();
+  await other.getByRole('button', { name: 'Rekursion' }).click();
+  await expect(page.getByRole('dialog', { name: 'Rekursion' })).toBeVisible();
+});

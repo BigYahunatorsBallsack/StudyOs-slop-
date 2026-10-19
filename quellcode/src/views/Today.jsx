@@ -22,6 +22,8 @@ import { CustomizeToday } from "../ui/CustomizeToday.jsx";
 import { Setup } from "../ui/Setup.jsx";
 import { SubtaskProgress } from "../ui/subtasks.jsx";
 import { subProgress } from "../lib/subtasks.js";
+import { offDay } from "../lib/holidays.js";
+import { describeChange, feedChanges } from "../lib/feed.js";
 
 /* ---------------- Heute ---------------- */
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
@@ -79,11 +81,14 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const nextDay = todays.length ? null : data.sessions.filter((s) => s.date > t && isActive(s)).sort(byTime)[0];
   const goals = moduleGoals(data, t);
   const week = weekCard(data, t);
+  const off = offDay(t, data.settings);
+  const changes = feedChanges(data.sessions, t);
   const longDate = new Date(t + "T00:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long" });
 
   /* Bereiche der Seite; Reihenfolge und Sichtbarkeit wählt man unter „Heute anpassen“ */
   const blocks = {
     next: <NextUp db={db} openReviews={openReviews} cardsDue={cardsDue} />,
+    changes: changes.length > 0 && <FeedChanges db={db} list={changes} />,
     quick: (
       <div className="mt-3 flex gap-2">
         <button className="quick min-w-0 flex-1" onClick={onQuick}>
@@ -153,7 +158,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
     <div>
       <div className="mb-4">
         <h2 className="page-title">{WD_LONG[wdIdx(t)]}</h2>
-        <p className="page-sub">{longDate}, Woche {isoWeek(t)}</p>
+        <p className="page-sub">{longDate}, Woche {isoWeek(t)}{off ? `, ${off.label}` : ""}</p>
       </div>
 
       {notice && <div className="mb-3">{notice}</div>}
@@ -168,6 +173,30 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   );
 }
 
+/* Vom Stundenplan-Abo gemeldete Änderungen (Raum, Zeit, Ausfall) der nächsten Wochen, bis man sie bestätigt */
+function FeedChanges({ db, list }) {
+  const seen = (ids) => db.change((d) => ({ ...d, sessions: d.sessions.map((s) => (ids.includes(s.id) ? { ...s, change: null } : s)) }));
+  return (
+    <section className="changes surface mt-3" aria-label="Stundenplan geändert">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="section-title">Stundenplan geändert</h3>
+        {list.length > 1 && <button className="link-btn" onClick={() => seen(list.map((s) => s.id))}>Alle verstanden</button>}
+      </div>
+      <ul className="mt-2 space-y-2">
+        {list.map((s) => { const m = db.mod(s.moduleId); return (
+          <li key={s.id} className="change-row" style={{ "--mod": m?.color }}>
+            <button className="row-main min-w-0 flex-1" onClick={() => db.openForm("session", s)}>
+              <span className="row-title block truncate">{m?.name || s.type}, {fmtShort(s.date)} {s.start}</span>
+              <span className={`row-meta block ${s.cancelled ? "todo-late" : ""}`}>{describeChange(s)}</span>
+            </button>
+            <button className="btn btn-ghost shrink-0" onClick={() => seen([s.id])} aria-label={`Verstanden: ${m?.name || s.type} am ${fmtShort(s.date)}`}>Verstanden</button>
+          </li>
+        ); })}
+      </ul>
+    </section>
+  );
+}
+
 /* Ein Termin im Tagesplan: Uhrzeit, Modul, Raum und die drei Schalter */
 function TimelineRow({ s, db }) {
   const m = db.mod(s.moduleId), now = nowHM();
@@ -178,7 +207,7 @@ function TimelineRow({ s, db }) {
       <div className="tl-body">
         <button className="row-main" onClick={() => db.openForm("session", s)}>
           <p className={`row-title truncate ${s.cancelled ? "line-through" : ""}`}>{m?.name || "Ohne Modul"}</p>
-          <p className="row-meta truncate">{s.type}{s.room ? `, ${s.room}` : ""}{s.cancelled ? ", fällt aus" : state === "live" ? ", läuft gerade" : ""}</p>
+          <p className="row-meta truncate">{s.type}{s.room ? `, ${s.room}` : ""}{s.cancelled ? `, fällt aus${s.offReason ? ` (${s.offReason})` : ""}` : state === "live" ? ", läuft gerade" : ""}</p>
         </button>
         {!s.cancelled && <div className="mt-2"><SessionTri s={s} db={db} compact color={m?.color} /></div>}
         {!s.cancelled && <PlaceLinks room={s.room} live={m?.liveUrl} className="mt-1.5" />}
