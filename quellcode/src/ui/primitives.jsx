@@ -99,9 +99,10 @@ export function Chip({ on, onClick, label, warn, color }) {
   );
 }
 
-export function Empty({ children, action }) {
+/** Leerer Zustand. art: Pixel-Bild im Retro-Look (book, card, check, hourglass, trophy, star, flag, bowl); ohne art der Space Invader. */
+export function Empty({ children, action, art }) {
   return (
-    <div className="empty">
+    <div className="empty" data-art={art}>
       <p>{children}</p>
       {action && <div className="mt-3">{action}</div>}
     </div>

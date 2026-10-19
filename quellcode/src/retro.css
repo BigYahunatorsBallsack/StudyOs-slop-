@@ -351,6 +351,16 @@ html[data-size="large"] { font-size: 112.5%; }
 
 /* Leere Listen: ein kleiner Space Invader */
 :root[data-theme="retro"] .empty::before { content: ""; display: block; width: 44px; height: 32px; margin: 0 auto .7rem; background: var(--px-invader) center / 44px 32px no-repeat; image-rendering: pixelated; }
+/* Leere Listen mit eigenem Bild (Empty art=…): steht still, nur der Invader ohne Bild bewegt sich */
+:root[data-theme="retro"] .empty[data-art]::before { width: 48px; height: 44px; background: var(--empty-art) center / contain no-repeat; }
+:root[data-theme="retro"] .empty[data-art="book"] { --empty-art: var(--px-book); }
+:root[data-theme="retro"] .empty[data-art="card"] { --empty-art: var(--px-card); }
+:root[data-theme="retro"] .empty[data-art="check"] { --empty-art: var(--px-check); }
+:root[data-theme="retro"] .empty[data-art="hourglass"] { --empty-art: var(--px-hourglass); }
+:root[data-theme="retro"] .empty[data-art="trophy"] { --empty-art: var(--px-trophy); }
+:root[data-theme="retro"] .empty[data-art="star"] { --empty-art: var(--px-star); }
+:root[data-theme="retro"] .empty[data-art="flag"] { --empty-art: var(--px-flag); }
+:root[data-theme="retro"] .empty[data-art="bowl"] { --empty-art: var(--px-bowl); }
 
 /* Wochenraster: Jetzt-Linie mit Pixel-Pfeil */
 :root[data-theme="retro"] .grid-now::before { left: -6px; top: -6px; width: 8px; height: 14px; background: var(--px-arrow) center / 8px 14px no-repeat; image-rendering: pixelated; }
@@ -400,7 +410,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"][data-motion="pixel"] .popover { animation: px-p-pop .1s steps(2, end); }
 :root[data-theme="retro"][data-motion="pixel"] .group-opening { animation: px-p-drop .12s steps(2, end); }
 :root[data-theme="retro"][data-motion="pixel"] .group-closing { animation: px-p-fold .12s steps(2, end) forwards; }
-:root[data-theme="retro"][data-motion="pixel"] .empty::before { animation: px-p-shuffle 1.2s steps(1, end) infinite; }
+:root[data-theme="retro"][data-motion="pixel"] .empty:not([data-art])::before { animation: px-p-shuffle 1.2s steps(1, end) infinite; }
 
 /* ---- 2) Neon: Leuchtreklame. Was du berührst, glüht in seiner Randfarbe; Auswahl, Dialoge und Meldungen
    leuchten beim Erscheinen kurz auf und klingen ab ---- */
@@ -425,7 +435,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"][data-motion="neon"] .popover { animation: px-n-rise .12s cubic-bezier(.2, .8, .2, 1), px-n-glow .5s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .group-opening { animation: px-n-drop .16s ease-out, px-n-glow .5s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .group-closing { animation: px-n-out .14s ease-in forwards; }
-:root[data-theme="retro"][data-motion="neon"] .empty::before { animation: px-n-buzz 5s steps(1, end) infinite; }
+:root[data-theme="retro"][data-motion="neon"] .empty:not([data-art])::before { animation: px-n-buzz 5s steps(1, end) infinite; }
 
 /* ---- 3) Scan: Röhrenmonitor. Beim Bereichswechsel zieht eine Scanlinie über den (schon fertigen) Bildschirm,
    Knöpfe schimmern beim Darüberfahren, die Auswahl wird unterstrichen, Abschnitte wischen auf und zu ---- */

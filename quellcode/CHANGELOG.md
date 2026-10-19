@@ -1,6 +1,8 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **„Heute“ anpassen:** Unten auf „Heute“ öffnet „Heute anpassen“ eine Liste der Bereiche (Als Nächstes, Schnelleingabe, Lernzeit, Wochenkarte, Wochenziele, Tagesplan, Zu erledigen, Prüfungen, Weg zur Uni, Mensa). Haken weg blendet einen Bereich aus, am Griff ziehen oder mit den Pfeilen verschiebt ihn. „Standard wiederherstellen“ setzt alles zurück. Die Auswahl wird mit der Cloud abgeglichen.
+- **Leere Listen mit Pixel-Bild:** Wo noch nichts steht (Karteikarten, Hausaufgaben, Lerneinheiten, Prüfungen, Notizen …), zeigt der Retro-Look ein passendes, stehendes Pixel-Bild statt immer des Space Invaders.
 - **Farbpaletten** (Mehr → Daten & Einstellungen → Farbpalette): Synthwave, Gameboy (vier Grüntöne), Bernstein (Terminal) und CGA (Magenta, Cyan, Gelb auf Schwarz). Skyline, Sterne, Sonne und Pixel-Symbole färben sich mit; Modulfarben bleiben. Die Wahl wird mit der Cloud abgeglichen.
 - **Schriftgröße:** Kompakt, Normal oder Groß. Gilt nur für das jeweilige Gerät.
 - **Termin-Karte:** Die Schalter Vorbereitet, Besucht und Nachbereitet laufen nicht mehr über den Rand, wenn sie angehakt sind; lange Wörter brechen als „Vor-/bereitet“ um. Jeder Schritt hat jetzt seine eigene Farbe: Vorbereitet gelb, Besucht cyan, Nachbereitet grün.

@@ -1049,3 +1049,35 @@ test('Timer: „Nicht eintragen“ verwirft die Fokusphase', async ({ page }) =>
   await expect.poll(async () => (await stored(page)).logs.length).toBe(0);
   await expect(page.getByText('Eintrag gelöscht.')).toBeVisible();
 });
+
+test('Heute anpassen: Bereich ausblenden, verschieben (Pfeil und Ziehen), Standard wiederherstellen', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await expect(page.locator('.group-plan')).toBeVisible();
+  await page.getByRole('button', { name: 'Heute anpassen' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Heute anpassen' });
+  await dlg.getByRole('checkbox', { name: 'Tagesplan' }).uncheck();
+  await expect(page.locator('.group-plan')).toHaveCount(0);
+  // „Zu erledigen“ mit dem Pfeil eins nach oben, dann „Prüfungen“ ganz nach oben ziehen
+  const before = await dlg.locator('.customize-row').allInnerTexts();
+  const todoIdx = before.findIndex((t) => t.includes('Zu erledigen'));
+  await dlg.getByRole('button', { name: 'Zu erledigen nach oben' }).click();
+  await expect(dlg.locator('.customize-row').nth(todoIdx - 1)).toContainText('Zu erledigen');
+  const grip = await dlg.getByRole('button', { name: 'Prüfungen ziehen' }).boundingBox();
+  const top = await dlg.locator('.customize-row').first().boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2, top.y + 4, { steps: 8 });
+  await page.mouse.up();
+  await expect(dlg.locator('.customize-row').first()).toContainText('Prüfungen');
+  await expect.poll(async () => (await stored(page))?.settings?.todayOrder?.[0]).toBe('exams');
+  await expect.poll(async () => (await stored(page))?.settings?.todayHidden).toEqual(['plan']);
+  await page.keyboard.press('Escape');
+  // Prüfungen stehen jetzt vor „Als Nächstes“
+  const order = await page.locator('section.hero, .group-exams').evaluateAll((els) => els.map((e) => (e.classList.contains('hero') ? 'next' : 'exams')));
+  expect(order[0]).toBe('exams');
+  await page.getByRole('button', { name: 'Heute anpassen' }).click();
+  await dlg.getByRole('button', { name: 'Standard wiederherstellen' }).click();
+  await expect(dlg.locator('.customize-row').first()).toContainText('Als Nächstes');
+  await expect(page.locator('.group-plan')).toBeVisible();
+});
