@@ -225,6 +225,8 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .flash-done { animation: done-flash .6s ease; }
 /* Einklappbare Abschnitte auf „Heute“: Überschrift als Schalter, Inhalt gleitet auf und zu */
 .group-body { min-width: 0; }
+/* Weg zur Uni und Mensa: die Überschrift steht im Abschnittskopf, die eigene der Karte entfällt */
+.group-card > .group-body > .surface > .section-title:first-child, .group-card > .group-body > .surface > :first-child > .section-title { display: none; }
 .group-toggle { display: inline-flex; align-items: baseline; font: inherit; color: inherit; letter-spacing: inherit; text-align: left; }
 .group-caret { display: inline-block; flex-shrink: 0; width: .42em; height: .42em; margin-left: .55em; border-right: 2px solid var(--faint); border-bottom: 2px solid var(--faint); transform: translateY(-.18em) rotate(45deg); transition: transform .2s ease; }
 .group-toggle[aria-expanded="false"] .group-caret { transform: translateY(-.05em) rotate(-45deg); }

@@ -5,6 +5,7 @@ import { ENV } from "../lib/env.js";
 import { buildICS, guessType, parseICS } from "../lib/ics.js";
 import { iso, saveFile, uid } from "../lib/util.js";
 import { Card, ConfirmButton, Tabs } from "../ui/primitives.jsx";
+import { retroMotionOf } from "../app/useTheme.js";
 import { btnGhost, btnPrimary, inputBase, inputCls, inputFlex } from "../ui/styles.js";
 import { decryptBackup, encryptBackup, isEncryptedBackup } from "../lib/crypto.js";
 import { CloudCard } from "./Cloud.jsx";
@@ -224,8 +225,8 @@ export function DataView({ db }) {
           {data.settings.theme === "retro" && (
             <div className="col-span-2">
               <span className="mb-1 block text-xs text-slate-400">Retro-Animationen</span>
-              <Tabs items={[["arcade", "Arcade"], ["crt", "Röhre"], ["glitch", "Glitch"], ["off", "Aus"]]} value={data.settings.retroMotion || "arcade"} onChange={(v) => db.patchSettings({ retroMotion: v })} label="Retro-Animationen" />
-              <p className="mt-1.5 text-xs text-slate-400">{{ arcade: "8-Bit-Spielhalle: Inhalte rasten in Pixel-Schritten ein, Knöpfe springen wie Münzen.", crt: "Alter Röhrenmonitor: Inhalte schalten sich wie ein Bildschirm ein und aus und leuchten kurz nach.", glitch: "Digitale Störung: Inhalte erscheinen in versetzten Streifen mit Farbversatz.", off: "Keine Animationen, nur der Retro-Look." }[data.settings.retroMotion || "arcade"]} Ist am Gerät „Bewegung reduzieren“ eingeschaltet, bleibt alles still.</p>
+              <Tabs items={[["pixel", "Pixel"], ["neon", "Neon"], ["scan", "Scan"], ["off", "Aus"]]} value={retroMotionOf(data.settings.retroMotion)} onChange={(v) => db.patchSettings({ retroMotion: v })} label="Retro-Animationen" />
+              <p className="mt-1.5 text-xs text-slate-400">{{ pixel: "Knackig wie ein 8-Bit-Menü: Knöpfe drücken sich in den Schatten, Auswahl springt kurz auf, Dialoge schnappen auf.", neon: "Leuchtreklame: Was du berührst oder auswählst, glüht kurz in Neon auf.", scan: "Röhrenmonitor: Beim Wechsel zieht eine Scanlinie über den Bildschirm, Knöpfe schimmern, Auswahl wird unterstrichen.", off: "Keine Animationen, nur der Retro-Look." }[retroMotionOf(data.settings.retroMotion)]} Der Inhalt ist immer sofort da, bewegt wird nur, was du antippst. Ist am Gerät „Bewegung reduzieren“ eingeschaltet, bleibt alles still.</p>
             </div>
           )}
           <div>
