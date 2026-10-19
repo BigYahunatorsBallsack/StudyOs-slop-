@@ -47,5 +47,5 @@ export function menuDay(now = new Date()) {
   return { date: iso, label };
 }
 
-/** Gewählte Mensa; an der TUM ohne Auswahl Garching (dort ist die Informatik) */
-export const mensaOf = (settings = {}) => (settings.mensa !== undefined ? settings.mensa : /\bTUM\b|Technische Universität München/i.test(settings.university || "") ? "mensa-garching" : "");
+/** Gewählte Mensa, leer = keine anzeigen */
+export const mensaOf = (settings = {}) => settings.mensa || "";

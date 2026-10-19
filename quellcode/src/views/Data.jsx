@@ -10,6 +10,7 @@ import { btnGhost, btnPrimary, inputBase, inputCls, inputFlex } from "../ui/styl
 import { decryptBackup, encryptBackup, isEncryptedBackup } from "../lib/crypto.js";
 import { CloudCard } from "./Cloud.jsx";
 import { CANTEENS, mensaOf } from "../lib/mensa.js";
+import { CURRICULA, curriculumOf } from "../lib/curriculum.js";
 import { CommuteSettings } from "./Commute.jsx";
 import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
 
@@ -217,6 +218,13 @@ export function DataView({ db }) {
           <div>
             <label htmlFor="st-prog" className="mb-1 block text-xs text-slate-400">Studiengang</label>
             <input id="st-prog" className={inputCls} value={data.settings.program ?? ""} onChange={(e) => db.patchSettings({ program: e.target.value })} placeholder="z. B. Informatik" />
+          </div>
+          <div className="col-span-2">
+            <label htmlFor="st-plan" className="mb-1 block text-xs text-slate-400">Studienplan (Vorlage für Module und GOP-Regel)</label>
+            <select id="st-plan" className={inputCls} value={curriculumOf(data)?.id || "none"} onChange={(e) => db.patchSettings({ curriculum: e.target.value })}>
+              <option value="none">Keiner</option>
+              {CURRICULA.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </div>
           <div className="col-span-2">
             <span className="mb-1 block text-xs text-slate-400">Darstellung</span>

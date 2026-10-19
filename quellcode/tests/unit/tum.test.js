@@ -14,7 +14,7 @@ describe("NavigaTUM", () => {
 });
 
 describe("GOP und Prognose", () => {
-  const d = { ...emptyData(), exams: [{ id: "x", moduleId: "era", date: "2027-02-12" }], modules: [
+  const d = { ...emptyData(), settings: { ...emptyData().settings, curriculum: "tum-bsc-informatik-2026" }, exams: [{ id: "x", moduleId: "era", date: "2027-02-12" }], modules: [
     { id: "eidi", name: "EIDI", code: "CIT123001", ects: 12, status: "belegt", expectedGrade: 2.0 },
     { id: "era", name: "ERA", code: "IN0004", ects: 8, status: "belegt" },
     { id: "ds", name: "DS", ects: 8, status: "bestanden", gop: true, grade: 1.7 },
@@ -56,9 +56,9 @@ describe("Mensa", () => {
     expect(menuDay(new Date(2026, 9, 19, 16, 0))).toEqual({ date: "2026-10-20", label: "morgen" });
     expect(menuDay(new Date(2026, 9, 17, 10, 0)).date).toBe("2026-10-19");
   });
-  it("an der TUM standardmäßig Garching, abschaltbar", () => {
-    expect(mensaOf({ university: "TUM" })).toBe("mensa-garching");
-    expect(mensaOf({ university: "LMU" })).toBe("");
+  it("ohne Auswahl keine Mensa, sonst die gewählte", () => {
+    expect(mensaOf({ university: "TUM" })).toBe("");
+    expect(mensaOf({ university: "TUM", mensa: "mensa-weihenstephan" })).toBe("mensa-weihenstephan");
     expect(mensaOf({ university: "TUM", mensa: "" })).toBe("");
   });
 });

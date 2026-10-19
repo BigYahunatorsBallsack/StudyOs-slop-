@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matches, nextFirstSession, queryOffset, recommend, commuteOf } from "../../src/lib/transit.js";
+import { matches, nextFirstSession, queryOffset, recommend, commuteOf, LEGACY_COMMUTE } from "../../src/lib/transit.js";
 import { mvg } from "../../src/server/mvg.js";
 import { freeGaps, suggestBlocks, blockReminders } from "../../src/lib/blocks.js";
 import { whatNow } from "../../src/lib/now.js";
@@ -13,11 +13,11 @@ import { emptyData } from "../../src/lib/data.js";
 const at = (d, hm) => new Date(`${d}T${hm}:00`).getTime();
 
 describe("Bus zur Uni", () => {
-  const c = commuteOf({});
+  const c = commuteOf({ commute: LEGACY_COMMUTE });
   const ses = [{ id: "a", date: "2026-10-19", start: "10:15", moduleId: "ds" }, { id: "b", date: "2026-10-19", start: "14:00" }, { id: "c", date: "2026-10-20", start: "08:30" }];
-  it("Standard: 230 ab Haar Richtung Forschungszentrum", () => {
+  it("bisherige Vorgabe: 230 ab Haar Richtung Forschungszentrum", () => {
     expect(c).toMatchObject({ line: "230", towards: "Forschungszentrum", station: { id: "de:09184:2140" }, feeder: { line: "S6", station: { name: "Zorneding" }, travel: 8 } });
-    expect(commuteOf({ commute: { feeder: null } }).feeder).toBeNull();
+    expect(commuteOf({ commute: { ...LEGACY_COMMUTE, feeder: null } }).feeder).toBeNull();
     expect(matches({ line: "S6", destination: "Grafing-Bahnhof" }, c.feeder)).toBe(false);
     expect(matches({ line: "S6", destination: "Leuchtenbergring" }, c.feeder)).toBe(true);
     expect(commuteOf({ commute: null })).toBeNull();

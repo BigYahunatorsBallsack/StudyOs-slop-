@@ -1,15 +1,21 @@
 /* Dialog: Pflichtmodule aus einer Studienplan-Vorlage übernehmen */
 import React, { useState } from "react";
-import { CURRICULA, previewSemester } from "../lib/curriculum.js";
+import { CURRICULA, curriculumOf, previewSemester } from "../lib/curriculum.js";
 import { Modal } from "../ui/primitives.jsx";
 
 export function CurriculumDialog({ db, onClose }) {
   const { data } = db;
-  const plan = CURRICULA[0];
+  const plan = curriculumOf(data) || CURRICULA[0];
+  const pick = (id) => db.patchSettings({ curriculum: id, ...(data.settings.program ? {} : { program: CURRICULA.find((c) => c.id === id)?.program || "" }) });
   const [current, setCurrent] = useState(() => Math.max(1, ...data.modules.filter((m) => m.status === "belegt").map((m) => Number(m.semester) || 1)));
   return (
     <Modal title="Studienplan übernehmen" onClose={onClose}>
-      <p className="text-sm text-slate-400">{plan.name}. Module, die du schon hast (z. B. aus dem Stundenplan-Abo), werden nur um Modulnummer und ECTS ergänzt.</p>
+      <label className="block text-xs text-slate-400">Studiengang
+        <select className="field mt-1 w-full text-sm" value={plan.id} onChange={(e) => pick(e.target.value)}>
+          {CURRICULA.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </label>
+      <p className="mt-2 text-sm text-slate-400">Module, die du schon hast (z. B. aus dem Stundenplan-Abo), werden nur um Modulnummer und ECTS ergänzt.</p>
       <label className="mt-3 flex items-center gap-2 text-sm">
         Ich bin gerade im
         <select className="field text-sm" value={current} onChange={(e) => setCurrent(Number(e.target.value))} aria-label="Aktuelles Semester">

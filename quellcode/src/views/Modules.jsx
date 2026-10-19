@@ -10,6 +10,7 @@ import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
 import { bonusForecast, workload } from "../lib/study.js";
 import { isGop } from "../lib/tum.js";
+import { curriculumOf, gopCodes } from "../lib/curriculum.js";
 
 /* ---------------- Module ---------------- */
 export function ModuleList({ db }) {
@@ -30,7 +31,7 @@ export function ModuleList({ db }) {
         <button className={btnPrimary} onClick={() => db.openForm("module", null, true)}>Modul anlegen</button>
       </div>
       {data.modules.length === 0 ? <Empty action={<div className="flex flex-wrap justify-center gap-2"><button className={btnPrimary} onClick={() => db.openForm("module", null, true)}>Modul anlegen</button><button className={btnGhost} onClick={() => setPlan(true)}>Aus Studienplan</button></div>}>Noch keine Module.</Empty> : <RingLegend />}
-      {data.modules.length > 0 && <button className="link-btn mt-3 mr-4" onClick={() => setPlan(true)}>Studienplan TUM Informatik …</button>}
+      {data.modules.length > 0 && <button className="link-btn mt-3 mr-4" onClick={() => setPlan(true)}>Aus Studienplan übernehmen …</button>}
       {plan && <CurriculumDialog db={db} onClose={() => setPlan(false)} />}
       {suggestions.map((g) => (
         <div key={g.key} className="notice notice-info mt-3">
@@ -91,7 +92,7 @@ export function ModuleList({ db }) {
 }
 
 export function ModuleDetail({ db, id, onBack }) {
-  const { data } = db, m = db.mod(id), s = moduleStats(data, id), t = iso();
+  const { data } = db, m = db.mod(id), s = moduleStats(data, id), t = iso(), gop = gopCodes(curriculumOf(data));
   const [sub, setSub] = useState("uebersicht");
   const [merge, setMerge] = useState(false);
   const [sesFilter, setSesFilter] = useState("anstehend");
@@ -117,7 +118,7 @@ export function ModuleDetail({ db, id, onBack }) {
         <span className="mt-1 h-8 w-1.5 rounded-full" style={{ background: m.color }} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold tracking-tight">{m.name}</h2>
-          <p className="text-xs text-slate-400">{m.code ? m.code + " · " : ""}{m.ects} ECTS · Semester {m.semester} · {m.status}{m.grade ? ` · Note ${String(m.grade).replace(".", ",")}` : ""}{isGop(m) ? " · GOP" : ""}</p>
+          <p className="text-xs text-slate-400">{m.code ? m.code + " · " : ""}{m.ects} ECTS · Semester {m.semester} · {m.status}{m.grade ? ` · Note ${String(m.grade).replace(".", ",")}` : ""}{isGop(m, gop) ? " · GOP" : ""}</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">

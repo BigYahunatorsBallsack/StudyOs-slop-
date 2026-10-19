@@ -1,4 +1,5 @@
 import { COLLS, DATA_VERSION, DEFAULT_SETTINGS, DONE_HW, PALETTE } from "./constants.js";
+import { LEGACY_COMMUTE } from "./transit.js";
 import { addDays, diffDays, fmt, fmtMin, fmtShort, isHeld, iso, sum, uid, weekStart } from "./util.js";
 
 export function buildWeeklySeries(base, repeatUntil) {
@@ -27,10 +28,28 @@ export function repairCollapsedWeeklySeries(sessions) {
 
 export const emptyData = () => ({ version: DATA_VERSION, settings: { ...DEFAULT_SETTINGS }, meta: { lastBackup: null, lastModule: "" }, modules: [], sessions: [], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [], blocks: [], deleted: [] });
 
+/**
+ * Bis StudyOS 2.7 galten für alle persönliche Vorgaben (Informatik, Mensa Garching, S6 Zorneding → Bus 230 nach Garching).
+ * Seitdem starten neue Daten leer. Ältere Daten ohne eigene Einstellung behalten die alten Vorgaben, damit sich nichts ändert.
+ */
+export function upgradeSettings(stored = {}) {
+  if (Number(stored.defaultsRev) >= 2) return {};
+  const tum = /\bTUM\b|Technische Universität München/i.test(stored.university ?? "TUM");
+  const program = stored.program ?? "Informatik";
+  const c = stored.commute;
+  const commute = c === null ? null : !c ? LEGACY_COMMUTE
+    : { ...LEGACY_COMMUTE, ...c, feeder: c.feeder === null ? null : { ...LEGACY_COMMUTE.feeder, ...(c.feeder || {}) }, car: { ...LEGACY_COMMUTE.car, ...(c.car || {}) } };
+  return {
+    program, commute, defaultsRev: 2,
+    mensa: stored.mensa ?? (tum ? "mensa-garching" : ""),
+    curriculum: stored.curriculum ?? (tum && /informatik/i.test(program) ? "tum-bsc-informatik-2026" : ""),
+  };
+}
+
 /* Ältere Sicherungen auf das aktuelle Datenformat bringen */
 export function migrate(obj) {
   const base = emptyData();
-  const out = { ...base, settings: { ...base.settings, ...(obj.settings || {}) }, meta: { ...base.meta, ...(obj.meta || {}) }, version: DATA_VERSION };
+  const out = { ...base, settings: { ...base.settings, ...(obj.settings || {}), ...upgradeSettings(obj.settings || {}) }, meta: { ...base.meta, ...(obj.meta || {}) }, version: DATA_VERSION };
   COLLS.forEach((k) => { out[k] = Array.isArray(obj[k]) ? obj[k].filter((x) => x && typeof x === "object" && x.id) : []; });
   out.sessions = repairCollapsedWeeklySeries(out.sessions.map((s) => ({ cancelled: false, prepared: false, attended: false, reviewed: false, reviewedAt: null, ...s })));
   out.modules = out.modules.map((m, i) => ({ color: PALETTE[i % PALETTE.length], bonusPct: null, ...m }));

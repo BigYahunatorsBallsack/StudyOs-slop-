@@ -273,19 +273,27 @@ export function Progress({ db }) {
 
 const g2 = (n) => n.toFixed(2).replace(".", ",");
 
-/* Grundlagen- und Orientierungsprüfung: mindestens 12 ECTS aus den GOP-Modulen */
+/* Grundlagen- und Orientierungsprüfung: ECTS aus den GOP-Modulen nach der Regel des Studienplans */
 function GopCard({ db }) {
   const g = gopStatus(db.data);
   if (!g) return null;
-  const cls = g.reached ? "notice-ok" : g.enough ? "notice-info" : "notice-warn";
+  const goal = g.stage?.ects || 0;
+  const cls = g.reached ? "notice-ok" : !g.stage ? "notice-info" : g.enough ? "notice-info" : "notice-warn";
+  const until = g.stage ? (g.curriculum.gop.hint && g.stages.length === 1 ? g.curriculum.gop.hint : `bis Ende des ${g.stage.bySemester}. Semesters`) : "";
   return (
     <Card title="Grundlagenprüfung (GOP)">
-      <p className="text-sm"><span className="font-num text-3xl font-semibold">{g.passed}</span><span className="text-slate-400"> / 12 ECTS aus GOP-Modulen bestanden</span></p>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800" role="img" aria-label={`${g.passed} von 12 ECTS`}><div className="h-full" style={{ width: `${Math.min(100, (g.passed / 12) * 100)}%`, background: g.reached ? "#34d399" : "#fbbf24" }} /></div>
+      <p className="text-sm"><span className="font-num text-3xl font-semibold">{g.passed}</span><span className="text-slate-400">{goal ? ` / ${goal}` : ""} ECTS aus GOP-Modulen bestanden</span></p>
+      {goal > 0 && <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800" role="img" aria-label={`${g.passed} von ${goal} ECTS`}><div className="h-full" style={{ width: `${Math.min(100, (g.passed / goal) * 100)}%`, background: g.reached ? "#34d399" : "#fbbf24" }} /></div>}
+      {g.stages.length > 1 && (
+        <ul className="mt-2 space-y-0.5 text-xs text-slate-400">
+          {g.stages.map((s) => <li key={s.bySemester}>{g.passed >= s.ects ? "✓" : "○"} {s.ects} ECTS bis Ende des {s.bySemester}. Semesters</li>)}
+        </ul>
+      )}
       <p className={`notice ${cls} mt-3`}>
-        {g.reached ? "Geschafft: Die GOP ist bestanden."
+        {!g.stage ? "Wähle unter „Daten & Einstellungen“ deinen Studienplan, dann rechnet StudyOS aus, wie viele ECTS dir fehlen."
+          : g.reached ? "Geschafft: Die GOP ist bestanden."
           : !g.enough ? `Es fehlen ${g.need} ECTS, aber die offenen GOP-Module bringen nicht mehr genug. Bitte sofort bei der Studienberatung melden.`
-          : <>Es fehlen noch <b>{g.need} ECTS</b> bis Ende des 1. Semesters bzw. in der Wiederholungsprüfung. Reicht zum Beispiel: {g.combos.slice(0, 3).map((c) => c.map((m) => m.name).join(" + ")).join(" oder ")}.</>}
+          : <>Es fehlen noch <b>{g.need} ECTS</b> {until}. Reicht zum Beispiel: {g.combos.slice(0, 3).map((c) => c.map((m) => m.name).join(" + ")).join(" oder ")}.</>}
       </p>
       <ul className="mt-3 space-y-1 text-sm">
         {g.modules.map((m) => {
@@ -300,7 +308,7 @@ function GopCard({ db }) {
           );
         })}
       </ul>
-      <p className="mt-2 text-[11px] text-slate-500">Gezählt werden Module mit Häkchen „Grundlagenprüfung“ oder den Nummern aus dem TUM-Studienplan. Maßgeblich ist deine FPSO.</p>
+      <p className="mt-2 text-[11px] text-slate-500">Gezählt werden Module mit Häkchen „Grundlagenprüfung“ oder den Nummern aus {g.curriculum ? `dem Studienplan ${g.curriculum.name}` : "deinem Studienplan"}. Maßgeblich ist deine FPSO.</p>
     </Card>
   );
 }
