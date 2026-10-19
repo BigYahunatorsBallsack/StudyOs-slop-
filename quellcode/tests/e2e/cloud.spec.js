@@ -377,10 +377,10 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await nav(A.page, 'Heute').click();
   const card = A.page.getByRole('region', { name: 'Weg zur Uni' });
   // 9:15 − 10 Puffer − 50 Fahrt: Bus 8:13 (+2, real 8:15); S6 spätestens 8:03 (8 Fahrt + 4 Umstieg) → 7:52; los 7:47
-  await expect(card.getByText(/morgen um 09:15: los um 07:47/)).toBeVisible();
-  await expect(card.getByText('07:52 S6 ab Zorneding, Gleis 5')).toBeVisible();
-  await expect(card.getByText('08:00 an Haar, Gymnasium, umsteigen')).toBeVisible();
-  await expect(card.getByText('08:15 Bus 230 ab Haar, Gymnasium (+2)')).toBeVisible();
+  await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
+  await expect(card.getByText('07:52 Abfahrt mit der S6 in Zorneding, Gleis 5')).toBeVisible();
+  await expect(card.getByText('08:00 Ankunft in Haar, Gymnasium, dort umsteigen')).toBeVisible();
+  await expect(card.getByText('08:15 Abfahrt mit dem Bus 230 in Haar, Gymnasium (2 Min. später)')).toBeVisible();
   await expect(card.getByText('Grafing')).toHaveCount(0);
   await expect(card.getByText('241')).toHaveCount(0);
   await expect(card.getByRole('list', { name: 'Störungen und Baustellen' }).getByText('Weichenstörung bei Haar')).toBeVisible();

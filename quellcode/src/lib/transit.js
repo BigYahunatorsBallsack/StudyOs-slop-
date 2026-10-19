@@ -67,4 +67,13 @@ export function recommend(departures, session, c, feederDeps = null, startMs = n
   return null;
 }
 
+/** Verkehrsmittel einer Abfahrt: Icon und Satzteil („mit der S6“, „mit dem Bus 230“) */
+export function vehicle(d) {
+  const line = String(d?.line || "");
+  const type = String(d?.type || "");
+  if (/BUS/.test(type) || /^\d/.test(line)) return { icon: "bus", with: `mit dem Bus ${line}` };
+  if (type === "TRAM") return { icon: "tram", with: `mit der Tram ${line}` };
+  return { icon: "train", with: line ? `mit der ${line}` : "mit der Bahn" };
+}
+
 export const hhmm = (ms) => new Date(ms).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });

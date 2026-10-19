@@ -189,3 +189,6 @@ export function Modal({ title, onClose, children }) {
     </div>
   );
 }
+
+/** Kleines Pixel-Icon (zug, bus, bowl …); nur im Farbschema „Retro“ sichtbar, für Screenreader unsichtbar */
+export const PxIcon = ({ name, className = "" }) => <span className={`px-icon px-${name} ${className}`} aria-hidden="true" />;

@@ -1,6 +1,7 @@
 /* Speiseplan auf „Heute“: Gerichte der gewählten Mensa, heute bzw. am nächsten Werktag */
 import React, { useEffect, useState } from "react";
 import { canteenName, dishesOn, menuDay, menuUrl } from "../lib/mensa.js";
+import { PxIcon } from "../ui/primitives.jsx";
 
 const CACHE = "studyos-mensa";
 const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE) || "null"); } catch { return null; } };
@@ -41,6 +42,7 @@ export function MensaCard({ canteen }) {
           <ul className="mensa-list mt-2">
             {shown.map((d, i) => (
               <li key={i} className="mensa-dish">
+                <PxIcon name={d.diet === "vegan" || d.diet === "vegetarisch" ? "leaf" : d.diet === "Fisch" ? "fish" : d.diet === "Fleisch" ? "meat" : "bowl"} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm">{d.name}</span>
                   <span className="text-xs text-slate-500">{[...new Set([d.type, d.diet].filter(Boolean))].join(" · ")}</span>
