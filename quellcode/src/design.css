@@ -215,7 +215,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .grid-col { position: relative; border-radius: 10px; background: var(--surface); }
 .grid-col.today { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 .grid-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); }
-.grid-now { position: absolute; left: -3px; right: 0; height: 2px; background: var(--danger); z-index: 3; border-radius: 2px; }
+.grid-now { position: absolute; left: -3px; right: 0; height: 2px; background: var(--danger); z-index: 3; border-radius: 2px; pointer-events: none; } /* Linie liegt über Terminen: Klicks und Hover gehen durch */
 .grid-now::before { content: ""; position: absolute; left: -3px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 .ev { position: absolute; left: 2px; right: 2px; border-radius: 8px; padding: .2rem .3rem; background: var(--mod); color: var(--on-module); overflow: hidden; text-align: left; font-size: .65rem; line-height: 1.2; z-index: 2; }
 .ev b { display: block; font-weight: 700; font-size: .68rem; }
