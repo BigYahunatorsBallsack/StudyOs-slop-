@@ -8,6 +8,12 @@ updates:
       day: monday
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    # ESLint 10 erst, wenn eslint-plugin-react es unterstützt (7.37.5 verlangt eslint ≤ 9)
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
     groups:
       laufzeit:
         dependency-type: production

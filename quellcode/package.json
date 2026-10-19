@@ -35,8 +35,8 @@
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.37.0",
     "fast-check": "^4.10.2",
-    "globals": "^15.0.0",
-    "typescript": "^5.9.3",
+    "globals": "^17.13.0",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }
 }
