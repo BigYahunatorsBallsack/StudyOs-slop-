@@ -156,6 +156,11 @@ pppp
 ppp.
 pp..
 p...
+""",    'down': """
+yyyyyyy
+.yyyyy.
+..yyy..
+...y...
 """,
 }
 
