@@ -60,6 +60,16 @@ pppppppppppp
 ...w.....w..
 ..ww.....ww.
 """,
+    'car': """
+...pppppp...
+..pcccpcccp.
+.ppcccpcccpp
+pppppppppppp
+ypppppppppyp
+pppppppppppp
+.ww......ww.
+.ww......ww.
+""",
     'flag': """
 .wgggggg....
 .wgggggggg..

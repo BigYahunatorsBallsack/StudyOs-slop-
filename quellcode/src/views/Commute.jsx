@@ -1,9 +1,10 @@
 /* Weg zur Uni: z. B. S6 Zorneding → Haar, Umstieg in den Bus 230 Richtung Forschungszentrum.
-   Zeigt die nächsten Abfahrten und welche Verbindung für die erste Lehrveranstaltung reicht. */
+   Zeigt die nächsten Abfahrten und welche Verbindung für die erste Lehrveranstaltung reicht.
+   Alternativ mit dem Auto: Fahrzeit bei aktueller Verkehrslage und wann man losfahren sollte. */
 import React, { useEffect, useState } from "react";
-import { commuteOf, DEFAULT_COMMUTE, hhmm, matches, nextFirstSession, queryOffset, recommend, vehicle } from "../lib/transit.js";
+import { carPlan, commuteOf, DEFAULT_COMMUTE, hhmm, mapsLink, matches, nextFirstSession, queryOffset, recommend, vehicle } from "../lib/transit.js";
 import { fmtShort, iso } from "../lib/util.js";
-import { Card, PxIcon } from "../ui/primitives.jsx";
+import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
 
 const dayWord = (date) => (date === iso() ? "heute" : date === iso(new Date(Date.now() + 86400000)) ? "morgen" : fmtShort(date));
 const lineName = (l) => (/^\d/.test(l || "") ? `Bus ${l}` : l || "Abfahrten");
@@ -28,9 +29,49 @@ function DepList({ title, deps, icon }) {
   );
 }
 
+const MODES = [["transit", "Öffis"], ["car", "Auto"]];
+
+/* Mit dem Auto: Fahrzeit mit Verkehr alle 5 Minuten neu, solange die Seite offen ist */
+function CarView({ db, c, session, ready, tick }) {
+  const [state, setState] = useState({ route: null, err: "" });
+  const slot = Math.floor(tick / 5);
+  useEffect(() => {
+    if (!ready) return;
+    let live = true;
+    db.cloud.drive({ from: c.car.from, to: c.car.to })
+      .then((route) => { if (live) setState({ route, err: "" }); })
+      .catch((e) => { if (live) setState({ route: null, err: e.message || "Fahrzeit gerade nicht verfügbar." }); });
+    return () => { live = false; };
+  }, [ready, slot, c.car.from, c.car.to]);
+  const r = state.route, p = carPlan(r, session, c);
+  const m = session ? db.mod(session.moduleId) : null;
+  const jam = r ? r.minutes - r.normal : 0;
+  return (
+    <>
+      {!ready ? <p className="mt-2 text-sm text-slate-400">Für die Fahrzeit mit Verkehr unter „Daten“ beim Cloud-Sync anmelden.</p>
+        : state.err ? <p className="mt-2 text-sm text-slate-400">{state.err}</p>
+        : !r ? <p className="mt-2 text-sm text-slate-400" role="status">Lädt …</p>
+        : (
+          <div className="commute-plan mt-2" style={{ "--mod": m?.color }}>
+            <p><b className="font-num">{r.minutes} Min.</b> mit dem Auto ({r.km.toLocaleString("de-DE")} km){jam >= 2 ? <span className="text-amber-300">, {jam} Min. Verzögerung durch Verkehr</span> : ", Verkehr fließt"}</p>
+            {session && p && (
+              <ol className="commute-steps mt-1.5">
+                <li><PxIcon name="car" /><span><b className="font-num">{hhmm(p.leaveAt)}</b> losfahren in {c.car.from}, damit du {dayWord(session.date)} um {session.start} bei {m?.name || "deiner Vorlesung"} bist</span></li>
+                <li><PxIcon name="flag" /><span><b className="font-num">{hhmm(p.arriveAt)}</b> voraussichtlich am Ziel{c.car.park ? `, dann ${c.car.park} Min. Parken und Fußweg` : ""}</span></li>
+              </ol>
+            )}
+          </div>
+        )}
+      <p className="mt-3 text-sm"><a className="ext-link" href={mapsLink(c.car)} target="_blank" rel="noopener noreferrer">Route in Google Maps öffnen ↗</a></p>
+      {r && <p className="mt-1 text-[11px] text-slate-500">Verkehrslage laut {r.provider === "tomtom" ? "TomTom" : "Google"}, wird alle 5 Minuten aktualisiert. Die Abfahrtszeit gilt für jetzt losfahren, später kann es anders aussehen.</p>}
+    </>
+  );
+}
+
 export function CommuteCard({ db, sessions }) {
   const c = commuteOf(db.data.settings);
   const ready = db.cloud?.phase === "ready";
+  const car = c?.mode === "car";
   const [state, setState] = useState({ main: null, feeder: null, plan: null, err: "" });
   const [notes, setNotes] = useState([]); /* Störungsmeldungen der MVG zu den eigenen Linien */
   const [tick, setTick] = useState(0);
@@ -42,7 +83,7 @@ export function CommuteCard({ db, sessions }) {
     return () => clearInterval(id);
   }, []);
   useEffect(() => {
-    if (!c || !ready) return;
+    if (!c || !ready || car) return;
     let live = true;
     (async () => {
       try {
@@ -61,7 +102,7 @@ export function CommuteCard({ db, sessions }) {
     return () => { live = false; };
   }, [ready, tick, key, session?.id]);
   /* Meldungen höchstens alle 15 Minuten abfragen; ältere Funktionen kennen die Abfrage nicht: dann einfach keine */
-  const lines = c ? [c.line, c.feeder?.line].filter(Boolean) : [];
+  const lines = c && !car ? [c.line, c.feeder?.line].filter(Boolean) : [];
   useEffect(() => {
     if (!ready || !lines.length) return;
     let live = true;
@@ -75,7 +116,9 @@ export function CommuteCard({ db, sessions }) {
   return (
     <section className="surface" aria-label="Weg zur Uni">
       <h3 className="section-title">Weg zur Uni</h3>
-      {!ready ? <p className="mt-2 text-sm text-slate-400">Für Abfahrten unter „Daten“ beim Cloud-Sync anmelden.</p>
+      <div className="mt-2"><Tabs label="Verkehrsmittel" items={MODES} value={c.mode} onChange={(mode) => db.patchSettings({ commute: { ...c, mode } })} /></div>
+      {car ? <CarView db={db} c={c} session={session} ready={ready} tick={tick} />
+        : !ready ? <p className="mt-2 text-sm text-slate-400">Für Abfahrten unter „Daten“ beim Cloud-Sync anmelden.</p>
         : state.err ? <p className="mt-2 text-sm text-slate-400">{state.err}</p>
         : !state.main ? <p className="mt-2 text-sm text-slate-400" role="status">Lädt …</p>
         : (
@@ -142,6 +185,7 @@ export function CommuteSettings({ db }) {
   const c = commuteOf(db.data.settings);
   const set = (p) => db.patchSettings({ commute: { ...(c || DEFAULT_COMMUTE), ...p } });
   const setF = (p) => set({ feeder: { ...(c.feeder || DEFAULT_COMMUTE.feeder), ...p } });
+  const setCar = (p) => set({ car: { ...c.car, ...p } });
   const num = (obj, setter, k, l, max) => (
     <label className="block text-xs text-slate-400">{l}
       <input type="number" min="0" max={max} className="field mt-1 w-full text-sm" value={obj[k]} onChange={(e) => setter({ [k]: Math.max(0, Math.min(max, Number(e.target.value) || 0)) })} />
@@ -185,6 +229,15 @@ export function CommuteSettings({ db }) {
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">{num(c, set, "walk", `Fußweg zur Haltestelle ${c.feeder ? c.feeder.station.name : c.station.name}`, 60)}</div>
+          <div className="commute-leg mt-3">
+            <p className="text-xs font-semibold text-slate-400">Mit dem Auto</p>
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              {text(c.car, setCar, "from", "Start", "z. B. Zorneding")}
+              {text(c.car, setCar, "to", "Ziel", "Adresse an der Uni")}
+              {num(c.car, setCar, "park", "Parken und Fußweg (Min.)", 60)}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-500">Auf „Heute“ zwischen Öffis und Auto umschalten. Die Fahrzeit mit Verkehr kommt über deine Supabase-Funktion, dort muss GOOGLE_MAPS_KEY oder TOMTOM_KEY als Secret gesetzt sein (siehe Anleitung). Start und Ziel gehen dafür an Google bzw. TomTom.</p>
+          </div>
           <label className="mt-4 flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushCommute} onChange={(e) => db.patchSettings({ pushCommute: e.target.checked })} />
             <span>Bei Verspätung oder Ausfall per Push sagen, wenn ich früher los muss<span className="block text-[11px] text-slate-500">Braucht eingeschaltete Erinnerungen. Dafür liegen Haltestellen, Linien und die Uhrzeit deiner ersten Veranstaltung je Tag unverschlüsselt bei Supabase.</span></span>

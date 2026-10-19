@@ -267,6 +267,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     }),
     fetchIcs: (url) => cloud.fetchIcs(url),
     mvg: (body) => cloud.mvg(body),
+    drive: (body) => cloud.drive(body),
     /* Anhänge verschlüsselt hoch- bzw. herunterladen; ohne entsperrten Sync-Schlüssel nicht möglich */
     canFiles: () => !!(cloud && keyRef.current && phase === "ready"),
     uploadFile: async (id, bytes) => {

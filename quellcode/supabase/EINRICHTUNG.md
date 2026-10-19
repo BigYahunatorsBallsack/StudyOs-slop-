@@ -22,7 +22,7 @@ Falls eine Meldung zu `pg_cron` oder `pg_net` kommt: **Database → Extensions**
 4. **Deploy function**
 5. In den Einstellungen der Funktion die **JWT-Prüfung ausschalten** (Schalter „Verify JWT“ bzw. „Enforce JWT verification“). Die Funktion prüft selbst: Erinnerungen nur mit dem Geheimnis aus `studyos_server`, Kalender und Testnachricht nur für angemeldete Nutzer.
 
-Die Funktion braucht keine eigenen Secrets. `SUPABASE_URL` und den Secret Key stellt Supabase automatisch bereit.
+Die Funktion braucht keine eigenen Secrets (außer optional einem Kartenschlüssel für die Fahrzeit mit dem Auto, siehe unten). `SUPABASE_URL` und den Secret Key stellt Supabase automatisch bereit.
 
 **Prüfen:** Im Browser `https://kjyfdijcfvvlxipwogkv.supabase.co/functions/v1/studyos?action=vapid` öffnen. Erwartet: `{"publicKey":"B…"}`. Kommt `401`, ist die JWT-Prüfung noch an.
 
@@ -86,3 +86,15 @@ Einmal im **SQL Editor** den Inhalt von `supabase/teilen.sql` ausführen (steht 
 1. Die Edge Function **studyos** mit der aktuellen `supabase/functions/studyos/index.ts` ersetzen und deployen (neu: Störungsmeldungen über `?action=mvg` mit `kind: "messages"`, Verspätungsprüfung im Erinnerungslauf). Danach prüfen, dass **Enforce JWT Verification** aus ist. Ohne Update fehlen in der App nur die Störungsmeldungen und der Verspätungs-Push.
 2. Kein neues SQL: Die Cloud-Sicherung nutzt den privaten Speicher aus `anhaenge.sql` (Dateien `sicherung-JJJJ-WW` im Ordner deiner Nutzer-ID). Fehlt er, meldet die App das unter „Cloud-Sicherung“.
 3. Verspätungs-Push einschalten: **Mehr → Daten → Weg zur Uni → Bei Verspätung oder Ausfall per Push sagen** (Erinnerungen müssen auf mindestens einem Gerät eingeschaltet sein).
+
+## Weg zur Uni mit dem Auto (Fahrzeit mit Verkehr)
+
+Auf „Heute“ lässt sich „Weg zur Uni“ zwischen **Öffis** und **Auto** umschalten. Für die Fahrzeit mit aktueller Verkehrslage braucht die Funktion einen Schlüssel eines Kartendienstes. Er liegt nur als Secret in Supabase, die App im Browser sieht ihn nie.
+
+1. Einen der beiden Schlüssel besorgen:
+   - **TomTom** (kostenlos ohne Kreditkarte, 2.500 Abfragen am Tag): auf developer.tomtom.com registrieren, im Dashboard den API Key kopieren.
+   - **Google Maps** (Routes API): in der Google Cloud Console ein Projekt mit Abrechnungskonto anlegen, die **Routes API** aktivieren und einen API-Schlüssel erstellen, den man unter „API-Einschränkungen“ auf die Routes API beschränkt. Für eine Person reicht das monatliche Freikontingent.
+2. **Edge Functions → studyos → Secrets** (bzw. Project Settings → Edge Functions → Secrets): `TOMTOM_KEY` oder `GOOGLE_MAPS_KEY` mit dem Schlüssel anlegen. Ist beides gesetzt, nimmt die Funktion Google.
+3. Die Funktion mit der aktuellen `supabase/functions/studyos/index.ts` ersetzen und deployen (neu: `?action=drive`).
+
+Die App fragt die Fahrzeit nur ab, solange „Heute“ offen ist und Auto gewählt ist, höchstens alle 5 Minuten. Start und Ziel (Mehr → Daten → Weg zur Uni → Mit dem Auto) gehen dafür an den Kartendienst. Ohne Schlüssel zeigt die App einen Hinweis und den Link „Route in Google Maps öffnen“, der auch so funktioniert.

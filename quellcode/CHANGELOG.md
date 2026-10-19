@@ -12,6 +12,7 @@
   - **Aus:** nur der Retro-Look. Bei „Bewegung reduzieren“ am Gerät bleibt in jeder Variante alles still. Gespeicherte Varianten aus der ersten Fassung (Arcade, Röhre, Glitch) werden übernommen.
 - **Heute: Abschnitte einklappen** (alle Farbschemata): Ein Tipp auf „Tagesplan“, „Zu erledigen“, „Prüfungen“, „Weg zur Uni“ oder „Mensa“ klappt den Abschnitt bis auf die Überschrift (mit Anzahl) zu; der Zustand bleibt auf dem Gerät. Im Retro-Theme zeigt der Pixel-Pfeil die Richtung, Auf- und Zuklappen ist in allen drei Varianten animiert.
 - **Heute: Aufzeichnung direkt aus der Nachbereitung:** Einträge „Nachbereiten“ in „Zu erledigen“ haben einen Link „Aufzeichnung ↗“, wenn beim Modul ein TUM-Live-Link hinterlegt ist, auch für Termine vergangener Tage.
+- **Weg zur Uni mit dem Auto:** Auf „Heute“ zwischen Öffis und Auto umschalten. Mit dem Auto zeigt StudyOS die Fahrzeit bei aktueller Verkehrslage (Zorneding → Garching Forschungszentrum voreingestellt), die Verzögerung durch Stau und wann man für die erste Veranstaltung losfahren sollte, dazu einen Link zur Route in Google Maps. Die Verkehrsdaten kommen über die Supabase-Funktion von Google (Routes API) oder TomTom; der Schlüssel liegt nur dort als Secret (`GOOGLE_MAPS_KEY` oder `TOMTOM_KEY`, siehe `supabase/EINRICHTUNG.md`). Im Auto-Modus gibt es keinen Verspätungs-Push.
 
 ## 2.7.2
 - **Retro:** Pixel-Pfeil über dem aktiven Tab der Navigation.

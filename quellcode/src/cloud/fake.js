@@ -28,6 +28,7 @@ export function createFakeCloud(call) {
       list: (search) => call("files.list", uid(), search),
     },
     mvg: async (body) => { const r = await call("mvg", uid(), body); if (r && r.error) throw new Error(r.error); return r; },
+    drive: async (body) => { const r = await call("drive", uid(), body); if (r && r.error) throw new Error(r.error); return r; },
     fetchIcs: async (url) => { const r = await call("ics", uid(), url); if (r && r.error) throw new Error(r.error); return r.text; },
     async getUser() { return read(); },
     onAuthChange(cb) { listeners.add(cb); return () => listeners.delete(cb); },
