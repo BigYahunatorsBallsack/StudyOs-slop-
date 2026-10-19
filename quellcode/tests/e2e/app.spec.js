@@ -367,7 +367,17 @@ test('Wochenraster auf dem Handy: Antippen öffnet die Karte statt des Formulars
   await page.locator('.ev.ev-review, .ev').first().tap();
   await expect(page.locator('.popover')).toBeVisible();
   await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toHaveCount(0);
-  await page.locator('.popover').getByRole('button', { name: 'Details' }).click();
+  // mehrere Haken nacheinander: die Karte bleibt nach dem Antippen offen
+  const card = page.locator('.popover');
+  for (const name of ['Vorbereitet', 'Besucht']) {
+    const btn = card.getByRole('button', { name });
+    const before = await btn.getAttribute('aria-pressed');
+    await btn.tap();
+    await expect(btn).toHaveAttribute('aria-pressed', before === 'true' ? 'false' : 'true');
+    await page.waitForTimeout(400);
+    await expect(card).toBeVisible();
+  }
+  await card.getByRole('button', { name: 'Details' }).click();
   await expect(page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ })).toBeVisible();
 });
 

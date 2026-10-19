@@ -59,7 +59,8 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave }) {
 
   return (
     <div ref={ref} className="popover" role="dialog" aria-label={`${m?.name || "Termin"}, ${s.type}`} style={{ left: pos.left, top: pos.top, "--mod": m?.color }}
-      onPointerEnter={onEnter} onPointerLeave={onLeave}>
+      /* Nur die Maus: Ein Finger „verlässt“ die Karte nach jedem Antippen, sonst schlösse sie sich nach dem ersten Haken */
+      onPointerEnter={(e) => { if (e.pointerType === "mouse") onEnter(); }} onPointerLeave={(e) => { if (e.pointerType === "mouse") onLeave(); }}>
       <p className="popover-title">{m?.name || "Ohne Modul"}</p>
       <p className="row-meta mt-0.5">{s.type}, {fmtShort(s.date)}, {s.start}–{s.end}</p>
       {s.room && <p className="row-meta">{s.room}</p>}

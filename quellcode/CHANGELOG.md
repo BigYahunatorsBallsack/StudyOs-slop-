@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Kalender-Karte bleibt auf dem Handy offen:** Tippst du im Wochenraster einen Termin an und hakst in der Karte „Vorbereitet“, „Besucht“ oder „Nachbereitet“ ab, schloss sich die Karte nach dem ersten Haken. Jetzt bleibt sie offen, bis du daneben tippst, und du kannst mehrere Haken nacheinander setzen.
 - **Tabs brechen um statt abgeschnitten zu werden:** Reiterzeilen wie unter „Mehr“ (Wochenrückblick … Daten & Einstellungen) liefen am PC rechts aus dem Bild, weil sie nur per Wischen seitlich scrollten. Jetzt rutschen Tabs, die nicht mehr in die Zeile passen, in eine zweite Zeile; alle sind lesbar und anklickbar, auch im Retro-Look mit Pixel-Rand.
 - **Termin unter der Jetzt-Linie anklickbar:** Lag die rote Linie für die aktuelle Uhrzeit im Wochenraster über einem Termin, ließ er sich dort nicht anklicken und zeigte beim Darüberfahren keine Karte. Die Linie lässt Klicks jetzt durch.
 - **Aufzeichnungen zählen als Lernzeit:** Trägst du bei einem Termin „Aufzeichnung angeschaut bis“ ein, werden die neu angeschauten Minuten als Lerneinheit (Art „Aufzeichnung“) beim Modul gespeichert. Sie zählen damit für Serie, Wochenziele, Erfolge, Wochenrückblick und das ECTS-Soll. Stellst du den Stand später weiter, kommt nur der Unterschied dazu; dieselben Minuten zählen nie doppelt.
