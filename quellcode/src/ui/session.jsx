@@ -9,6 +9,8 @@ export const SESSION_STEPS = [
   ["attended", "Besucht", "Besucht"],
   ["reviewed", "Nachbereitet", "Nach"],
 ];
+/* Weiches Trennzeichen: in der schmalen Termin-Karte bricht die Beschriftung als „Vor-/bereitet“ um, statt überzulaufen */
+const WRAP = { Vorbereitet: "Vor\u00adbereitet", Nachbereitet: "Nach\u00adbereitet" };
 
 /** Drei Schalter in einer Leiste. compact: kurze Beschriftung (Listen), sonst ausgeschrieben (Karte). */
 export function SessionTri({ s, db, compact = false, color }) {
@@ -18,10 +20,10 @@ export function SessionTri({ s, db, compact = false, color }) {
       {SESSION_STEPS.map(([key, long, short]) => {
         const on = !!s[key], warn = key === "reviewed" && held && !on;
         return (
-          <button key={key} type="button" aria-pressed={on} title={long} aria-label={compact && short !== long ? `${short}: ${long}` : undefined} className={`tri-btn ${warn ? "tri-warn" : ""}`}
+          <button key={key} type="button" aria-pressed={on} title={long} aria-label={compact && short !== long ? `${short}: ${long}` : long} className={`tri-btn tri-${key} ${warn ? "tri-warn" : ""}`}
             onClick={(e) => { e.stopPropagation(); db.toggleSession(s.id, key); }}>
             <span className="tri-mark" aria-hidden="true">{on ? "✓" : warn ? "!" : ""}</span>
-            <span>{compact ? short : long}</span>
+            <span>{compact ? short : WRAP[long] || long}</span>
           </button>
         );
       })}

@@ -335,6 +335,11 @@ test('Wochenraster auf dem Handy: Antippen öffnet die Karte statt des Formulars
   await page.locator('.ev.ev-review, .ev').first().tap();
   await expect(page.locator('.popover')).toBeVisible();
   await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toHaveCount(0);
+  // Die drei Schalter passen in die schmale Karte, auch angehakt, und haben je eine eigene Farbe
+  for (const name of ['Vorbereitet', 'Besucht', 'Nachbereitet']) await page.locator('.popover').getByRole('button', { name }).click();
+  const tri = await page.locator('.popover .tri-btn').evaluateAll((els) => els.map((el) => ({ fits: el.scrollWidth <= el.clientWidth, bg: getComputedStyle(el).backgroundColor })));
+  expect(tri.every((b) => b.fits)).toBe(true);
+  expect(new Set(tri.map((b) => b.bg)).size).toBe(3);
   await page.locator('.popover').getByRole('button', { name: 'Details' }).click();
   await expect(page.getByRole('dialog', { name: /Lehrveranstaltung bearbeiten/ })).toBeVisible();
 });

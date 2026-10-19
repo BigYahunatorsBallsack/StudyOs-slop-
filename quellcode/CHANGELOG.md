@@ -1,6 +1,9 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Termin-Karte:** Die Schalter Vorbereitet, Besucht und Nachbereitet laufen nicht mehr über den Rand, wenn sie angehakt sind; lange Wörter brechen als „Vor-/bereitet“ um. Jeder Schritt hat jetzt seine eigene Farbe: Vorbereitet gelb, Besucht cyan, Nachbereitet grün.
+
+## Unveröffentlicht
 - **Weg zur Uni lädt schneller:** Der letzte Stand von Abfahrten, Störungen und Fahrzeit steht sofort da (bis 30 Minuten alt, mit „Stand HH:MM“) und wird im Hintergrund erneuert, auch der zuletzt bekannte Standort. Alle Abfahrten (jetzt und zur Vorlesung, Zubringer und Hauptlinie) kommen in einem Aufruf statt in bis zu drei Runden nacheinander, und die Funktion merkt sich die Anmeldung kurz, statt sie bei jeder Abfrage neu zu prüfen. Die Bündelung braucht die neue `index.ts`; ohne Update fragt die App wie bisher einzeln, aber parallel.
 
 ## 2.10.0
