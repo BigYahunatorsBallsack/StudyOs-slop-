@@ -1008,7 +1008,8 @@ test('Bild-Karte: Rechtecke ziehen, verdeckt lernen, bearbeiten und löschen', a
   await dlg.getByLabel('Tags').fill('bildtest');
   await dlg.getByRole('button', { name: 'Speichern (2 Karten)' }).click();
   await expect(page.getByText('2 Karten aus dem Bild angelegt.')).toBeVisible();
-  const cards = async () => (await stored(page)).cards.filter((c) => c.occ);
+  // gespeichert wird verzögert: bis dahin liefert load() noch null
+  const cards = async () => (await stored(page))?.cards?.filter((c) => c.occ) ?? [];
   await expect.poll(async () => (await cards()).length).toBe(2);
   const [c1] = await cards();
   expect(c1.occ.boxes[0]).toMatchObject({ x: expect.closeTo(0.1, 1), y: expect.closeTo(0.13, 1) });
@@ -1142,4 +1143,20 @@ test('Einrichtung: „Anderer Studiengang“ zeigt die Schritte zum Selbst-Anleg
   await page.goto('./');
   await page.getByRole('button', { name: 'Anderer Studiengang' }).click();
   await expect(page.getByRole('button', { name: 'Erstes Modul anlegen' })).toBeVisible();
+});
+
+test('Tab-Zeilen brechen am PC um, statt rechts abgeschnitten zu werden', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loadDemo(page);
+  await nav(page, 'Mehr').click();
+  for (const sub of ['Alle Hausaufgaben', 'Erfolge']) {
+    await page.getByRole('tab', { name: sub }).click();
+    // jeder Tab liegt vollständig im sichtbaren Bereich seiner Zeile
+    const cut = await page.evaluate(() => [...document.querySelectorAll('.seg')].flatMap((seg) => {
+      const box = seg.getBoundingClientRect();
+      return [...seg.children].filter((t) => { const r = t.getBoundingClientRect(); return r.left < box.left - 1 || r.right > box.right + 1 || r.right > window.innerWidth; }).map((t) => t.textContent);
+    }));
+    expect(cut, sub).toEqual([]);
+  }
+  await expect(page.getByRole('tab', { name: 'Daten & Einstellungen' })).toBeInViewport({ ratio: 1 });
 });

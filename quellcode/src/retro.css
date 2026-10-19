@@ -196,7 +196,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .select-opt[aria-selected="true"]::before { content: ""; position: absolute; left: .6rem; top: 50%; width: 6px; height: 6px; margin-top: -3px; background: currentColor; }
 :root[data-theme="retro"] .select-opt.is-active { background: var(--accent); color: var(--on-accent); }
 :root[data-theme="retro"] .surface .field, :root[data-theme="retro"] .sheet-panel .field { background: var(--bg); }
-:root[data-theme="retro"] .seg { padding-top: 3px; padding-bottom: 6px; }
+:root[data-theme="retro"] .seg { row-gap: .6rem; padding: 3px 5px 6px 3px; } /* Platz für Pixel-Rand und Schatten, auch zwischen umgebrochenen Zeilen */
 :root[data-theme="retro"] .seg-item { font-size: .7rem; background: var(--surface); }
 :root[data-theme="retro"] .seg-item[aria-selected="true"] { background: var(--ink); color: var(--on-ink); --pxc: var(--accent-2-light); }
 :root[data-theme="retro"] .chip { font-size: .68rem; }
