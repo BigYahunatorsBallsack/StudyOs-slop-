@@ -17,3 +17,12 @@ export function loadTimer() {
 export const remainingOf = (t, now = Date.now()) => (t.running ? Math.max(0, Math.ceil((t.endAt - now) / 1000)) : t.remaining);
 export const fullLength = (t) => (t.mode === "focus" ? t.length : t.brk) * 60;
 export const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+
+/**
+ * Mittelpunkte der Blöcke des Pixel-Rings: `n` Blöcke im Uhrzeigersinn ab 12 Uhr auf einem Kreis mit Radius `r`
+ * um (c, c), auf ein 2-px-Raster gerundet, damit die Kanten knackig bleiben.
+ */
+export function ringBlocks(n, r, c) {
+  const snap = (v) => Math.round(v / 2) * 2;
+  return Array.from({ length: n }, (_, i) => { const a = (i / n) * 2 * Math.PI; return { x: snap(c + r * Math.sin(a)), y: snap(c - r * Math.cos(a)) }; });
+}

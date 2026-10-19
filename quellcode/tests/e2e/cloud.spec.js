@@ -407,7 +407,7 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await A.context.setGeolocation({ latitude: 48.137154, longitude: 11.576124 });
   await card.getByLabel('Ab meinem Standort').check();
   await expect(card.getByText(/08:08 losfahren ab deinem Standort/)).toBeVisible();
-  expect(asked.at(-1)).toEqual({ from: '48.1372,11.5761', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
+  await expect.poll(() => asked.at(-1)).toEqual({ from: '48.1372,11.5761', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
   await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', 'https://www.google.com/maps/dir/?api=1&destination=Boltzmannstra%C3%9Fe%2015%2C%2085748%20Garching%20bei%20M%C3%BCnchen&travelmode=driving');
   await card.getByLabel('Ab meinem Standort').uncheck();
   await card.getByRole('tab', { name: 'Öffis' }).click();
