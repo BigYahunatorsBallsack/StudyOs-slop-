@@ -14,6 +14,8 @@ async function check(page, where) {
 for (const theme of ['dark', 'light', 'retro']) {
   test(`axe: keine Verstöße (${{ dark: 'dunkel', light: 'hell', retro: 'retro' }[theme]})`, async ({ page }) => {
     test.setTimeout(90000);
+    // feste Uhrzeit: Dienstag 19:30, die Beispiel-Termine des Tages sind vorbei (prüft auch die abgeblendete Darstellung)
+    await page.clock.setFixedTime(new Date('2026-10-20T19:30:00+02:00'));
     await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
     await page.goto('./');
     await nav(page, 'Mehr').click();
