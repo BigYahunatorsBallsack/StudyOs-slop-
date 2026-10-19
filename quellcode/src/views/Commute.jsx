@@ -1,10 +1,11 @@
 /* Weg zur Uni: z. B. mit der S-Bahn zur Umstiegshaltestelle, dort in den Bus zum Campus.
    Zeigt die nächsten Abfahrten und welche Verbindung für die erste Lehrveranstaltung reicht.
    Alternativ mit dem Auto: Fahrzeit bei aktueller Verkehrslage und wann man losfahren sollte. */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, DEFAULT_FEEDER, hhmm, mapsLink, matches, queryOffset, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
 import { fmtShort, iso } from "../lib/util.js";
 import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
+import { useGroupOpens } from "../ui/collapse.jsx";
 
 const dayWord = (date) => (date === iso() ? "heute" : date === iso(new Date(Date.now() + 86400000)) ? "morgen" : fmtShort(date));
 const lineName = (l) => (/^\d/.test(l || "") ? `Bus ${l}` : l || "Abfahrten");
@@ -98,6 +99,12 @@ export function CommuteCard({ db, sessions }) {
   const [pick, setPick] = useState("");
   const session = options.find((s) => s.id === pick) || options[0] || null;
   const key = JSON.stringify(c);
+  /* Pixel-Fahrzeug fährt einmal durch die Karte: beim Aufklappen und beim Wechsel zwischen Öffis und Auto */
+  const opens = useGroupOpens();
+  const [switches, setSwitches] = useState(0);
+  const lastMode = useRef(c?.mode);
+  useEffect(() => { if (lastMode.current !== c?.mode) { lastMode.current = c?.mode; setSwitches((n) => n + 1); } }, [c?.mode]);
+  const ride = opens + switches;
   const incomplete = !!c && commuteIncomplete(c);
 
   useEffect(() => {
@@ -136,7 +143,7 @@ export function CommuteCard({ db, sessions }) {
   const m = session ? db.mod(session.moduleId) : null;
   const f = c.feeder, p = state.plan;
   return (
-    <section className="surface" aria-label="Weg zur Uni">
+    <section className="surface commute-card" aria-label="Weg zur Uni">
       <h3 className="section-title">Weg zur Uni</h3>
       <div className="mt-2"><Tabs label="Verkehrsmittel" items={MODES} value={c.mode} onChange={(mode) => db.patchSettings({ commute: { ...c, mode } })} /></div>
       {!incomplete && options.length > 1 && (
@@ -180,6 +187,7 @@ export function CommuteCard({ db, sessions }) {
             <DepList icon={vehicle({ line: c.line, type: state.main?.[0]?.type }).icon} title={`Nächste Abfahrten: ${lineName(c.line)} in ${c.station.name}${c.towards ? ` Richtung ${c.towards}` : ""}`} deps={state.main} />
           </>
         )}
+      {ride > 0 && <span key={ride} className={`px-ride px-${car ? "car" : vehicle({ line: c.line }).icon}`} aria-hidden="true" />}
     </section>
   );
 }

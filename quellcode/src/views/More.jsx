@@ -7,6 +7,7 @@ import { HomeworkRow } from "../ui/rows.jsx";
 import { btnPrimary, focusRing, inputBase, inputFlex } from "../ui/styles.js";
 import { DataView } from "./Data.jsx";
 import { gopStatus, gradeForecast } from "../lib/tum.js";
+import { achievements } from "../lib/progress.js";
 import { effortVsGrade, gradeTimeline, heatmap, learningRhythm, minutesBySemester } from "../lib/stats.js";
 
 /* ---------------- Mehr ---------------- */
@@ -14,11 +15,35 @@ export function More({ db, sub, setSub }) {
   return (
     <div className="space-y-4">
       <h2 className="page-title mb-1">Mehr</h2>
-      <Tabs items={[["rueckblick", "Wochenrückblick"], ["hausaufgaben", "Alle Hausaufgaben"], ["studium", "Studienfortschritt"], ["daten", "Daten & Einstellungen"]]} value={sub} onChange={setSub} label="Weitere Bereiche" />
+      <Tabs items={[["rueckblick", "Wochenrückblick"], ["erfolge", "Erfolge"], ["hausaufgaben", "Alle Hausaufgaben"], ["studium", "Studienfortschritt"], ["daten", "Daten & Einstellungen"]]} value={sub} onChange={setSub} label="Weitere Bereiche" />
       {sub === "rueckblick" && <Review db={db} />}
+      {sub === "erfolge" && <Achievements data={db.data} />}
       {sub === "hausaufgaben" && <HomeworkAll db={db} />}
       {sub === "studium" && <Progress db={db} />}
       {sub === "daten" && <DataView db={db} />}
+    </div>
+  );
+}
+
+/* Abzeichen: freigeschaltete in Farbe, die übrigen grau mit Fortschritt */
+export function Achievements({ data }) {
+  const list = useMemo(() => achievements(data), [data]);
+  const done = list.filter((b) => b.done).length;
+  const num = (v) => String(v).replace(".", ",");
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-slate-300"><b className="font-num">{done}</b> von {list.length} Abzeichen freigeschaltet</p>
+      <ul className="badges">
+        {list.map((b) => (
+          <li key={b.id} className={`badge ${b.done ? "badge-done" : "badge-locked"}`}>
+            <span className={`badge-icon px-icon px-${b.icon}`} aria-hidden="true" />
+            <span className="badge-title">{b.title}</span>
+            <span className="badge-desc">{b.desc}</span>
+            {b.done ? <span className="badge-state">Freigeschaltet</span>
+              : <><Bar value={b.value} max={b.goal} label={`Fortschritt ${b.title}`} className="mt-1.5 w-full" /><span className="badge-state font-num">{num(b.value)} / {num(b.goal)}</span></>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

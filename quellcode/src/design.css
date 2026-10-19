@@ -381,3 +381,14 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .commute-steps { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .15rem; font-size: .85rem; }
 .commute-steps b { display: inline-block; min-width: 2.9rem; }
 .commute-leg { border-left: 3px solid var(--line-strong); padding-left: .85rem; }
+
+/* Erfolge (Mehr → Erfolge), Wochenziele und „Alles erledigt“ auf Heute */
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem; }
+.badge { display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: .9rem .75rem; text-align: center; background: var(--surface); border-radius: var(--r-row); }
+.badge-title { font-weight: 600; font-size: .875rem; color: var(--text); }
+.badge-desc { font-size: .75rem; color: var(--muted); }
+.badge-state { font-size: .7rem; color: var(--muted); }
+.badge-done .badge-state { color: var(--ok); }
+.badge-locked .badge-icon { filter: grayscale(1) brightness(.6); }
+.goals { display: grid; gap: .75rem; }
+.all-done { display: flex; flex-direction: column; align-items: flex-start; }

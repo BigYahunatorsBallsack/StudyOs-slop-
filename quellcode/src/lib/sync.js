@@ -29,7 +29,7 @@ function hlc(now, ...after) {
 }
 
 /* Felder, die nur gemeinsam Sinn ergeben, werden wie ein Feld behandelt (z. B. der Lernstand einer Karte). */
-const GROUPS = { cards: { srs: ["stability", "difficulty", "interval", "reps", "lapses", "due", "lastReview", "ease"] } };
+const GROUPS = { cards: { srs: ["stability", "difficulty", "interval", "reps", "lapses", "due", "lastReview", "ease", "reviews"] } };
 const META = new Set(["id", "updated", "fu"]);
 function groupOf(c) {
   const byField = new Map();

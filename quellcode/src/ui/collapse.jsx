@@ -1,5 +1,9 @@
 /* Einklappbare Abschnitte auf „Heute“: der Zustand bleibt auf dem Gerät; beim Schließen erst ausblenden, wenn die Animation durch ist */
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
+
+/* Wie oft der umgebende Abschnitt aufgeklappt wurde (0 = seit dem Laden nicht): Inhalte können darauf mit einer Animation antworten */
+const Opens = createContext(0);
+export const useGroupOpens = () => useContext(Opens);
 
 const CLOSED_KEY = "studyos-heute-zu";
 const readClosed = () => { try { const v = JSON.parse(localStorage.getItem(CLOSED_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
@@ -7,9 +11,11 @@ const readClosed = () => { try { const v = JSON.parse(localStorage.getItem(CLOSE
 export function Group({ id, title, count, action, className = "", children }) {
   const [phase, setPhase] = useState(() => (readClosed().includes(id) ? "closed" : "open"));
   const body = useRef(null);
+  const [opens, setOpens] = useState(0);
   const open = phase === "open" || phase === "opening";
   const toggle = () => {
     try { const s = new Set(readClosed()); if (open) s.add(id); else s.delete(id); localStorage.setItem(CLOSED_KEY, JSON.stringify([...s])); } catch { /* egal */ }
+    if (!open) setOpens((n) => n + 1);
     setPhase(open ? "closing" : "opening");
   };
   const settle = () => setPhase((p) => (p === "closing" ? "closed" : p === "opening" ? "open" : p));
@@ -32,7 +38,7 @@ export function Group({ id, title, count, action, className = "", children }) {
         {action}
       </div>
       <div id={bodyId} ref={body} className={`group-body group-${phase}`} hidden={phase === "closed"} onAnimationEnd={onEnd} onAnimationCancel={onEnd}>
-        {children}
+        <Opens.Provider value={opens}>{children}</Opens.Provider>
       </div>
     </section>
   );

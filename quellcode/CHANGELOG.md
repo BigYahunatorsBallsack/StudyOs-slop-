@@ -1,5 +1,19 @@
 # Änderungen
 
+## 2.9.0
+- **Pixel-Animationen im Retro-Look.** Sie laufen nur, wenn du etwas tust, und bei „Aus“ oder „Bewegung reduzieren“ gar nicht:
+  - **Münze beim Abhaken:** Erledigst du auf „Heute“ eine Abgabe, Nachbereitung oder einen Lernblock, springt eine Pixel-Münze mit „+1“ hoch.
+  - **Space Invader abschießen:** Wird „Zu erledigen“ gerade leer, wird der Invader abgeschossen und zerfällt in Funken (nicht beim bloßen Öffnen der Seite).
+  - **Flamme an der Serie:** grau bei 0 Tagen, flackert ab 3 Tagen, wird ab 7 Tagen größer und brennt ab 30 Tagen blau.
+  - **Timer-Begleiter:** Eine kleine Pixel-Figur tippt am Laptop, solange die Fokusphase läuft, und schläft in der Pause.
+  - **Sonne und Mond** stehen je nach Uhrzeit über der Skyline (Sonnenauf- und -untergang in München, grob je Monat). Sie springen alle 5 Minuten weiter, ohne Animation.
+  - **Weg zur Uni:** Beim Aufklappen und beim Umschalten zwischen Öffis und Auto fährt einmal ein Pixel-Bus, eine Bahn oder ein Auto unten durch die Karte.
+- **Wochenkarte auf „Heute“:** Sonntags die laufende, montags die vergangene Woche: Lernzeit mit Vergleich zur Woche davor, erledigte Abgaben, nachbereitete Termine, wiederholte Karten und der stärkste Tag. Ausblenden gilt für diese Woche.
+- **Erfolge** (Mehr → Erfolge): 13 Pixel-Abzeichen, etwa für Serien von 3, 7 und 30 Tagen, 10/50/150 Stunden Lernzeit, 100 und 1000 wiederholte Karten, früh erledigte Abgaben oder die erste bestandene Prüfung. Gesperrte zeigen ihren Fortschritt; ein neu freigeschaltetes meldet sich kurz. Die Abzeichen werden aus deinen Daten berechnet, es wird nichts zusätzlich gespeichert.
+- **Lernziel pro Woche und Modul:** Im Modul ein Ziel in Stunden eintragen; „Heute“ zeigt unter „Wochenziele“ einen Balken mit der Lernzeit seit Montag und einen Stern, wenn es erreicht ist.
+- **Schwachstellen bei Karteikarten:** Karten, die du mindestens zweimal vergessen hast oder die laut FSRS sehr schwer sind, stehen unter „Schwachstellen“, mit den häufigsten Tags. „Schwachstellen üben“ fragt sie ab, auch wenn sie noch nicht fällig sind.
+- Karteikarten zählen ihre Wiederholungen jetzt mit (`reviews`), auch über ein „Nochmal“ hinweg; ältere Karten starten mit ihren bisherigen Wiederholungen.
+
 ## Unveröffentlicht
 - **Behoben: Weg zur Uni zeigte schon morgen,** sobald die erste Veranstaltung des Tages begonnen hatte, auch wenn heute noch eine weitere kam. Jetzt gilt die nächste Veranstaltung, die noch nicht begonnen hat.
 - **Weg zur Uni: Ziel wählen.** Unter „Pünktlich sein für“ stehen die restlichen Veranstaltungen von heute und die des nächsten Uni-Tages.
