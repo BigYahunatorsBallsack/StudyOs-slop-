@@ -86,7 +86,36 @@ export function workload(data, moduleId, today = iso()) {
   const presenceMin = ses.filter((s) => s.attended && isHeld(s) && s.date <= today).reduce((s, x) => s + minutesOf(x), 0);
   const istH = (selfMin + presenceMin) / 60;
   const ratio = sollH > 0 ? istH / sollH : 1;
-  return { ects, weeks, start, elapsed, totalH, sollH, istH, selfH: selfMin / 60, presenceH: presenceMin / 60, ratio, perWeekH: totalH / weeks, state: ratio >= 0.9 ? "ok" : ratio >= 0.6 ? "warn" : "low" };
+  /* Was bis Semesterende pro Woche nötig ist, um auf das volle ECTS-Soll zu kommen */
+  const leftWeeks = weeks - elapsed;
+  const needPerWeekH = leftWeeks > 0.5 ? Math.max(0, totalH - istH) / leftWeeks : null;
+  /* Vorschlag fürs Wochenziel (zählt nur Lernzeit): Bedarf pro Woche minus die bisher übliche Präsenzzeit, auf halbe Stunden */
+  const goalSuggestH = needPerWeekH === null ? null : Math.max(0.5, Math.round((needPerWeekH - presenceMin / 60 / Math.max(1, elapsed)) * 2) / 2);
+  return { goalSuggestH, ects, weeks, start, elapsed, totalH, sollH, istH, selfH: selfMin / 60, presenceH: presenceMin / 60, ratio, perWeekH: totalH / weeks, gapH: sollH - istH, leftWeeks, needPerWeekH, state: ratio >= 0.9 ? "ok" : ratio >= 0.6 ? "warn" : "low" };
+}
+
+/** Arbeitsaufwand aller belegten Module im Vergleich, wer am weitesten hinter dem ECTS-Soll liegt, zuerst. */
+export function workloadOverview(data, today = iso()) {
+  return data.modules.filter((m) => !m.archived)
+    .map((m) => ({ m, w: workload(data, m.id, today) }))
+    .filter((x) => x.w)
+    .sort((a, b) => a.w.ratio - b.w.ratio || b.w.gapH - a.w.gapH);
+}
+
+/* ---------------- Lerntagebuch ---------------- */
+
+/**
+ * Lerneinheiten eines Moduls nach Tag gruppiert, neueste zuerst; innerhalb des Tages nach Uhrzeit absteigend.
+ * @returns [{ date, minutes, logs }]
+ */
+export function studyDiary(logs, moduleId) {
+  const byDay = new Map();
+  logs.filter((l) => l.moduleId === moduleId && l.date).forEach((l) => { if (!byDay.has(l.date)) byDay.set(l.date, []); byDay.get(l.date).push(l); });
+  return [...byDay].sort((a, b) => b[0].localeCompare(a[0])).map(([date, list]) => ({
+    date,
+    minutes: list.reduce((s, l) => s + (Number(l.minutes) || 0), 0),
+    logs: list.sort((a, b) => (b.at || "").localeCompare(a.at || "") || (b.created || "").localeCompare(a.created || "")),
+  }));
 }
 
 /* ---------------- Archiv ---------------- */

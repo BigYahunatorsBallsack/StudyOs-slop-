@@ -1,6 +1,9 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Lernnotiz nach dem Timer:** Nach einer Fokusphase (oder „Beenden & eintragen“) wird die Lerneinheit mit Modul, Thema und Dauer sofort gespeichert, statt dass sich das ganze Formular öffnet. Ein kleines Fenster fragt nur noch in einer Zeile „Was hast du gemacht?“; Enter speichert, „Details“ öffnet das volle Formular, „Nicht eintragen“ verwirft die Einheit (mit Rückgängig).
+- **Lerntagebuch pro Modul:** Unter Modul → „Lernzeit“ stehen die Lerneinheiten nach Tagen mit Tagessumme und der Notiz in voller Länge; die Übersicht des Moduls zeigt die letzten drei Notizen.
+- **Lernzeit gegen ECTS-Soll:** Der Arbeitsaufwand (30 h je ECTS) zeigt jetzt den Rückstand oder Vorsprung in Stunden und wie viel pro Woche bis Semesterende nötig ist, dazu „Als Wochenziel übernehmen“ mit einem Vorschlag, bei dem die Termine schon abgezogen sind. Im Wochenrückblick vergleicht eine neue Karte alle belegten Module, wer am weitesten zurückliegt, steht oben. Am Timer steht unter der Modulwahl, wie weit das Modul hinter dem Soll liegt.
 - **Weg zur Uni lädt schneller:** Der letzte Stand von Abfahrten, Störungen und Fahrzeit steht sofort da (bis 30 Minuten alt, mit „Stand HH:MM“) und wird im Hintergrund erneuert, auch der zuletzt bekannte Standort. Alle Abfahrten (jetzt und zur Vorlesung, Zubringer und Hauptlinie) kommen in einem Aufruf statt in bis zu drei Runden nacheinander, und die Funktion merkt sich die Anmeldung kurz, statt sie bei jeder Abfrage neu zu prüfen. Die Bündelung braucht die neue `index.ts`; ohne Update fragt die App wie bisher einzeln, aber parallel.
 
 ## 2.10.0

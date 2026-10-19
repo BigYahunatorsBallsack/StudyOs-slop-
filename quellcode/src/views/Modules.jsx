@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { DONE_HW, MODULE_STATUS, RING_COLORS } from "../lib/constants.js";
 import { isActive, moduleStats } from "../lib/data.js";
-import { byOrder, byTime, diffDays, fmt, fmtDec, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
+import { byOrder, byTime, diffDays, fmt, fmtDec, fmtH, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
 import { Bar, Card, Empty, RingLegend, Stat, Tabs, TriRing } from "../ui/primitives.jsx";
-import { CardList, HomeworkRow, LogRow, SessionRow, TopicRow } from "../ui/rows.jsx";
+import { CardList, HomeworkRow, SessionRow, TopicRow } from "../ui/rows.jsx";
 import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
 import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
-import { bonusForecast, workload } from "../lib/study.js";
+import { bonusForecast, studyDiary, workload } from "../lib/study.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
 
@@ -163,7 +163,8 @@ export function ModuleDetail({ db, id, onBack }) {
               <BonusForecast f={bonusForecast(data, id)} />
             </Card>
           )}
-          <WorkloadCard w={workload(data, id)} />
+          <WorkloadCard w={workload(data, id)} m={m} db={db} />
+          <DiaryPreview logs={logs.filter((l) => l.note)} onAll={() => setSub("lernzeit")} />
           <Card title="Als Nächstes">
             <ul className="space-y-2 text-sm">
               <li className="flex justify-between gap-2"><span className="text-slate-400">Termin</span><span className="text-right">{nextSes ? `${fmtShort(nextSes.date)} ${nextSes.start} · ${nextSes.type}` : "–"}</span></li>
@@ -210,7 +211,8 @@ export function ModuleDetail({ db, id, onBack }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between"><p className="text-sm text-slate-300">Gesamt: <span className="font-num">{fmtMin(s.minutes)}</span></p>
             <button className={btnPrimary} onClick={() => db.openForm("log", { moduleId: id, date: t }, true)}>+ Lerneinheit</button></div>
-          {logs.length ? <ul className="rows">{logs.map((l) => <LogRow key={l.id} l={l} db={db} />)}</ul> : <Empty>Noch keine Lerneinheiten.</Empty>}
+          <WorkloadCard w={workload(data, id)} m={m} db={db} />
+          <Diary days={studyDiary(data.logs, id)} db={db} color={m.color} />
         </div>
       )}
 
@@ -246,8 +248,6 @@ export function ModuleDetail({ db, id, onBack }) {
   );
 }
 
-const fmtH = (h) => (h < 10 ? h.toFixed(1).replace(".", ",") : Math.round(h)) + " h";
-
 /* Was ist für den Notenbonus noch nötig? */
 export function BonusForecast({ f }) {
   if (!f || f.state === "open") return f ? <p className="mt-2 text-xs text-slate-500">Für eine Prognose: Maximalpunkte bei den Blättern eintragen (oder eine Blatt-Serie anlegen).</p> : null;
@@ -262,8 +262,9 @@ export function BonusForecast({ f }) {
 }
 
 /* Arbeitsaufwand nach ECTS: Soll bis heute gegen Lernzeit und besuchte Termine */
-export function WorkloadCard({ w }) {
+export function WorkloadCard({ w, m, db }) {
   if (!w) return null;
+  const goal = Number(m?.weeklyGoal) || 0;
   const color = w.state === "ok" ? "var(--ok)" : w.state === "warn" ? "var(--warn)" : "var(--danger)";
   return (
     <Card title="Arbeitsaufwand">
@@ -273,6 +274,18 @@ export function WorkloadCard({ w }) {
         {w.ects} ECTS entsprechen etwa {Math.round(w.totalH)} h Arbeit, verteilt auf {w.weeks} Wochen also rund {fmtH(w.perWeekH)} pro Woche. Gezählt: {fmtH(w.selfH)} Lernzeit und {fmtH(w.presenceH)} besuchte Termine.
         {w.state !== "ok" && " Lernzeit trägst du über den Timer oder „+ Lerneinheit“ ein."}
       </p>
+      {(Math.abs(w.gapH) >= 0.1 || w.needPerWeekH !== null) && (
+        <p className={`notice mt-2 ${w.state === "ok" ? "notice-ok" : w.state === "warn" ? "notice-warn" : "notice-danger"}`}>
+          {w.gapH >= 0.1 ? <>Du liegst <b>{fmtH(w.gapH)}</b> hinter dem Soll.</> : w.gapH <= -0.1 ? <>Du liegst <b>{fmtH(-w.gapH)}</b> vor dem Soll.</> : <>Du liegst genau im Soll.</>}
+          {w.needPerWeekH !== null && <> Für die vollen {Math.round(w.totalH)} h brauchst du in den restlichen {Math.round(w.leftWeeks)} {Math.round(w.leftWeeks) === 1 ? "Woche" : "Wochen"} rund <b>{fmtH(w.needPerWeekH)}</b> pro Woche.</>}
+        </p>
+      )}
+      {db && m && w.goalSuggestH !== null && w.goalSuggestH !== goal && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span>{goal ? `Wochenziel: ${fmtDec(goal)} h.` : "Noch kein Wochenziel."} Nach ECTS wären es etwa {fmtDec(w.goalSuggestH)} h Lernzeit pro Woche (Termine schon abgezogen).</span>
+          <button className={btnGhost} onClick={() => { db.patch("modules", m.id, { weeklyGoal: w.goalSuggestH }); db.toast(`Wochenziel für ${m.name}: ${fmtDec(w.goalSuggestH)} h.`); }}>Als Wochenziel übernehmen</button>
+        </div>
+      )}
     </Card>
   );
 }
@@ -286,5 +299,52 @@ function WorkloadLine({ w }) {
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} aria-hidden="true" />
       {fmtH(w.istH)} von {fmtH(w.sollH)} Aufwand
     </span>
+  );
+}
+
+/* Die letzten Lernnotizen in der Modulübersicht */
+function DiaryPreview({ logs, onAll }) {
+  if (!logs.length) return null;
+  return (
+    <Card title="Lerntagebuch" action={<button className="link-btn" onClick={onAll}>Alle ansehen</button>}>
+      <ul className="space-y-1.5 text-sm">
+        {logs.slice(0, 3).map((l) => (
+          <li key={l.id} className="flex gap-2">
+            <span className="font-num shrink-0 text-xs leading-5 text-slate-500">{fmtShort(l.date)}</span>
+            <span className="min-w-0 flex-1 break-words">{l.note}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+/* Lerntagebuch: Lerneinheiten nach Tagen, mit der Notiz in voller Länge */
+function Diary({ days, db, color }) {
+  if (!days.length) return <Empty>Noch keine Lerneinheiten. Nach einer Fokusphase im Timer kannst du in einer Zeile notieren, was du gemacht hast.</Empty>;
+  return (
+    <section aria-label="Lerntagebuch" className="space-y-3">
+      <h3 className="section-title">Lerntagebuch</h3>
+      {days.map((d) => (
+        <div key={d.date}>
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-xs text-slate-400">
+            <span className="font-semibold">{fmtShort(d.date)}</span><span className="font-num">{fmtMin(d.minutes)}</span>
+          </div>
+          <ul className="rows">
+            {d.logs.map((l) => { const tp = db.data.topics.find((x) => x.id === l.topicId); return (
+              <li key={l.id} className="row" style={{ "--mod": color }}>
+                <button onClick={() => db.openForm("log", l)} className="row-main flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className={`break-words text-sm ${l.note ? "" : "text-slate-500"}`}>{l.note || "Ohne Notiz"}</p>
+                    <p className="row-meta">{l.at ? `${l.at}, ` : ""}{l.kind}{tp ? `, ${tp.title}` : ""}</p>
+                  </div>
+                  <span className="stat-value shrink-0 text-base">{fmtMin(l.minutes)}</span>
+                </button>
+              </li>
+            ); })}
+          </ul>
+        </div>
+      ))}
+    </section>
   );
 }
