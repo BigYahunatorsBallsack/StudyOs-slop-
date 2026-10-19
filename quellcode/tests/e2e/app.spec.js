@@ -823,6 +823,44 @@ test('Pixel-Extras: Wochenziel, Münze und Abschuss, Timer-Begleiter, Schwachste
   await expect(page.locator('.badge-locked').filter({ hasText: 'Kartenstapler' })).toContainText('3 / 100');
 });
 
+test('Timer: Musik in der Fokusphase, Signalton ausschalten, Pixel-Ring', async ({ page }) => {
+  // Web Audio mitschreiben statt abspielen
+  await page.addInitScript(() => {
+    const log = window.__audio = { made: 0, closed: 0, osc: 0, loops: 0 };
+    const node = () => ({ connect() {}, gain: { value: 0, setValueAtTime() {}, setTargetAtTime() {}, exponentialRampToValueAtTime() {} }, frequency: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, start() {}, stop() {} });
+    window.AudioContext = class {
+      constructor() { log.made++; this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = {}; }
+      createGain() { return node(); }
+      createBiquadFilter() { return node(); }
+      createOscillator() { log.osc++; return node(); }
+      createBufferSource() { const n = node(); Object.defineProperty(n, 'loop', { set(v) { if (v) log.loops++; } }); return n; }
+      createBuffer(c, len) { return { getChannelData: () => new Float32Array(len) }; }
+      resume() { return Promise.resolve(); }
+      close() { log.closed++; return Promise.resolve(); }
+    };
+  });
+  await page.goto('./');
+  await nav(page, 'Lernen').click();
+  await expect(page.locator('.px-ring rect')).toHaveCount(40);
+  await page.getByRole('tab', { name: '8-Bit' }).click();
+  await expect(page.getByLabel('Lautstärke')).toBeVisible();
+  await page.getByRole('button', { name: 'Starten' }).click();
+  await expect.poll(() => page.evaluate(() => window.__audio.osc)).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Pausieren' }).click();
+  await expect.poll(() => page.evaluate(() => window.__audio.closed)).toBe(1);
+  // Regen spielt zwei Rauschschleifen; aus = keine Musik
+  await page.getByRole('tab', { name: 'Regen' }).click();
+  await page.getByRole('button', { name: /^(Starten|Fortsetzen)$/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__audio.loops)).toBe(2);
+  await page.getByRole('tab', { name: 'Aus', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__audio.closed)).toBe(2);
+  await expect(page.getByLabel('Lautstärke')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Pausieren' }).click();
+  // Signalton direkt am Timer ausschalten
+  await page.getByLabel('Signalton und Vibration am Ende einer Phase').uncheck();
+  await expect.poll(async () => (await stored(page)).settings.sound).toBe(false);
+});
+
 test('Aufzeichnung: „angeschaut bis“ eintragen, Stand erscheint bei Zu erledigen', async ({ page }) => {
   await page.goto('./');
   await seed(page, (day) => ({ modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399', liveUrl: 'https://live.rbg.tum.de/old/course/2026/W/ds' }],

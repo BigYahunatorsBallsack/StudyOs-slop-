@@ -18,6 +18,8 @@ import { TimerBadge, TimerTitle } from "./ui/timer.jsx";
 import { QuickAdd } from "./ui/QuickAdd.jsx";
 import { Sky } from "./ui/pixel.jsx";
 import { useAchievements } from "./app/useAchievements.js";
+import { useAmbient } from "./ui/ambient.js";
+import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 
 /* Seltener genutzte Bereiche als eigene Dateien: werden beim ersten Öffnen geladen (offline über den Service Worker) */
@@ -203,6 +205,9 @@ export default function App() {
     onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
     onLog: (init) => openForm("log", init, true),
   });
+
+  /* Musik in der Fokusphase (Timer → „Musik in der Fokusphase“) */
+  useAmbient({ kind: ambientOf(data.settings), playing: timer.running && timer.mode === "focus", volume: ambientVolumeOf(data.settings) });
 
   /* Ersetzen (Import, Wiederherstellen, Löschen, Beispieldaten): standardmäßig mit Zeitstempeln und Grabsteinen,
      damit das Ersetzen auch per Sync auf anderen Geräten ankommt. Beim Zusammenführen sind die Stempel schon richtig. */
