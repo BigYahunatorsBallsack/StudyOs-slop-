@@ -6,6 +6,7 @@ import { carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, DEFAULT_FEEDER,
 import { fmtShort, iso } from "../lib/util.js";
 import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
 import { useGroupOpens } from "../ui/collapse.jsx";
+import { Select } from "../ui/select.jsx";
 
 const dayWord = (date) => (date === iso() ? "heute" : date === iso(new Date(Date.now() + 86400000)) ? "morgen" : fmtShort(date));
 const lineName = (l) => (/^\d/.test(l || "") ? `Bus ${l}` : l || "Abfahrten");
@@ -188,9 +189,9 @@ export function CommuteCard({ db, sessions }) {
       <div className="mt-2"><Tabs label="Verkehrsmittel" items={MODES} value={c.mode} onChange={(mode) => db.patchSettings({ commute: { ...c, mode } })} /></div>
       {!incomplete && options.length > 1 && (
         <label className="mt-3 block text-xs text-slate-400">Pünktlich sein für
-          <select className="field mt-1 w-full text-sm" value={session.id} onChange={(e) => setPick(e.target.value)}>
+          <Select className="field mt-1 w-full text-sm" value={session.id} onChange={(e) => setPick(e.target.value)}>
             {options.map((s) => <option key={s.id} value={s.id}>{dayWord(s.date)[0].toUpperCase() + dayWord(s.date).slice(1)} {s.start}: {db.mod(s.moduleId)?.name || s.type || "Termin"}</option>)}
-          </select>
+          </Select>
         </label>
       )}
       {incomplete ? <p className="mt-2 text-sm text-slate-400">{car ? "Start und Ziel" : "Haltestelle"} unter „Daten & Einstellungen“ → „Weg zur Uni“ eintragen.</p>
