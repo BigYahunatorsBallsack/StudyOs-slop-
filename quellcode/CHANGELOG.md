@@ -1,9 +1,13 @@
 # Änderungen
 
+## 2.6.1
+- **Konflikthinweis** funktioniert jetzt auch beim ersten Abgleich nach dem Neuladen der App (die Zeitstempel des letzten Syncs bleiben pro Nutzer auf dem Gerät).
+- **Technik:** ESLint läuft ohne Warnungen (`--max-warnings 0`), ungenutzte Imports entfernt; 155 Unit-Tests.
+
 ## 2.6.0
 
 ### Neu
-- **Konflikthinweis beim Sync:** Hat ein anderes Gerät eine Notiz, Aufgabe o. Ä. überschrieben oder gelöscht, die du hier seit dem letzten Abgleich geändert hast, erscheint ein Hinweis mit **Meine behalten**. Funktioniert auch beim ersten Abgleich nach dem Neuladen.
+- **Konflikthinweis beim Sync:** Hat ein anderes Gerät eine Notiz, Aufgabe o. Ä. überschrieben oder gelöscht, die du hier seit dem letzten Abgleich geändert hast, erscheint ein Hinweis mit **Meine behalten**.
 - **Cloud-Sicherung:** Einmal pro Woche ein verschlüsselter Schnappschuss im privaten Cloud-Speicher, die letzten 8 Wochen bleiben; je Woche wiederherstellbar (Mehr → Daten → Cloud-Sync). Nutzt den Speicher aus `anhaenge.sql`.
 - **Wochenrückblick:** Die Sonntagsnachricht um 18 Uhr nennt zusätzlich die Lernzeit der Woche (mit Vorwoche) und die fälligen Karten.
 - **Weg zur Uni:** Störungen und Baustellen der MVG zu deinen Linien auf „Heute“. Optional Push, wenn du wegen Verspätung oder Ausfall früher losmusst (ab 3 Minuten). Braucht die aktuelle Edge Function.
@@ -21,9 +25,8 @@
 - Veröffentlichen über **GitHub Pages Deployments** statt Commit ins Wurzelverzeichnis (Settings → Pages → Source: „GitHub Actions“).
 - CI: `npm audit`, Typprüfung (`tsc --checkJs` für `lib/` und `server/`), Deno fest auf 2.9.6, Dependabot.
 - KaTeX 0.19, Vitest 5, esbuild 0.28 (schließt gemeldete Sicherheitslücken).
-- ESLint läuft ohne Warnungen (`--max-warnings 0`), ungenutzte Imports entfernt.
 - `App.jsx` aufgeteilt: Speichern, Farbschema, Timer und Kalender-Abos als Hooks in `src/app/`.
-- Tests: Barrierefreiheit mit axe (alle Bereiche, hell und dunkel), Screenshot-Vergleich (`npm run test:visual`), Property-Tests mit fast-check für Zusammenführen und Migration; 155 Unit-, 51 Browser-Tests.
+- Tests: Barrierefreiheit mit axe (alle Bereiche, hell und dunkel), Screenshot-Vergleich (`npm run test:visual`), Property-Tests mit fast-check für Zusammenführen und Migration; 152 Unit-, 51 Browser-Tests.
 
 ## 2.5.3
 - **Wochenraster:** Samstag und Sonntag erscheinen jetzt auch, wenn dort nur eine Abgabe oder ein Lernblock liegt (bisher nur bei Terminen und Prüfungen).
