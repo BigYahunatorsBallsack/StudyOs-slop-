@@ -1,5 +1,11 @@
 # Änderungen
 
+## Unveröffentlicht
+- **Behoben: Weg zur Uni zeigte schon morgen,** sobald die erste Veranstaltung des Tages begonnen hatte, auch wenn heute noch eine weitere kam. Jetzt gilt die nächste Veranstaltung, die noch nicht begonnen hat.
+- **Weg zur Uni: Ziel wählen.** Unter „Pünktlich sein für“ stehen die restlichen Veranstaltungen von heute und die des nächsten Uni-Tages.
+- **Weg zur Uni mit dem Auto ab Standort:** „Ab meinem Standort“ rechnet die Fahrzeit vom aktuellen Standort (auf etwa 10 m gerundet an den Kartendienst), ohne Freigabe weiter ab dem eingetragenen Start. Der Google-Maps-Link startet dann ebenfalls am Standort.
+- **Mensa: heute oder morgen.** Umschalter zwischen heute und dem nächsten Werktag; vorausgewählt ist wie bisher bis 14:30 heute, danach der nächste Werktag.
+
 ## 2.8.0
 - **Nur noch Retro:** Die Farbschemata Dunkel und Hell sind entfernt, StudyOS sieht immer im Retro-Look aus (auch beim Start, bevor die App geladen ist). In den Einstellungen bleibt die Wahl der Animationen (Pixel, Neon, Scan, Aus).
 - **Behoben:** Nach dem Antippen eines Knopfs auf dem Handy blieb er bis zum nächsten Tippen andersfarbig (z. B. „Vorbereitet“ auf „Als Nächstes“), weil der Hover-Zustand hängen blieb. Hover-Effekte gibt es jetzt nur noch auf Geräten mit Maus.

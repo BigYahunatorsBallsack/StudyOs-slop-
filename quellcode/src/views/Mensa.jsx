@@ -1,14 +1,16 @@
-/* Speiseplan auf „Heute“: Gerichte der gewählten Mensa, heute bzw. am nächsten Werktag */
+/* Speiseplan auf „Heute“: Gerichte der gewählten Mensa, heute oder am nächsten Werktag (umschaltbar) */
 import React, { useEffect, useState } from "react";
-import { canteenName, dishesOn, menuDay, menuUrl } from "../lib/mensa.js";
-import { PxIcon } from "../ui/primitives.jsx";
+import { canteenName, dishesOn, menuDay, menuDays, menuUrl } from "../lib/mensa.js";
+import { PxIcon, Tabs } from "../ui/primitives.jsx";
 
 const CACHE = "studyos-mensa";
 const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE) || "null"); } catch { return null; } };
 const writeCache = (v) => { try { localStorage.setItem(CACHE, JSON.stringify(v)); } catch { /* egal */ } };
 
 export function MensaCard({ canteen }) {
-  const day = menuDay();
+  const days = menuDays();
+  const [pick, setPick] = useState(() => menuDay().date);
+  const day = days.find((d) => d.date === pick) || days[0];
   const url = canteen ? menuUrl(canteen, day.date) : null;
   const [state, setState] = useState(() => { const c = readCache(); return c && c.url === url ? { week: c.week } : { loading: true }; });
   const [open, setOpen] = useState(false);
@@ -35,6 +37,7 @@ export function MensaCard({ canteen }) {
         <h3 className="section-title">Mensa {day.label}</h3>
         <span className="text-xs text-slate-500">{canteenName(canteen)}</span>
       </div>
+      {days.length > 1 && <div className="mt-2"><Tabs label="Tag" items={days.map((d) => [d.date, d.label[0].toUpperCase() + d.label.slice(1).replace(/^Am /, "")])} value={day.date} onChange={setPick} /></div>}
       {state.loading ? <p className="mt-2 text-sm text-slate-400" role="status">Lädt …</p>
         : state.error ? <p className="mt-2 text-sm text-slate-400">Speiseplan gerade nicht erreichbar.</p>
         : !dishes.length ? <p className="mt-2 text-sm text-slate-400">Für {day.label} kein Speiseplan (geschlossen oder noch nicht veröffentlicht).</p>

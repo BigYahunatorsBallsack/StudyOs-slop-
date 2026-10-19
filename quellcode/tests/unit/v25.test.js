@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matches, nextFirstSession, queryOffset, recommend, commuteOf, LEGACY_COMMUTE } from "../../src/lib/transit.js";
+import { matches, nextFirstSession, upcomingSessions, queryOffset, recommend, commuteOf, LEGACY_COMMUTE } from "../../src/lib/transit.js";
 import { mvg } from "../../src/server/mvg.js";
 import { freeGaps, suggestBlocks, blockReminders } from "../../src/lib/blocks.js";
 import { whatNow } from "../../src/lib/now.js";
@@ -25,9 +25,11 @@ describe("Bus zur Uni", () => {
     expect(matches({ line: "230", destination: "Haar (S)" }, c)).toBe(false);
     expect(matches({ line: "241", destination: "Forschungszentrum" }, c)).toBe(false);
   });
-  it("erste Veranstaltung: heute, solange sie noch nicht begonnen hat, sonst der nächste Tag", () => {
+  it("nächste Veranstaltung: die nächste heute, die noch nicht begonnen hat, sonst der nächste Tag", () => {
     expect(nextFirstSession(ses, new Date("2026-10-19T07:00:00")).id).toBe("a");
-    expect(nextFirstSession(ses, new Date("2026-10-19T11:00:00")).id).toBe("c");
+    expect(nextFirstSession(ses, new Date("2026-10-19T11:00:00")).id).toBe("b");
+    expect(nextFirstSession(ses, new Date("2026-10-19T15:00:00")).id).toBe("c");
+    expect(upcomingSessions(ses, new Date("2026-10-19T11:00:00")).map((s) => s.id)).toEqual(["b", "c"]);
   });
   it("späteste passende Abfahrt mit Fahrzeit und Puffer", () => {
     const deps = [["08:53", 0], ["09:13", 2], ["09:23", 0], ["09:33", 0]].map(([hm, delay]) => ({ line: "230", destination: "Garching, Forschungszentrum (U)", time: at("2026-10-19", hm), delay, cancelled: false }));

@@ -360,7 +360,7 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await A.page.evaluate(async () => {
     const d = new Date(); d.setDate(d.getDate() + 1); const tomorrow = d.toLocaleDateString('sv-SE');
     await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '' }, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
-      sessions: [{ id: 's', moduleId: 'ds', type: 'Vorlesung', date: tomorrow, start: '09:15', end: '10:45', room: 'MI HS 1' }], homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 3', due: tomorrow, status: 'ausgegeben' }], topics: [], logs: [], notes: [], cards: [], exams: [] });
+      sessions: [{ id: 's', moduleId: 'ds', type: 'Vorlesung', date: tomorrow, start: '09:15', end: '10:45', room: 'MI HS 1' }, { id: 'u', moduleId: 'ds', type: 'Übung', date: tomorrow, start: '12:00', end: '13:30' }], homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 3', due: tomorrow, status: 'ausgegeben' }], topics: [], logs: [], notes: [], cards: [], exams: [] });
   });
   await A.page.reload();
   await login(A.page);
@@ -395,6 +395,20 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&origin=Zorneding&destination=Boltzmannstra/);
   expect(asked[0]).toEqual({ from: 'Zorneding', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
   await expect(card.getByText('Weichenstörung bei Haar')).toHaveCount(0);
+
+  // Ziel wählen: die Übung um 12:00 → 12:00 − 67 Min. = 10:53
+  await card.getByLabel('Pünktlich sein für').selectOption({ label: 'Morgen 12:00: Diskrete Strukturen' });
+  await expect(card.getByText(/10:53 losfahren in Zorneding, damit du morgen um 12:00/)).toBeVisible();
+  await card.getByLabel('Pünktlich sein für').selectOption({ index: 0 });
+
+  // Ab dem aktuellen Standort
+  await A.context.grantPermissions(['geolocation']);
+  await A.context.setGeolocation({ latitude: 48.137154, longitude: 11.576124 });
+  await card.getByLabel('Ab meinem Standort').check();
+  await expect(card.getByText(/08:08 losfahren ab deinem Standort/)).toBeVisible();
+  expect(asked.at(-1)).toEqual({ from: '48.1372,11.5761', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
+  await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', 'https://www.google.com/maps/dir/?api=1&destination=Boltzmannstra%C3%9Fe%2015%2C%2085748%20Garching%20bei%20M%C3%BCnchen&travelmode=driving');
+  await card.getByLabel('Ab meinem Standort').uncheck();
   await card.getByRole('tab', { name: 'Öffis' }).click();
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
 

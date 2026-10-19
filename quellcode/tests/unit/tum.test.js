@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { gopStatus, gradeForecast, roomUrl } from "../../src/lib/tum.js";
-import { dishesOn, isoWeek, menuDay, menuUrl, mensaOf } from "../../src/lib/mensa.js";
+import { dishesOn, isoWeek, menuDay, menuDays, menuUrl, mensaOf } from "../../src/lib/mensa.js";
 import { applyMoodle, cleanTitle, dueOf, isMoodleDeadline, unmappedCourses } from "../../src/lib/moodle.js";
 import { parseICS } from "../../src/lib/ics.js";
 import { emptyData } from "../../src/lib/data.js";
@@ -55,6 +55,11 @@ describe("Mensa", () => {
     expect(menuDay(new Date(2026, 9, 19, 11, 0))).toEqual({ date: "2026-10-19", label: "heute" });
     expect(menuDay(new Date(2026, 9, 19, 16, 0))).toEqual({ date: "2026-10-20", label: "morgen" });
     expect(menuDay(new Date(2026, 9, 17, 10, 0)).date).toBe("2026-10-19");
+  });
+  it("zur Auswahl: heute und der nächste Werktag", () => {
+    expect(menuDays(new Date(2026, 9, 19, 16, 0))).toEqual([{ date: "2026-10-19", label: "heute" }, { date: "2026-10-20", label: "morgen" }]);
+    expect(menuDays(new Date(2026, 9, 23, 10, 0))).toEqual([{ date: "2026-10-23", label: "heute" }, { date: "2026-10-26", label: "am Montag" }]);
+    expect(menuDays(new Date(2026, 9, 24, 10, 0))).toEqual([{ date: "2026-10-26", label: "am Montag" }]);
   });
   it("ohne Auswahl keine Mensa, sonst die gewählte", () => {
     expect(mensaOf({ university: "TUM" })).toBe("");

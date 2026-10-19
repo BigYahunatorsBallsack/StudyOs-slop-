@@ -42,7 +42,8 @@ export function carPlan(route, session, c, startMs = null) {
 }
 
 /** Route in Google Maps (geht ohne Schlüssel, auch mit Verkehrslage in der Maps-App) */
-export const mapsLink = (car) => `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(car.from)}&destination=${encodeURIComponent(car.to)}&travelmode=driving`;
+/* ohne origin startet Google Maps am aktuellen Standort */
+export const mapsLink = (car, fromHere = false) => `https://www.google.com/maps/dir/?api=1${fromHere ? "" : `&origin=${encodeURIComponent(car.from)}`}&destination=${encodeURIComponent(car.to)}&travelmode=driving`;
 
 const words = (s) => String(s || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
 /** Passt eine Abfahrt zu Linie und Richtung (enthält / enthält nicht)? */
@@ -54,17 +55,21 @@ export function matches(d, leg) {
   return !words(leg.avoid).some((w) => dest.includes(w));
 }
 
-/** Erste nicht ausfallende Lehrveranstaltung heute (noch nicht begonnen) oder an einem der nächsten 3 Tage */
-export function nextFirstSession(sessions, now = new Date()) {
+/** Wählbare Ziele: die noch nicht begonnenen Veranstaltungen von heute und alle des nächsten Tages mit Veranstaltungen (bis 3 Tage voraus) */
+export function upcomingSessions(sessions, now = new Date()) {
   const today = iso(now), hm = now.toTimeString().slice(0, 5);
-  for (let i = 0; i <= 3; i++) {
-    const day = addDays(today, i);
-    const first = sessions.filter((s) => s.date === day && !s.cancelled).sort((a, b) => a.start.localeCompare(b.start))[0];
-    if (!first) continue;
-    if (i === 0 && first.start <= hm) continue;
-    return first;
+  const on = (day) => sessions.filter((s) => s.date === day && !s.cancelled && /^\d{2}:\d{2}$/.test(s.start || "")).sort((a, b) => a.start.localeCompare(b.start));
+  const out = on(today).filter((s) => s.start > hm);
+  for (let i = 1; i <= 3; i++) {
+    const next = on(addDays(today, i));
+    if (next.length) return out.concat(next);
   }
-  return null;
+  return out;
+}
+
+/** Nächste Veranstaltung: die nächste heute, die noch nicht begonnen hat, sonst die erste der nächsten Tage */
+export function nextFirstSession(sessions, now = new Date()) {
+  return upcomingSessions(sessions, now)[0] || null;
 }
 
 const at = (date, hm) => { const [y, m, d] = date.split("-").map(Number); const [h, mi] = hm.split(":").map(Number); return new Date(y, m - 1, d, h, mi).getTime(); };

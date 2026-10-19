@@ -55,6 +55,13 @@ describe("Weg zur Uni mit dem Auto: Server", () => {
     expect(none).toMatchObject({ status: 404, error: "„Nirgendwo-123“ wurde nicht gefunden." });
   });
 
+  it("Google: Standort als Koordinaten", async () => {
+    let sent;
+    await drive({ from: "48.1500,11.6000", to: "Garching" }, { GOOGLE_MAPS_KEY: "g" }, async (url, opts) => { sent = JSON.parse(opts.body); return ok({ routes: [{ duration: "600s" }] }); });
+    expect(sent.origin).toEqual({ location: { latLng: { latitude: 48.15, longitude: 11.6 } } });
+    expect(sent.destination).toEqual({ address: "Garching" });
+  });
+
   it("Google hat Vorrang, wenn beide Schlüssel gesetzt sind", () => {
     expect(driveProvider({ GOOGLE_MAPS_KEY: "g", TOMTOM_KEY: "t" })).toBe("google");
     expect(driveProvider({ TOMTOM_KEY: "t" })).toBe("tomtom");
@@ -88,6 +95,10 @@ describe("Weg zur Uni mit dem Auto: App", () => {
     expect(new Date(p.leaveAt).toTimeString().slice(0, 5)).toBe("08:15");
     expect(new Date(p.arriveAt).toTimeString().slice(0, 5)).toBe("09:00");
     expect(carPlan(null, { date: "2026-10-20", start: "09:15" }, c)).toBe(null);
+  });
+
+  it("Google-Maps-Link ab Standort: ohne origin", () => {
+    expect(mapsLink({ from: "Zorneding", to: "Garching" }, true)).toBe("https://www.google.com/maps/dir/?api=1&destination=Garching&travelmode=driving");
   });
 
   it("Google-Maps-Link ohne Schlüssel", () => {

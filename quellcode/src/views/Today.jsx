@@ -9,7 +9,7 @@ import { SessionTri } from "../ui/session.jsx";
 import { dueLabel, todoItems } from "../lib/todo.js";
 import { PlaceLinks } from "../ui/links.jsx";
 import { MensaCard } from "./Mensa.jsx";
-import { mensaOf, menuDay } from "../lib/mensa.js";
+import { mensaOf } from "../lib/mensa.js";
 import { Group } from "../ui/collapse.jsx";
 import { CommuteCard } from "./Commute.jsx";
 import { commuteOf } from "../lib/transit.js";
@@ -118,7 +118,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       )}
       {/* Karten mit eigener Überschrift: die Überschrift übernimmt hier der Abschnitt (zum Einklappen), die der Karte blendet design.css aus */}
       {commuteOf(db.data.settings) && db.cloud?.available && <Group id="commute" title="Weg zur Uni" className="group-card"><CommuteCard db={db} sessions={data.sessions} /></Group>}
-      {mensaOf(db.data.settings) && <Group id="mensa" title={`Mensa ${menuDay().label}`} className="group-card"><MensaCard canteen={mensaOf(db.data.settings)} /></Group>}
+      {mensaOf(db.data.settings) && <Group id="mensa" title="Mensa" className="group-card"><MensaCard canteen={mensaOf(db.data.settings)} /></Group>}
     </div>
   );
 }
