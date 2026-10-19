@@ -58,8 +58,8 @@ export default function App() {
   };
   const closeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
 
-  /* Farbschema: dunkel, hell oder wie das System */
-  useTheme(data.settings.theme || "dark");
+  /* Farbschema: dunkel, hell, retro oder wie das System */
+  useTheme(data.settings.theme || "dark", data.settings.retroMotion);
 
   /* Geteilter Kartenstapel (?teilen=…#k=…) */
   const [shareIn, setShareIn] = useState(null);
@@ -347,6 +347,8 @@ export default function App() {
           </div>
         )}
         <Suspense fallback={<Loading />}>
+        {/* neu pro Bereich, damit die Retro-Animationen beim Wechsel einsetzen */}
+        <div key={tab + (tab === "module" && moduleId ? ":" + moduleId : "")} className="view">
         {tab === "heute" && <Today db={db} onQuick={() => setQuickOpen(true)} whatNowOpen={whatNowOpen} setWhatNowOpen={setWhatNowOpen} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
           <div className="notice notice-plain flex items-center gap-3">
             <p className="flex-1">{backupAge === null ? "Du hast noch keine Sicherung exportiert." : `Letzte Sicherung vor ${backupAge} Tagen.`} Deine Daten liegen nur auf diesem Gerät. Sichere sie oder schalte den Cloud-Sync ein.</p>
@@ -357,6 +359,7 @@ export default function App() {
         {tab === "woche" && <WeekView db={db} />}
         {tab === "lernen" && <Learn db={db} sub={learnTab} setSub={setLearnTab} timer={timerApi} cardFilter={cardFilter} setCardFilter={setCardFilter} />}
         {tab === "mehr" && <More db={db} sub={moreTab} setSub={setMoreTab} />}
+        </div>
         </Suspense>
         <p className="mt-10 text-center text-[11px] text-slate-600">StudyOS {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}, Datenformat {DATA_VERSION}</p>
       </main>

@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2.8.0
+- **Retro-Animationen in drei Varianten** (Mehr → Daten & Einstellungen → Retro-Animationen, nur bei Retro sichtbar):
+  - **Arcade:** Inhalte rasten beim Bereichswechsel in harten Pixel-Schritten nacheinander ein, Dialoge fahren stufig hoch, Meldungen federn, Auswahl und Tab-Symbole hüpfen wie Münzen, Fortschrittsbalken füllen sich in Segmenten, der Space Invader tippelt.
+  - **Röhre:** Der Bereich schaltet sich wie ein alter Röhrenmonitor ein (Lichtstreifen, der aufgeht, kurzes Nachleuchten), Dialoge und Meldungen ebenso; eingeklappte Abschnitte schalten sich wie ein Fernseher aus.
+  - **Glitch:** Inhalte erscheinen in versetzten Streifen mit Cyan/Pink-Farbversatz, Auswahl und Knöpfe zucken kurz, der Seitentitel stört ab und zu.
+  - **Aus:** nur der Retro-Look ohne Bewegung. Bei „Bewegung reduzieren“ am Gerät bleibt in jeder Variante alles still. Kein Text wird per Transparenz eingeblendet, der Kontrast bleibt in jedem Moment erhalten.
+- **Heute: Abschnitte einklappen** (alle Farbschemata): Ein Tipp auf „Tagesplan“, „Zu erledigen“ oder „Prüfungen“ klappt den Abschnitt bis auf die Überschrift (mit Anzahl) zu; der Zustand bleibt auf dem Gerät. Im Retro-Theme zeigt der Pixel-Pfeil die Richtung, Auf- und Zuklappen ist in allen drei Varianten animiert.
+- **Heute: Aufzeichnung direkt aus der Nachbereitung:** Einträge „Nachbereiten“ in „Zu erledigen“ haben einen Link „Aufzeichnung ↗“, wenn beim Modul ein TUM-Live-Link hinterlegt ist, auch für Termine vergangener Tage.
+
 ## 2.7.1
 - **Behoben:** Uhrzeiten bereits vergangener Termine im Tagesplan hatten zu wenig Kontrast (abgeblendet per Transparenz); jetzt gedämpfte Farbe mit mindestens 4,5:1.
 - **Retro mit Pixel-Details:** kleine Pixel-Icons für S-Bahn, Bus, Tram, Fußweg und Ziel bei „Weg zur Uni“, für Gerichte in der Mensa (Schüssel, Blatt für vegan/vegetarisch, Fisch, Fleisch); Sternenhimmel, Pixel-Pfeile vor Abschnittstiteln, blinkender Cursor am Seitentitel (ohne Animation bei „Bewegung reduzieren“), Sanduhr und Flamme bei Lernzeit und Serie, segmentierte Fortschrittsbalken, ein Space Invader bei leeren Listen und ein Pixel-Pfeil an der Jetzt-Linie. Grafiken aus `tools/retro_pixels.py`.

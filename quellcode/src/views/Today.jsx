@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { WD_LONG } from "../lib/constants.js";
 import { isActive, streakOf } from "../lib/data.js";
 import { byTime, diffDays, fmtMin, fmtShort, isHeld, iso, isoWeek, nowHM, sum, wdIdx, weekStart } from "../lib/util.js";
@@ -89,7 +89,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
 
       {notice && <div className="mt-4">{notice}</div>}
 
-      <Group title="Tagesplan" count={plan.length || undefined}>
+      <Group id="plan" title="Tagesplan" count={plan.length || undefined}>
         {plan.length ? (
           <ol className="timeline">
             {plan.map((x) => (x.s ? <TimelineRow key={x.s.id} s={x.s} db={db} /> : <TimelineBlock key={x.b.id} b={x.b} db={db} />))}
@@ -99,12 +99,12 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
         )}
       </Group>
 
-      <Group title="Zu erledigen" count={todo.length}>
+      <Group id="todo" title="Zu erledigen" count={todo.length}>
         {todo.length ? <TodoList db={db} items={todo} /> : <p className="text-sm text-slate-400">Alles erledigt.</p>}
       </Group>
 
       {exams.length > 0 && (
-        <Group title="Prüfungen" action={<button className="link-btn" onClick={() => db.goLearn("pruefungen")}>Lernplan</button>}>
+        <Group id="exams" title="Prüfungen" action={<button className="link-btn" onClick={() => db.goLearn("pruefungen")}>Lernplan</button>}>
           <div className="exam-chips">
             {exams.map(({ e, date, retake }) => { const m = db.mod(e.moduleId), n = diffDays(t, date); return (
               <button key={e.id + retake} className="exam-chip" style={{ "--mod": m?.color }} onClick={() => db.goLearn("pruefungen")}>
@@ -200,6 +200,9 @@ function TodoList({ db, items }) {
                 <span className="row-title block truncate">{title}</span>
                 <span className={`row-meta block truncate ${late ? "todo-late" : ""}`}>{meta}</span>
               </button>
+              {x.kind === "review" && /^https:\/\//i.test(m?.liveUrl || "") && (
+                <a className="ext-link shrink-0" href={m.liveUrl} target="_blank" rel="noopener noreferrer">Aufzeichnung<span className="sr-only"> von {m.name} öffnen</span> ↗</a>
+              )}
               {m && <span className="todo-dot" aria-hidden="true" />}
             </li>
           );
@@ -210,14 +213,40 @@ function TodoList({ db, items }) {
   );
 }
 
-function Group({ title, count, action, children }) {
+/* Einklappbare Abschnitte: der Zustand bleibt auf dem Gerät; beim Schließen erst ausblenden, wenn die Animation durch ist */
+const CLOSED_KEY = "studyos-heute-zu";
+const readClosed = () => { try { const v = JSON.parse(localStorage.getItem(CLOSED_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
+
+function Group({ id, title, count, action, children }) {
+  const [phase, setPhase] = useState(() => (readClosed().includes(id) ? "closed" : "open"));
+  const body = useRef(null);
+  const open = phase === "open" || phase === "opening";
+  const toggle = () => {
+    try { const s = new Set(readClosed()); if (open) s.add(id); else s.delete(id); localStorage.setItem(CLOSED_KEY, JSON.stringify([...s])); } catch { /* egal */ }
+    setPhase(open ? "closing" : "opening");
+  };
+  const settle = () => setPhase((p) => (p === "closing" ? "closed" : p === "opening" ? "open" : p));
+  // ohne Animation (anderes Farbschema, „Bewegung reduzieren“) gibt es kein animationend: dann sofort fertig
+  useLayoutEffect(() => {
+    if (phase !== "closing" && phase !== "opening") return;
+    const name = body.current ? getComputedStyle(body.current).animationName : "none";
+    if (!name || name === "none") settle();
+  }, [phase]);
+  const onEnd = (e) => { if (e.target === e.currentTarget) settle(); };
+  const bodyId = `heute-${id}`;
   return (
     <section>
       <div className="group-head">
-        <h3 className="section-title">{title}{count !== undefined && <span className="count">{count}</span>}</h3>
+        <h3 className="section-title">
+          <button className="group-toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
+            {title}{count !== undefined && <span className="count">{count}</span>}<span className="group-caret" aria-hidden="true" />
+          </button>
+        </h3>
         {action}
       </div>
-      {children}
+      <div id={bodyId} ref={body} className={`group-body group-${phase}`} hidden={phase === "closed"} onAnimationEnd={onEnd} onAnimationCancel={onEnd}>
+        {children}
+      </div>
     </section>
   );
 }

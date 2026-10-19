@@ -242,6 +242,125 @@
 /* Wochenraster: Jetzt-Linie mit Pixel-Pfeil */
 :root[data-theme="retro"] .grid-now::before { left: -6px; top: -6px; width: 8px; height: 14px; background: var(--px-arrow) center / 8px 14px no-repeat; image-rendering: pixelated; }
 
+/* ==== Retro-Animationen: drei Varianten (Mehr → Daten & Einstellungen → Retro-Animationen) ====
+   html[data-motion] setzt useTheme nur im Retro-Theme. Alles läuft nur als Antwort auf Aktionen (Bereich wechseln,
+   Dialog, Meldung, Abschnitt auf- und zuklappen, Auswahl); dauerhaft bewegt sich höchstens ein kleines Detail.
+   Keine Transparenz auf Text (Kontrast bleibt in jedem Moment), ausgeschnitten wird mit clip-path und etwas Rand,
+   damit Pixel-Ränder und Schatten nicht abgeschnitten aufblitzen. „Bewegung reduzieren“ schaltet alles ab (unten). */
+
+/* Abschnitte auf „Heute“: der Pixel-Pfeil zeigt nach unten, solange der Abschnitt offen ist */
+:root[data-theme="retro"] .group-caret { display: none; }
+:root[data-theme="retro"] .section-title:has(> .group-toggle)::before { transition: none; }
+:root[data-theme="retro"] .section-title:has(> .group-toggle[aria-expanded="true"])::before { transform: rotate(90deg); }
+:root[data-theme="retro"] .group-toggle:hover { color: var(--accent-text); }
+
+/* Variante „Aus“: nur der Look, keine Bewegung */
+:root[data-theme="retro"][data-motion="off"] *, :root[data-theme="retro"][data-motion="off"] *::before, :root[data-theme="retro"][data-motion="off"] *::after { animation: none !important; transition: none !important; }
+
+/* ---- 1) Arcade: 8-Bit-Spielhalle. Alles rastet in harten Pixel-Schritten ein, Auswahl hüpft wie eine Münze ---- */
+@keyframes px-a-in { from { transform: translateY(12px); clip-path: inset(-8px -8px 100% -8px); } to { transform: none; clip-path: inset(-8px); } }
+@keyframes px-a-out { from { transform: none; clip-path: inset(-8px); } to { transform: translateY(-8px); clip-path: inset(-8px -8px 100% -8px); } }
+@keyframes px-a-sheet { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes px-a-toast { 0% { transform: translateY(28px); } 60% { transform: translateY(-6px); } 100% { transform: none; } }
+@keyframes px-a-pop { from { transform: scale(.6); } to { transform: none; } }
+@keyframes px-a-coin { 0% { transform: none; } 35% { transform: translateY(-6px); } 70% { transform: translateY(-2px); } 100% { transform: none; } }
+@keyframes px-a-press { from { transform: translate(2px, 2px); } to { transform: none; } }
+@keyframes px-a-fill { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes px-a-sun { from { transform: translateY(48px); } to { transform: none; } }
+@keyframes px-a-shuffle { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+@keyframes px-fade { from { opacity: 0; } to { opacity: 1; } }
+
+:root[data-theme="retro"][data-motion="arcade"] .view > * > :not(.sheet-backdrop) { animation: px-a-in .28s steps(4, end) backwards; }
+:root[data-theme="retro"][data-motion="arcade"] .view > * > :nth-child(2) { animation-delay: 40ms; }
+:root[data-theme="retro"][data-motion="arcade"] .view > * > :nth-child(3) { animation-delay: 80ms; }
+:root[data-theme="retro"][data-motion="arcade"] .view > * > :nth-child(4) { animation-delay: 120ms; }
+:root[data-theme="retro"][data-motion="arcade"] .view > * > :nth-child(5) { animation-delay: 160ms; }
+:root[data-theme="retro"][data-motion="arcade"] .view > * > :nth-child(6) { animation-delay: 200ms; }
+:root[data-theme="retro"][data-motion="arcade"] .view > * > :nth-child(n+7) { animation-delay: 240ms; }
+:root[data-theme="retro"][data-motion="arcade"] .sheet-backdrop { animation: px-fade .15s steps(3, end); }
+:root[data-theme="retro"][data-motion="arcade"] .sheet-panel { animation: px-a-sheet .3s steps(6, end); }
+:root[data-theme="retro"][data-motion="arcade"] .toast { animation: px-a-toast .3s steps(5, end); }
+:root[data-theme="retro"][data-motion="arcade"] .popover { animation: px-a-pop .18s steps(3, end); }
+:root[data-theme="retro"][data-motion="arcade"] .group-opening { animation: px-a-in .24s steps(4, end); }
+:root[data-theme="retro"][data-motion="arcade"] .group-closing { animation: px-a-out .18s steps(3, end) forwards; }
+:root[data-theme="retro"][data-motion="arcade"] .tab[aria-current="page"] svg { animation: px-a-coin .32s steps(4, end); }
+:root[data-theme="retro"][data-motion="arcade"] .seg-item[aria-selected="true"], :root[data-theme="retro"][data-motion="arcade"] .chip[aria-pressed="true"], :root[data-theme="retro"][data-motion="arcade"] .tri-btn[aria-pressed="true"] { animation: px-a-press .12s steps(2, end); }
+:root[data-theme="retro"][data-motion="arcade"] :is(.chip-mark, .tri-mark) { display: inline-block; }
+:root[data-theme="retro"][data-motion="arcade"] :is(.chip[aria-pressed="true"] .chip-mark, .tri-btn[aria-pressed="true"] .tri-mark) { animation: px-a-coin .32s steps(4, end); }
+:root[data-theme="retro"][data-motion="arcade"] .bar > span { transform-origin: left; animation: px-a-fill .5s steps(8, end) .15s backwards; }
+:root[data-theme="retro"][data-motion="arcade"] .hero::after { animation: px-a-sun .6s steps(6, end) .1s backwards; }
+:root[data-theme="retro"][data-motion="arcade"] .empty::before { animation: px-a-shuffle 1.2s steps(1, end) infinite; }
+:root[data-theme="retro"][data-motion="arcade"] .todo-check:hover { animation: px-a-coin .32s steps(4, end); }
+
+/* ---- 2) Röhre: alter Röhrenmonitor. Inhalte schalten sich ein (Lichtstreifen, der aufgeht) und aus, leuchten kurz nach ---- */
+@keyframes px-c-on { 0% { transform: scale(.7, .02); filter: brightness(3); } 40% { transform: scale(1, .02); filter: brightness(3); } 75% { transform: scale(1, 1.03); filter: brightness(1.5); } 100% { transform: none; filter: none; } }
+@keyframes px-c-off { 0% { transform: none; filter: none; } 55% { transform: scale(1, .02); filter: brightness(2.5); } 100% { transform: scale(0, .02); filter: brightness(3); } }
+@keyframes px-c-open { 0% { transform: scaleY(.04); filter: brightness(2.5); } 65% { transform: scaleY(1); filter: brightness(1.4); } 100% { transform: none; filter: none; } }
+@keyframes px-c-glow { from { text-shadow: 0 0 6px currentColor, 0 0 16px var(--accent-2); filter: brightness(1.6); } to { text-shadow: none; filter: none; } }
+@keyframes px-c-fill { from { transform: scaleX(0); filter: brightness(2.2); } to { transform: none; filter: none; } }
+@keyframes px-c-sun { from { transform: translateY(40px); filter: brightness(2); } to { transform: none; filter: none; } }
+@keyframes px-c-flicker { 0%, 90%, 100% { opacity: 1; } 92% { opacity: .35; } 94% { opacity: .9; } 96% { opacity: .5; } }
+
+:root[data-theme="retro"][data-motion="crt"] .view { transform-origin: 50% 40vh; animation: px-c-on .42s cubic-bezier(.2, .8, .2, 1) backwards; }
+:root[data-theme="retro"][data-motion="crt"] .view .page-title { animation: px-c-glow .9s ease-out .3s backwards; }
+:root[data-theme="retro"][data-motion="crt"] .sheet-backdrop { animation: px-fade .2s ease; }
+:root[data-theme="retro"][data-motion="crt"] .sheet-panel { animation: px-c-on .36s cubic-bezier(.2, .8, .2, 1); }
+:root[data-theme="retro"][data-motion="crt"] .toast { animation: px-c-on .3s cubic-bezier(.2, .8, .2, 1); }
+:root[data-theme="retro"][data-motion="crt"] .popover { animation: px-c-on .26s cubic-bezier(.2, .8, .2, 1); }
+:root[data-theme="retro"][data-motion="crt"] .group-opening { transform-origin: top; animation: px-c-open .3s cubic-bezier(.2, .8, .2, 1); }
+:root[data-theme="retro"][data-motion="crt"] .group-closing { animation: px-c-off .28s ease-in forwards; }
+:root[data-theme="retro"][data-motion="crt"] :is(.tab[aria-current="page"], .seg-item[aria-selected="true"], .chip[aria-pressed="true"], .tri-btn[aria-pressed="true"]) { animation: px-c-glow .6s ease-out; }
+:root[data-theme="retro"][data-motion="crt"] .bar > span { transform-origin: left; animation: px-c-fill .7s cubic-bezier(.2, .8, .2, 1) .2s backwards; }
+:root[data-theme="retro"][data-motion="crt"] .hero::after { animation: px-c-sun .9s cubic-bezier(.2, .8, .2, 1) .25s backwards; }
+:root[data-theme="retro"][data-motion="crt"] .empty::before { animation: px-c-flicker 5s linear infinite; }
+:root[data-theme="retro"][data-motion="crt"] :is(.btn, .tile, .todo-check):hover { filter: brightness(1.2); }
+
+/* ---- 3) Glitch: digitale Störung. Inhalte erscheinen in versetzten Streifen mit Cyan/Pink-Farbversatz ---- */
+@keyframes px-g-in {
+  0% { transform: none; clip-path: inset(-8px -8px 100% -8px); }
+  15% { transform: translateX(-8px); clip-path: inset(62% -8px 18% -8px); text-shadow: 3px 0 #05d9e8, -3px 0 #ff2a6d; }
+  30% { transform: translateX(6px); clip-path: inset(10% -8px 68% -8px); text-shadow: -3px 0 #05d9e8, 3px 0 #ff2a6d; }
+  45% { transform: translateX(-4px); clip-path: inset(38% -8px 28% -8px); text-shadow: 2px 0 #05d9e8, -2px 0 #ff2a6d; }
+  60% { transform: translateX(3px); clip-path: inset(-8px -8px 42% -8px); text-shadow: -2px 0 #05d9e8, 2px 0 #ff2a6d; }
+  80% { transform: translateX(-1px); clip-path: inset(-8px); text-shadow: 1px 0 #05d9e8, -1px 0 #ff2a6d; }
+  100% { transform: none; clip-path: inset(-8px); }
+}
+@keyframes px-g-out {
+  0% { transform: none; clip-path: inset(-8px); }
+  25% { transform: translateX(4px); clip-path: inset(20% -8px 30% -8px); text-shadow: 2px 0 #05d9e8, -2px 0 #ff2a6d; }
+  50% { transform: translateX(-6px); clip-path: inset(55% -8px 25% -8px); text-shadow: -3px 0 #05d9e8, 3px 0 #ff2a6d; }
+  75% { transform: translateX(8px); clip-path: inset(5% -8px 85% -8px); }
+  100% { transform: none; clip-path: inset(-8px -8px 100% -8px); }
+}
+@keyframes px-g-rgb {
+  0% { transform: translateX(-2px); text-shadow: 2px 0 #05d9e8, -2px 0 #ff2a6d; }
+  33% { transform: translateX(2px); text-shadow: -2px 0 #05d9e8, 2px 0 #ff2a6d; }
+  66% { transform: translateX(-1px); text-shadow: 1px 0 #05d9e8, -1px 0 #ff2a6d; }
+  100% { transform: none; }
+}
+@keyframes px-g-fill { 0% { transform: scaleX(0); } 20% { transform: scaleX(.35); } 40% { transform: scaleX(.2); } 60% { transform: scaleX(.75); } 80% { transform: scaleX(.6); } 100% { transform: none; } }
+@keyframes px-g-title { 0% { transform: none; } 94% { transform: translateX(-3px); text-shadow: 3px 0 #05d9e8, -3px 0 #ff2a6d; clip-path: inset(0 0 45% 0); } 95% { transform: translateX(3px); text-shadow: -3px 0 #05d9e8, 3px 0 #ff2a6d; clip-path: inset(40% 0 0 0); } 96% { transform: none; } }
+@keyframes px-g-jit { 0% { transform: none; } 88% { transform: translate(-3px, 1px); } 90% { transform: translate(2px, -1px); } 92% { transform: none; } }
+
+:root[data-theme="retro"][data-motion="glitch"] .view > * > :not(.sheet-backdrop) { animation: px-g-in .34s steps(1, end) backwards; }
+:root[data-theme="retro"][data-motion="glitch"] .view > * > :nth-child(2) { animation-delay: 25ms; }
+:root[data-theme="retro"][data-motion="glitch"] .view > * > :nth-child(3) { animation-delay: 50ms; }
+:root[data-theme="retro"][data-motion="glitch"] .view > * > :nth-child(4) { animation-delay: 75ms; }
+:root[data-theme="retro"][data-motion="glitch"] .view > * > :nth-child(5) { animation-delay: 100ms; }
+:root[data-theme="retro"][data-motion="glitch"] .view > * > :nth-child(n+6) { animation-delay: 125ms; }
+:root[data-theme="retro"][data-motion="glitch"] .page-title { animation: px-g-title 8s steps(1, end) 2s infinite; } /* ab und zu ein kurzes Zucken */
+:root[data-theme="retro"][data-motion="glitch"] .sheet-backdrop { animation: px-fade .12s steps(2, end); }
+:root[data-theme="retro"][data-motion="glitch"] .sheet-panel { animation: px-g-in .32s steps(1, end); }
+:root[data-theme="retro"][data-motion="glitch"] .toast { animation: px-g-in .3s steps(1, end); }
+:root[data-theme="retro"][data-motion="glitch"] .popover { animation: px-g-in .24s steps(1, end); }
+:root[data-theme="retro"][data-motion="glitch"] .group-opening { animation: px-g-in .3s steps(1, end); }
+:root[data-theme="retro"][data-motion="glitch"] .group-closing { animation: px-g-out .22s steps(1, end) forwards; }
+:root[data-theme="retro"][data-motion="glitch"] :is(.tab[aria-current="page"], .seg-item[aria-selected="true"], .chip[aria-pressed="true"], .tri-btn[aria-pressed="true"]) { animation: px-g-rgb .21s steps(1, end); }
+:root[data-theme="retro"][data-motion="glitch"] .bar > span { transform-origin: left; animation: px-g-fill .45s steps(1, end) .15s backwards; }
+:root[data-theme="retro"][data-motion="glitch"] .hero::after { animation: px-g-in .5s steps(1, end) .15s backwards; }
+:root[data-theme="retro"][data-motion="glitch"] .empty::before { animation: px-g-jit 3.5s steps(1, end) infinite; }
+:root[data-theme="retro"][data-motion="glitch"] :is(.btn, .whatnow, .quick .quick-plus):hover:not(:disabled) { animation: px-g-rgb .21s steps(1, end); }
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme="retro"] *, :root[data-theme="retro"] *::before, :root[data-theme="retro"] *::after { animation: none !important; transition: none !important; }
 }
