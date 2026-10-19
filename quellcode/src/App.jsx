@@ -47,7 +47,7 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
-import { buildHomeworkSeries, watchLog } from "./lib/study.js";
+import { buildHomeworkSeries, toggleAttended, watchLog } from "./lib/study.js";
 import { applySemester } from "./lib/curriculum.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
@@ -275,7 +275,8 @@ export default function App() {
 
   const db = {
     data, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
-    toggleSession: (id, key) => patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] })),
+    toggleSession: (id, key) => (key === "attended" ? change((d) => toggleAttended(d, id))
+      : patch("sessions", id, (s) => (key === "reviewed" ? { reviewed: !s.reviewed, reviewedAt: !s.reviewed ? iso() : null } : { [key]: !s[key] }))),
     setHwStatus: (id, status) => patch("homework", id, (h) => ({ status, doneAt: DONE_HW.has(status) ? h.doneAt || iso() : null })),
     patchSettings: (p) => change((d) => ({ ...d, settings: { ...d.settings, ...p } })),
     replaceAll, withUndo,
