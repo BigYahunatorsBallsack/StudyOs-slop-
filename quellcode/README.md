@@ -36,7 +36,7 @@ npm install
 npx playwright install chromium   # einmalig, für die E2E-Tests
 npm run build                     # baut dist/
 npm run serve                     # http://localhost:8080
-npm run check                     # Lint, Typen, Unit-Tests, Funktions-Test (Deno), E2E-Tests
+npm run check                     # Lint (ohne Warnungen), Typen, Unit-Tests, Funktions-Test (Deno), E2E-Tests
 npm run test:visual               # Screenshot-Vergleich; neue Referenzbilder: npm run test:visual -- --update-snapshots
 ```
 
@@ -57,7 +57,7 @@ Die Verbindung steht in `src/lib/cloud-config.js` (Projekt-URL und Publishable K
 
 In der App: **Mehr → Daten & Einstellungen → Cloud-Sync** → E-Mail → Code → Sync-Passphrase. Auf jedem weiteren Gerät dieselbe E-Mail und Passphrase.
 
-Pro Eintrag gewinnt der zuletzt geänderte Stand, Löschungen werden übertragen. Gleichzeitige Änderungen am **selben** Eintrag werden nicht feldweise gemischt; wird dabei etwas überschrieben, das du auf diesem Gerät seit dem letzten Abgleich geändert hast, zeigt die App einen Hinweis mit **Meine behalten**. Die Zeitstempel kommen von der Geräteuhr. Zusätzlich legt die App einmal pro Woche eine verschlüsselte Cloud-Sicherung an (die letzten 8 Wochen).
+Pro Eintrag gewinnt der zuletzt geänderte Stand, Löschungen werden übertragen. Gleichzeitige Änderungen am **selben** Eintrag werden nicht feldweise gemischt; wird dabei etwas überschrieben, das du auf diesem Gerät seit dem letzten Abgleich geändert hast, zeigt die App einen Hinweis mit **Meine behalten**. Das klappt auch direkt nach dem Neuladen: Die Zeitstempel des letzten Abgleichs merkt sich das Gerät (nur Zeitstempel, keine Inhalte; beim Abmelden gelöscht). Die Zeitstempel kommen von der Geräteuhr. Zusätzlich legt die App einmal pro Woche eine verschlüsselte Cloud-Sicherung an (die letzten 8 Wochen).
 
 ## Zwei Geräte ohne Cloud
 
