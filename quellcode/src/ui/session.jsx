@@ -1,7 +1,7 @@
 /* Bausteine rund um einen Termin: Dreifach-Schalter (vorbereitet, besucht, nachbereitet) und die
    Termin-Karte, die im Wochenraster beim Überfahren mit der Maus bzw. beim Antippen erscheint. */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { PlaceLinks } from "./links.jsx";
+import { PlaceLinks, WatchProgress } from "./links.jsx";
 import { fmtShort, isHeld } from "../lib/util.js";
 
 export const SESSION_STEPS = [
@@ -64,6 +64,7 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave }) {
       <p className="row-meta mt-0.5">{s.type}, {fmtShort(s.date)}, {s.start}–{s.end}</p>
       {s.room && <p className="row-meta">{s.room}</p>}
       <PlaceLinks room={s.room} live={m?.liveUrl} className="mt-1.5" />
+      {!s.cancelled && <WatchProgress s={s} color={m?.color} className="mt-1.5" />}
       {s.cancelled ? <p className="mt-2 text-sm font-semibold text-slate-400">Fällt aus</p> : <div className="mt-3"><SessionTri s={s} db={db} color={m?.color} /></div>}
       <div className="mt-3 flex flex-wrap gap-1.5">
         <button className="btn btn-ghost" onClick={() => { onClose(); db.openForm("note", { moduleId: s.moduleId, sessionId: s.id }, true); }}>Notiz</button>
