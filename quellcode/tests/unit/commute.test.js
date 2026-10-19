@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { LEGACY_COMMUTE } from "../../src/lib/transit.js";
 import { commuteAlert, commuteWindow } from "../../src/server/commute.js";
 import { lineMessages, mvg } from "../../src/server/mvg.js";
 import { deadlinesFromData } from "../../src/lib/push.js";
@@ -50,7 +51,7 @@ describe("Weg zur Uni: Push bei Verspätung", () => {
     const d = { ...emptyData(), modules: [{ id: "ds", name: "Diskrete Strukturen" }],
       sessions: [{ id: "a", moduleId: "ds", type: "Übung", date: DAY, start: "12:00", end: "14:00" }, { id: "b", moduleId: "ds", type: "Vorlesung", date: DAY, start: "09:15", end: "10:45" }, { id: "c", moduleId: "ds", type: "Vorlesung", date: "2026-10-21", start: "08:00", end: "10:00", cancelled: true }] };
     expect(deadlinesFromData(d, DAY).filter((x) => x.kind === "commute")).toEqual([]);
-    const on = deadlinesFromData({ ...d, settings: { ...d.settings, pushCommute: true } }, DAY).filter((x) => x.kind === "commute");
+    const on = deadlinesFromData({ ...d, settings: { ...d.settings, pushCommute: true, commute: LEGACY_COMMUTE } }, DAY).filter((x) => x.kind === "commute");
     expect(on.map((x) => [x.date, x.time, x.title])).toEqual([[DAY, "09:15", "Diskrete Strukturen"]]);
     expect(on[0].commute).toMatchObject({ line: "230", buffer: 10, feeder: { line: "S6", transfer: 4 } });
   });

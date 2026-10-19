@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { drive, driveProvider } from "../../src/server/drive.js";
-import { carPlan, commuteOf, mapsLink } from "../../src/lib/transit.js";
+import { carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, LEGACY_COMMUTE, mapsLink } from "../../src/lib/transit.js";
 import { deadlinesFromData } from "../../src/lib/push.js";
 import { emptyData } from "../../src/lib/data.js";
 
@@ -63,12 +63,23 @@ describe("Weg zur Uni mit dem Auto: Server", () => {
 });
 
 describe("Weg zur Uni mit dem Auto: App", () => {
-  it("Standard: Öffis, Auto von Zorneding nach Garching", () => {
-    const c = commuteOf({});
+  it("bisherige Vorgabe: Öffis, Auto von Zorneding nach Garching", () => {
+    const c = commuteOf({ commute: LEGACY_COMMUTE });
     expect(c.mode).toBe("transit");
     expect(c.car.from).toBe("Zorneding");
     expect(c.car.to).toMatch(/Garching/);
-    expect(commuteOf({ commute: { mode: "car", car: { from: "Haar" } } }).car).toMatchObject({ from: "Haar", park: 10 });
+    expect(commuteOf({ commute: { mode: "car", car: { from: "Haar" } } }).car).toMatchObject({ from: "Haar", to: "", park: 10 });
+  });
+
+  it("neue Nutzer: aus, beim Einschalten leer bis Haltestelle bzw. Start und Ziel eingetragen sind", () => {
+    expect(commuteOf({})).toBe(null);
+    const c = commuteOf({ commute: DEFAULT_COMMUTE });
+    expect(c.feeder).toBe(null);
+    expect(commuteIncomplete(c)).toBe(true);
+    expect(commuteIncomplete({ ...c, station: { id: "de:09178:2800", name: "Freising" } })).toBe(false);
+    expect(commuteIncomplete({ ...c, station: { id: "x", name: "X" }, feeder: { station: { id: "", name: "" } } })).toBe(true);
+    expect(commuteIncomplete({ ...c, mode: "car", car: { from: "Moosburg", to: "" } })).toBe(true);
+    expect(commuteIncomplete({ ...c, mode: "car", car: { from: "Moosburg", to: "Weihenstephaner Steig 22, Freising" } })).toBe(false);
   });
 
   it("Losfahren = Beginn − Puffer − Parken − Fahrzeit mit Verkehr", () => {
@@ -87,7 +98,8 @@ describe("Weg zur Uni mit dem Auto: App", () => {
     const DAY = "2026-10-20";
     const d = { ...emptyData(), sessions: [{ id: "s1", type: "Vorlesung", date: DAY, start: "09:15", end: "10:45" }] };
     const commute = (settings) => deadlinesFromData({ ...d, settings: { ...d.settings, ...settings } }, DAY).filter((x) => x.kind === "commute").length;
-    expect(commute({ pushCommute: true })).toBe(1);
-    expect(commute({ pushCommute: true, commute: { mode: "car" } })).toBe(0);
+    expect(commute({ pushCommute: true, commute: LEGACY_COMMUTE })).toBe(1);
+    expect(commute({ pushCommute: true, commute: { ...LEGACY_COMMUTE, mode: "car" } })).toBe(0);
+    expect(commute({ pushCommute: true, commute: DEFAULT_COMMUTE })).toBe(0); /* noch keine Haltestelle */
   });
 });

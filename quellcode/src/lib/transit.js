@@ -1,23 +1,37 @@
 /* Weg zur Uni: welche Verbindung reicht für die erste Lehrveranstaltung?
-   Optional mit Zubringer, z. B. S6 Zorneding → Haar, dort Umstieg in den Bus 230 Richtung Forschungszentrum. */
+   Optional mit Zubringer, z. B. erst mit der S-Bahn zur Umstiegshaltestelle, dort in den Bus. */
 import { addDays, iso } from "./util.js";
 
+/* Vorlage beim Einschalten: Haltestellen und Adressen trägt jede*r selbst ein */
 export const DEFAULT_COMMUTE = {
+  station: { id: "", name: "" }, line: "", towards: "", avoid: "", travel: 30, walk: 5, buffer: 10,
+  feeder: null,
+  mode: "transit", /* oder "car" */
+  car: { from: "", to: "", park: 10 },
+};
+export const DEFAULT_FEEDER = { station: { id: "", name: "" }, line: "", towards: "", avoid: "", travel: 10, transfer: 4 };
+
+/* Bis StudyOS 2.7 die Vorgabe für alle: S6 Zorneding → Haar → Bus 230 nach Garching. Bestehende Daten ohne eigene
+   Einstellung behalten sie (siehe upgradeSettings in data.js). */
+export const LEGACY_COMMUTE = {
   station: { id: "de:09184:2140", name: "Haar" }, line: "230", towards: "Forschungszentrum", avoid: "", travel: 50, walk: 5, buffer: 10,
   feeder: { station: { id: "de:09175:4020", name: "Zorneding" }, line: "S6", towards: "", avoid: "Grafing, Ebersberg", travel: 8, transfer: 4 },
-  mode: "transit", /* oder "car" */
+  mode: "transit",
   car: { from: "Zorneding", to: "Boltzmannstraße 15, 85748 Garching bei München", park: 10 },
 };
 
-/** Pendel-Einstellungen; ohne eigene Angaben S6 Zorneding → Haar → 230 */
+/** Pendel-Einstellungen; null, solange „Weg zur Uni“ nicht eingeschaltet ist */
 export function commuteOf(settings = {}) {
-  if (settings.commute === null) return null;
+  if (!settings.commute) return null;
   const c = { ...DEFAULT_COMMUTE, ...(settings.commute || {}) };
-  if (c.feeder) c.feeder = { ...DEFAULT_COMMUTE.feeder, ...c.feeder };
+  if (c.feeder) c.feeder = { ...DEFAULT_FEEDER, ...c.feeder };
   c.car = { ...DEFAULT_COMMUTE.car, ...(c.car || {}) };
   if (c.mode !== "car") c.mode = "transit";
   return c;
 }
+
+/** Fehlt noch eine Haltestelle (Öffis) bzw. Start oder Ziel (Auto)? */
+export const commuteIncomplete = (c) => (c.mode === "car" ? !String(c.car.from || "").trim() || !String(c.car.to || "").trim() : !c.station?.id || (!!c.feeder && !c.feeder.station?.id));
 
 /** Mit dem Auto: wann losfahren, damit man mit Parken und Fußweg (park) und Puffer rechtzeitig da ist? */
 export function carPlan(route, session, c, startMs = null) {

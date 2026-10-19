@@ -1,5 +1,6 @@
 /* TUM-spezifische Helfer: Räume in NavigaTUM, Grundlagen- und Orientierungsprüfung (GOP) */
 import { sum } from "./util.js";
+import { curriculumOf, gopCodes } from "./curriculum.js";
 
 /** Link zu NavigaTUM: mit Raumnummer aus TUMonline (z. B. „5602.EG.001“) direkt zum Raum, sonst Suche. */
 export function roomUrl(room) {
@@ -11,21 +12,24 @@ export function roomUrl(room) {
   return `https://nav.tum.de/search?q=${encodeURIComponent(q)}`;
 }
 
-/* Pflichtmodule des 1. Semesters, die zur GOP zählen (TUM B.Sc. Informatik) */
-export const GOP_CODES = new Set(["CIT123001", "IN0001", "IN0004", "IN0015"]);
-export const GOP_NEED = 12;
-export const isGop = (m) => !!m.gop || GOP_CODES.has(String(m.code || "").toUpperCase());
+/* GOP-Module: Häkchen am Modul oder Modulnummer aus dem gewählten Studienplan */
+export const isGop = (m, codes = new Set()) => !!m.gop || codes.has(String(m.code || "").toUpperCase());
 
 /**
- * Stand der GOP: mindestens 12 ECTS aus den GOP-Modulen bis zum Ende des 1. Semesters bzw. der Wiederholung.
- * @returns null ohne GOP-Module, sonst { modules, passed, need, reached, open, enough, combos }
+ * Stand der GOP nach der Regel des Studienplans (z. B. Informatik: 12 ECTS bis Ende 1. Semester;
+ * Pharmazeutische Bioprozesstechnik: 10 ECTS bis Ende 2., 26 ECTS bis Ende 3. Semester).
+ * Ohne Studienplan gibt es keine Regel (stage null), gezählt wird trotzdem.
+ * @returns null ohne GOP-Module, sonst { modules, passed, stage, need, reached, open, enough, combos, curriculum }
  */
 export function gopStatus(data) {
-  const modules = data.modules.filter(isGop);
+  const curriculum = curriculumOf(data), codes = gopCodes(curriculum);
+  const modules = data.modules.filter((m) => isGop(m, codes));
   if (!modules.length) return null;
   const passedList = modules.filter((m) => m.status === "bestanden");
   const passed = sum(passedList, (m) => Number(m.ects) || 0);
-  const need = Math.max(0, GOP_NEED - passed);
+  const stages = curriculum?.gop.stages || [];
+  const stage = stages.find((s) => s.ects > passed) || stages[stages.length - 1] || null;
+  const need = stage ? Math.max(0, stage.ects - passed) : 0;
   const open = modules.filter((m) => m.status !== "bestanden").map((m) => {
     const exams = data.exams.filter((e) => e.moduleId === m.id).sort((a, b) => a.date.localeCompare(b.date));
     return { ...m, exam: exams[0] || null };
@@ -42,7 +46,7 @@ export function gopStatus(data) {
     }
     combos.sort((a, b) => a.length - b.length);
   }
-  return { modules, passed, need, reached: need === 0, open, enough: sum(open, (m) => Number(m.ects) || 0) >= need, combos: combos.slice(0, 4) };
+  return { modules, passed, stage, stages, need, reached: !!stage && need === 0, open, enough: sum(open, (m) => Number(m.ects) || 0) >= need, combos: combos.slice(0, 4), curriculum };
 }
 
 /**

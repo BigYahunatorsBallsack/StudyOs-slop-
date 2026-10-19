@@ -3,7 +3,7 @@ import { DONE_HW } from "./constants.js";
 import { addDays, fmtMin, iso, sum, wdIdx } from "./util.js";
 import { withoutArchived } from "./study.js";
 import { blockReminders } from "./blocks.js";
-import { commuteOf } from "./transit.js";
+import { commuteIncomplete, commuteOf } from "./transit.js";
 
 export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
@@ -48,7 +48,7 @@ export function deadlinesFromData(all, today = iso()) {
   /* Weg zur Uni: erste Veranstaltung der nächsten 7 Tage mit Haltestellen und Zeiten, damit der Server vor
      der Abfahrt die Echtzeit prüfen kann (nur wenn eingeschaltet) */
   const c = settings.pushCommute ? commuteOf(settings) : null;
-  if (c && c.mode !== "car") { /* mit dem Auto gibt es keinen Fahrplan zu prüfen */
+  if (c && c.mode !== "car" && !commuteIncomplete(c)) { /* mit dem Auto gibt es keinen Fahrplan zu prüfen, ohne Haltestelle nichts abzufragen */
     const pick = (l) => ({ station: { id: l.station.id }, line: l.line || "", towards: l.towards || "", avoid: l.avoid || "", travel: Number(l.travel) || 0 });
     const commute = { ...pick(c), walk: Number(c.walk) || 0, buffer: Number(c.buffer) || 0, feeder: c.feeder ? { ...pick(c.feeder), transfer: Number(c.feeder.transfer) || 0 } : null };
     for (let i = 0; i < 7; i++) {

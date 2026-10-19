@@ -1,6 +1,9 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Auch für andere Studiengänge:** Neue Nutzer starten ohne fremde Vorgaben, also ohne Studiengang, Mensa und Weg zur Uni. Die Mensa wählt man unter „Daten & Einstellungen“, Haltestellen bzw. Start und Ziel unter „Weg zur Uni“. Solange dort nichts eingetragen ist, zeigt „Heute“ nur einen Hinweis statt Abfahrten. Bestehende Daten behalten ihre bisherigen Einstellungen (Informatik, Mensa Garching, S6 Zorneding → Bus 230 nach Garching), auch eine Sicherung aus älteren Versionen.
+- **Studienplan wählbar:** Neben TUM Informatik gibt es jetzt TUM B.Sc. Pharmazeutische Bioprozesstechnik (FPSO ab WiSe 2022/23, Campus Freising-Weihenstephan) als Vorlage. Auswahl im Dialog „Aus Studienplan übernehmen“ oder unter „Daten & Einstellungen → Studienplan“.
+- **GOP nach der Regel des Studiengangs:** Informatik weiterhin 12 ECTS bis Ende des 1. Semesters, Pharmazeutische Bioprozesstechnik 10 ECTS bis Ende des 2. und 26 ECTS bis Ende des 3. Semesters (FPSO § 38). Ohne gewählten Studienplan zählt die Karte nur die bestandenen ECTS.
 - **Sync führt pro Feld zusammen:** Gleichzeitige Änderungen an verschiedenen Feldern desselben Eintrags (z. B. Titel am Handy, Status am Laptop) bleiben beide erhalten. Der Lernstand einer Karteikarte wird als Ganzes übernommen, Einstellungen pro Schlüssel. „Meine behalten“ stellt nur die überschriebenen Felder wieder her.
 - **Falsch gehende Geräteuhr verliert keine Daten mehr:** Zeitstempel sind immer jünger als der bearbeitete Stand und werden um den Versatz zur Serverzeit korrigiert (aus dem `Date`-Header der Supabase-Antwort, keine Datenbankänderung nötig).
 - **Behoben:** Zwei Fassungen mit gleichem Zeitstempel blieben auf beiden Geräten dauerhaft verschieden; jetzt entscheiden beide gleich, und der Fingerabdruck erkennt den Unterschied.

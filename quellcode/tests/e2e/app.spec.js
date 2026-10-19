@@ -168,6 +168,7 @@ test('helles Farbschema und Hochschule im Kopf', async ({ page }) => {
   await loadDemo(page);
   await openData(page);
   await page.getByLabel('Hochschule').fill('LMU');
+  await page.getByLabel('Studiengang', { exact: true }).fill('Informatik');
   await page.getByRole('tab', { name: 'Hell' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 240, 250)');
@@ -485,7 +486,7 @@ test('Studienplan übernehmen und Semester archivieren', async ({ page }) => {
   await seed(page, () => ({ modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 0, semester: 1, status: 'belegt', color: '#34d399' }] }));
   await page.reload();
   await nav(page, 'Module').click();
-  await page.getByRole('button', { name: 'Studienplan TUM Informatik …' }).click();
+  await page.getByRole('button', { name: 'Aus Studienplan übernehmen …' }).click();
   const dlg = page.getByRole('dialog', { name: 'Studienplan übernehmen' });
   await dlg.getByRole('region', { name: 'Semester 1' }).getByRole('button', { name: '2 anlegen' }).click();
   await expect(page.getByText('Semester 1: 2 Module angelegt, 1 ergänzt.')).toBeVisible();
@@ -698,6 +699,7 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await page.evaluate(async () => {
     const d = await window.STUDYOS_ENV.load();
     d.modules = d.modules.map((m) => ({ ...m, liveUrl: 'https://live.rbg.tum.de/?kurs=' + m.id }));
+    d.settings.mensa = 'mensa-garching';
     await window.STUDYOS_ENV.save(d);
   });
   await page.reload();
@@ -743,4 +745,26 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await openData(page);
   await page.getByRole('tab', { name: 'Dunkel' }).click();
   await expect(page.locator('html')).not.toHaveAttribute('data-motion', /./);
+});
+
+test('neuer Nutzer: keine fremden Vorgaben, Studienplan Pharmazeutische Bioprozesstechnik mit GOP in zwei Stufen', async ({ page }) => {
+  await page.goto('./');
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: 'Aus Studienplan' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Studienplan übernehmen' });
+  await dlg.getByLabel('Studiengang').selectOption('tum-bsc-pbt-2022');
+  await dlg.getByRole('region', { name: 'Semester 1' }).getByRole('button', { name: '6 anlegen' }).click();
+  await dlg.getByRole('button', { name: /Schließen/ }).click();
+  await expect.poll(async () => (await stored(page))?.modules?.length ?? 0).toBe(6);
+  const d = await stored(page);
+  expect(d.settings).toMatchObject({ curriculum: 'tum-bsc-pbt-2022', program: 'Pharmazeutische Bioprozesstechnik', mensa: '', commute: null });
+  expect(d.modules.filter((m) => m.gop).map((m) => m.code).sort()).toEqual(['LS30040', 'MA9615', 'PH9035', 'WZ5322']);
+  await nav(page, 'Heute').click();
+  await expect(page.getByRole('button', { name: /^Mensa / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Weg zur Uni/ })).toHaveCount(0);
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Studienfortschritt' }).click();
+  await expect(page.getByText('0 / 10 ECTS aus GOP-Modulen bestanden')).toBeVisible();
+  await expect(page.getByText('26 ECTS bis Ende des 3. Semesters')).toBeVisible();
+  await expect(page.getByText(/Es fehlen noch 10 ECTS bis Ende des 2\. Semesters/)).toBeVisible();
 });
