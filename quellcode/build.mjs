@@ -11,9 +11,9 @@ const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 rmSync('dist', { recursive: true, force: true });
 cpSync('public', 'dist', { recursive: true });
 
-// 0b) Content-Security-Policy: Verbindungen nur zur eigenen Seite, zu Supabase und zum Mensa-Speiseplan.
+// 0b) Content-Security-Policy: Verbindungen nur zur eigenen Seite, zu Supabase, zum Mensa-Speiseplan und zum Wetter (Open-Meteo).
 // GitHub Pages kann keine eigenen HTTP-Header setzen, darum steht die Regel als <meta> in index.html.
-const connect = ["'self'", SUPABASE_URL, 'https://tum-dev.github.io'].filter(Boolean).join(' ');
+const connect = ["'self'", SUPABASE_URL, 'https://tum-dev.github.io', 'https://api.open-meteo.com'].filter(Boolean).join(' ');
 const csp = [
   "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' blob: data:",
   "font-src 'self' data:", `connect-src ${connect}`, "worker-src 'self'", "manifest-src 'self'",

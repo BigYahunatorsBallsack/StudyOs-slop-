@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { WD } from "../lib/constants.js";
 import { PALETTE } from "../lib/constants.js";
 import { formDef } from "../lib/forms.js";
@@ -6,9 +6,14 @@ import { fmtDec, parseDec } from "../lib/util.js";
 import { ConfirmButton, Empty, MarkdownInput, Modal } from "./primitives.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls } from "./styles.js";
 import { Attachments } from "./Attachments.jsx";
+import { imageFiles, imageMd, pastedName, removeLocal, storeFile } from "../lib/files.js";
 import { followingSimilar } from "../lib/series.js";
 import { Select } from "./select.jsx";
 import { SubtaskEditor } from "./subtasks.jsx";
+
+/* Bilder einfügen (Strg+V, Einfügen am Handy, Hineinziehen): als Anhang speichern, in Notizen und Karten auch als Bild einbinden */
+const FILE_COLL = { note: "notes", homework: "homework", card: "cards" };
+const MD_FIELDS = { note: ["text"], card: ["front", "back"] };
 
 export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, onClose }) {
   const def = formDef(form.kind, data);
@@ -32,7 +37,47 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
     return v;
   });
   const [err, setErr] = useState("");
-  const setField = (k, val) => setVals((v) => { const n = { ...v, [k]: val }; if (k === "moduleId") { if ("topicId" in n) n.topicId = ""; if ("sessionId" in n) n.sessionId = ""; } return n; });
+  const setField = (k, val) => setVals((v) => { const n = { ...v, [k]: val }; if (k === "moduleId") { if ("topicId" in n) n.topicId = ""; if ("sessionId" in n) n.sessionId = ""; if ("homeworkId" in n) n.homeworkId = ""; } return n; });
+  const fileColl = db ? FILE_COLL[form.kind] : null;
+  const [pending, setPending] = useState([]);
+  const [pasteMsg, setPasteMsg] = useState("");
+  const pendingRef = useRef(pending), savedRef = useRef(false);
+  pendingRef.current = pending;
+  /* abgebrochen: eingefügte Bilder wieder wegräumen */
+  useEffect(() => () => {
+    if (savedRef.current) return;
+    pendingRef.current.forEach((f) => { removeLocal(f.id); if (f.cloud) db?.cloud?.removeFile?.(f.id); });
+  }, []);
+  const addImages = async (files, target) => {
+    const key = target?.id?.startsWith("f-") ? target.id.slice(2) : "";
+    const inline = (MD_FIELDS[form.kind] || []).includes(key);
+    const pos = inline ? [target.selectionStart ?? target.value.length, target.selectionEnd ?? target.value.length] : null;
+    const metas = [];
+    for (const f of files) {
+      try { metas.push((await storeFile(f, db.cloud, pastedName(f))).meta); } catch (e) { setErr(e.message || "Konnte das Bild nicht speichern."); }
+    }
+    if (!metas.length) return;
+    setPending((p) => [...p, ...metas]);
+    if (inline) setVals((v) => { const t = v[key] || "", md = metas.map(imageMd).join("\n"); return { ...v, [key]: t.slice(0, pos[0]) + md + t.slice(pos[1]) }; });
+    const what = metas.length === 1 ? "Bild" : `${metas.length} Bilder`;
+    setPasteMsg(inline ? `${what} eingefügt, wird beim Speichern angehängt.` : `${what} wird beim Speichern angehängt.`);
+  };
+  const onPaste = (e) => {
+    if (!fileColl) return;
+    const imgs = imageFiles(e.clipboardData);
+    /* kopierter Text mit Bild (z. B. aus Office) bleibt Text */
+    if (!imgs.length || e.clipboardData.getData("text/plain")) return;
+    e.preventDefault();
+    addImages(imgs, e.target);
+  };
+  const onDragOver = (e) => { if (fileColl && [...(e.dataTransfer?.types || [])].includes("Files")) e.preventDefault(); };
+  const onDrop = (e) => {
+    if (!fileColl) return;
+    const imgs = imageFiles(e.dataTransfer);
+    if (!imgs.length) return;
+    e.preventDefault();
+    addImages(imgs, e.target);
+  };
   const needsModule = fields.some((f) => f.k === "moduleId" && f.req) && data.modules.length === 0;
 
   const submit = (e) => {
@@ -53,6 +98,13 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
       const val = f.t === "decimal" ? parseDec(v) : f.t === "number" || f.num ? (v === "" || v === null ? null : Number(v)) : f.t === "checkbox" ? !!v : f.t === "textarea" ? v : typeof v === "string" ? v.trim() : v;
       if (f.transient) extra[f.k] = val; else out[f.k] = val;
     });
+    if (fileColl) {
+      /* Anhänge vom aktuellen Stand nehmen (während des Bearbeitens hinzugefügte nicht überschreiben) */
+      const live = !form.isNew && data[fileColl]?.find((x) => x.id === form.initial.id);
+      const files = [...((live ? live.files : out.files) || []), ...pending];
+      if (files.length) out.files = files;
+      savedRef.current = true;
+    }
     onSave(form.kind, out, form.isNew, extra);
     onClose();
   };
@@ -62,14 +114,14 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
       {needsModule ? (
         <Empty art="book">Lege zuerst ein Modul an. Danach kannst du Termine, Hausaufgaben, Themen und Karten zuordnen.</Empty>
       ) : (
-        <form onSubmit={submit} noValidate>
+        <form onSubmit={submit} noValidate onPaste={onPaste} onDragOver={onDragOver} onDrop={onDrop}>
           <div className="grid grid-cols-2 gap-3">
             {fields.map((f) => {
               const id = "f-" + f.k;
               const common = { id, value: vals[f.k] ?? "", onChange: (e) => setField(f.k, e.target.value), className: inputCls + (f.mono ? " font-num" : "") };
               let ctrl;
               if (f.t === "select") ctrl = <Select {...common}>{resolve(f, vals).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>;
-              else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} />;
+              else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} onMakeCard={db?.cardFromText ? (t) => db.cardFromText(t, vals.moduleId) : undefined} />;
               else if (f.t === "textarea") ctrl = <textarea {...common} rows={f.rows || 4} placeholder={f.ph} />;
               else if (f.t === "subtasks") ctrl = <SubtaskEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} />;
               else if (f.t === "weekdays") ctrl = (
@@ -106,8 +158,9 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
           </div>
           {db && !form.isNew && (form.kind === "homework" || form.kind === "note") && <Attachments db={db} coll={form.kind === "note" ? "notes" : "homework"} itemId={form.initial.id} />}
           {db && form.isNew && (form.kind === "homework" || form.kind === "note") && <p className="mt-3 text-[11px] text-slate-500">Dateien (z. B. das Übungsblatt als PDF) kannst du nach dem Speichern anhängen.</p>}
+          {fileColl && <p className="mt-2 text-[11px] text-slate-500" role="status">{pasteMsg || "Bilder einfügen: Strg+V oder hineinziehen."}</p>}
           {err && <p role="alert" className="mt-3 text-sm text-rose-400">{err}</p>}
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+          <div className="form-actions mt-5 flex flex-wrap items-center gap-2">
             <button type="submit" className={btnPrimary}>Speichern</button>
             <button type="button" className={btnGhost} onClick={onClose}>Abbrechen</button>
             <div className="ml-auto flex gap-2">

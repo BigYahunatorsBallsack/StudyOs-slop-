@@ -8,7 +8,7 @@ import { addDays, fmt, uid } from "./util.js";
 
 /* Was eine Kopie nie übernimmt: Abo-Verknüpfung, eigene Sperren, Anhänge (die Datei gehört zum Original),
    Serienzugehörigkeit und Sync-Stempel */
-const NEVER = ["updated", "fu", "feedKey", "source", "locked", "files", "seriesId", "change"];
+const NEVER = ["updated", "fu", "feedKey", "source", "url", "retakeKey", "locked", "files", "seriesId", "change"];
 
 /**
  * Kopie eines Eintrags als eigener, von Hand angelegter Eintrag: neue id, nichts erledigt, besucht oder abgegeben,
@@ -28,6 +28,7 @@ export function duplicateEntry(kind, item, today, newId = uid) {
     Object.assign(x, { done: false, doneAt: null });
   } else if (kind === "note") {
     Object.assign(x, { sessionId: "", title: `${item.title || "Notiz"} (Kopie)`, updated: today });
+    delete x.pinned;
   }
   return x;
 }

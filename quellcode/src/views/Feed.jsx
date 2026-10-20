@@ -6,6 +6,8 @@ import { cleanTitle, feedSummary, isMoodleDeadline, unmappedCourses } from "../l
 import { Card, ConfirmButton } from "../ui/primitives.jsx";
 import { Select } from "../ui/select.jsx";
 
+/* „, 1 Prüfung eingetragen“, wenn das Abo Prüfungstermine als Prüfung angelegt hat */
+const examsMsg = (r) => (r?.exams ? `, ${r.exams} ${r.exams === 1 ? "Prüfung" : "Prüfungen"} eingetragen` : "");
 const fmtWhen = (s) => (s ? new Date(s).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie");
 
 function MappingList({ summaries, map, setMap, modules }) {
@@ -48,16 +50,16 @@ export function FeedCard({ db }) {
   const subscribe = () => run(async () => {
     const res = await db.subscribeFeed(draft.url, draft.map, draft.events);
     setDraft(null); setUrl("");
-    setMsg(`Abonniert: ${res.added} Termine übernommen.`);
+    setMsg(`Abonniert: ${res.added} Termine übernommen${examsMsg(res)}.`);
   });
   const refresh = () => run(async () => {
     const r = await db.syncFeed({ manual: true });
-    setMsg(r ? `Abgerufen: ${r.added} neu, ${r.updated} geändert, ${r.cancelled} abgesagt, ${r.removed} entfernt${r.merged ? `, ${r.merged} doppelte zusammengelegt` : ""}.` : "");
+    setMsg(r ? `Abgerufen: ${r.added} neu, ${r.updated} geändert, ${r.cancelled} abgesagt, ${r.removed} entfernt${r.merged ? `, ${r.merged} doppelte zusammengelegt` : ""}${examsMsg(r)}.` : "");
   });
   const assignPending = () => run(async () => {
     const r = await db.mapFeed(Object.fromEntries((feed.pending || []).map((s) => [s, pendingMap[s] ?? NEW])));
     setPendingMap({});
-    setMsg(`Zugeordnet: ${r.added} Termine übernommen.`);
+    setMsg(`Zugeordnet: ${r.added} Termine übernommen${examsMsg(r)}.`);
   });
 
   return (
@@ -209,9 +211,9 @@ export function ArtemisCard({ db }) {
     if (!moduleId) throw new Error("Bitte ein Modul wählen.");
     const r = await db.subscribeArtemis(draft.url, moduleId, draft.events, db.mod(moduleId)?.name || "Artemis");
     setDraft(null); setUrl(""); setModuleId("");
-    setMsg(`Abonniert: ${r.added} ${r.added === 1 ? "Abgabe" : "Abgaben"} übernommen.`);
+    setMsg(`Abonniert: ${r.added} ${r.added === 1 ? "Abgabe" : "Abgaben"} übernommen${examsMsg(r)}.`);
   });
-  const refresh = () => run(async () => { const r = await db.syncArtemis({ manual: true }); if (r) setMsg(`Abgerufen: ${r.added} neu, ${r.updated} geändert.`); });
+  const refresh = () => run(async () => { const r = await db.syncArtemis({ manual: true }); if (r) setMsg(`Abgerufen: ${r.added} neu, ${r.updated} geändert${examsMsg(r)}.`); });
 
   return (
     <Card title="Artemis-Abgaben">

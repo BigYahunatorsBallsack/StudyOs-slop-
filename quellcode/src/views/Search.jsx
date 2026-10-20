@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { searchAll } from "../lib/data.js";
 import { fmt, fmtShort } from "../lib/util.js";
-import { Markdown, WikiCtx } from "../ui/markdown.jsx";
+import { Markdown, SelectionCardButton, WikiCtx } from "../ui/markdown.jsx";
 import { backlinks, findNote } from "../lib/wiki.js";
-import { Dot, Modal } from "../ui/primitives.jsx";
+import { Dot, Icon, Modal } from "../ui/primitives.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls } from "../ui/styles.js";
 import { Attachments } from "../ui/Attachments.jsx";
 import { cardsFromNote } from "../lib/cards.js";
 import { matchCommands } from "../lib/commands.js";
 import { readRecent, recentResults, rememberOpened } from "../lib/recent.js";
+import { toggleTask } from "../lib/notes.js";
 
 export function SearchModal({ data, db, onPick, onClose }) {
   const [q, setQ] = useState("");
@@ -55,12 +56,18 @@ export function NoteViewer({ note, db, onClose, onEdit }) {
   const wiki = { resolve: (name) => findNote(notes, name, note.moduleId), open: (id) => db.openNote(id) };
   const back = backlinks(notes, note);
   const newCards = cardsFromNote(note.text, db.data.cards.filter((c) => c.moduleId === note.moduleId).map((c) => c.front));
+  const body = useRef(null);
+  /* Kästchen abhaken ändert nur „[ ]“ bzw. „[x]“ im Text; Karten aus der Notiz bleiben davon unberührt */
+  const toggle = (line) => db.patch("notes", note.id, (n) => ({ text: toggleTask(n.text, line) }));
   return (
     <Modal title={note.title || "Notiz"} onClose={onClose}>
-      <p className="mb-3 text-xs text-slate-500">{m?.name || "Allgemein"}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""} · zuletzt bearbeitet {fmt(note.updated)}</p>
-      <WikiCtx.Provider value={wiki}>
-        {note.text ? <Markdown text={note.text} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
-      </WikiCtx.Provider>
+      <p className="mb-3 text-xs text-slate-500">{note.pinned && <span className="pin-mark mr-1"><Icon name="pin" className="mark-icon" />Angeheftet ·</span>}{m?.name || "Allgemein"}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""} · zuletzt bearbeitet {fmt(note.updated)}</p>
+      <div ref={body}>
+        <WikiCtx.Provider value={wiki}>
+          {note.text ? <Markdown text={note.text} onToggleTask={toggle} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
+        </WikiCtx.Provider>
+      </div>
+      {db.cardFromText && <SelectionCardButton within={body} onMake={(t) => db.cardFromText(t, note.moduleId)} />}
       {back.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-semibold text-slate-400">Verlinkt von</p>
@@ -72,10 +79,11 @@ export function NoteViewer({ note, db, onClose, onEdit }) {
       {(note.files || []).length > 0 && <Attachments db={db} coll="notes" itemId={note.id} />}
       <div className="mt-5 flex flex-wrap gap-2">
         <button className={btnPrimary} onClick={onEdit}>Bearbeiten</button>
+        <button className={btnGhost} aria-pressed={!!note.pinned} onClick={() => db.patch("notes", note.id, { pinned: !note.pinned })}>{note.pinned ? "Lösen" : "Anheften"}</button>
         {newCards.length > 0 && note.moduleId && <button className={btnGhost} onClick={() => { db.cardsFromNote(note, newCards); onClose(); }}>{newCards.length} {newCards.length === 1 ? "Karteikarte" : "Karteikarten"} erzeugen</button>}
         <button className={btnGhost} onClick={onClose}>Schließen</button>
       </div>
-      <p className="mt-3 text-[11px] text-slate-600">Formatierung: # Überschrift, - Liste, **fett**, *kursiv*, `Code`, ```java für eingefärbten Code, Formeln mit $x^2$ oder $$\sum_{"{"}i=1{"}"}^n i$$, [Link](https://…), andere Notiz mit [[Titel]]. Karteikarten: eine Zeile „Frage :: Antwort“ oder ein Lückentext {"{{c1::Antwort}}"}.</p>
+      <p className="mt-3 text-[11px] text-slate-600">Formatierung: # Überschrift, - Liste, **fett**, *kursiv*, `Code`, ```java für eingefärbten Code, Formeln mit $x^2$ oder $$\sum_{"{"}i=1{"}"}^n i$$, [Link](https://…), andere Notiz mit [[Titel]]. Checkliste: - [ ] Punkt. Karteikarten: eine Zeile „Frage :: Antwort“, ein Lückentext {"{{c1::Antwort}}"} oder Text markieren und „Karte daraus“.</p>
     </Modal>
   );
 }

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { DONE_HW, WD, WD_LONG } from "../lib/constants.js";
-import { addDays, byTime, fmt, fmtMin, fmtShort, isHeld, iso, isoWeek, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
+import { addDays, byTime, fmt, fmtMin, fmtShort, isHeld, iso, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
 import { BlockRow, HomeworkRow, SessionRow } from "../ui/rows.jsx";
 import { Tabs } from "../ui/primitives.jsx";
 import { SelectToggle } from "../ui/selection.jsx";
@@ -9,12 +9,12 @@ import { SessionPopover, useHoverCard } from "../ui/session.jsx";
 import { suggestBlocks } from "../lib/blocks.js";
 import { sessionCoverage } from "../lib/study.js";
 import { offDay } from "../lib/holidays.js";
-import { dragTo, hourRange, movePatch, slotAt } from "../lib/gridmove.js";
+import { clampHour, clashesOf, dragTo, hourRange, movePatch, slotAt } from "../lib/gridmove.js";
+import { semWeekLabel } from "../lib/semweek.js";
 import { toHM } from "../lib/blocks.js";
 import { shortName } from "../lib/modules.js";
 import { PullRefresh } from "../ui/pull.jsx";
 
-const HOUR_PX = 46;
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 
 /* Überlappende Termine nebeneinander legen: Spuren pro Tag */
@@ -48,32 +48,60 @@ export function WeekView({ db, compact = false }) {
   const heldWeek = weekSes.filter((s) => isHeld(s) && isActive(s));
   const reviewed = heldWeek.filter((s) => s.reviewed).length;
   /* neben „Heute“ (breiter Bildschirm) nur Raster und Liste, ohne Lernblock-Vorschläge */
-  const view = compact && mode === "monat" ? "raster" : mode;
-  const isMonth = view === "monat";
+  const view = compact && (mode === "monat" || mode === "tag") ? "raster" : mode;
+  const isMonth = view === "monat", isDay = view === "tag";
+  /* Tagesansicht: ein Tag groß; die Woche (ws) folgt dem Tag */
+  const [day, setDay] = useState(t);
+  const goDay = (d) => { setDay(d); setWs(weekStart(d)); };
+  const pickMode = (k) => { if (k === "tag" && weekStart(day) !== ws) setDay(days.includes(t) ? t : ws); setMode(k); };
   const shiftMonth = (n) => { const [y, m] = month.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
   const openWeek = (d) => { setWs(weekStart(d)); setMode("raster"); };
+  const shift = (n) => (isMonth ? shiftMonth(n) : isDay ? goDay(addDays(day, n)) : setWs(addDays(ws, 7 * n)));
   const H = compact ? "h3" : "h2";
+  const [kw, ...semRest] = semWeekLabel(isDay ? day : ws, data).split(" · ");
+  const sem = semRest.join(" · ");
 
   return (
     <div className="space-y-4">
       {!compact && <PullRefresh db={db} />}
       <div className="flex items-end justify-between gap-2">
         <div>
-          <H className={compact ? "section-title" : "page-title"}>{isMonth ? monthName(month) : `Woche ${isoWeek(ws)}`}</H>
-          {!isMonth && <p className="page-sub">{fmt(ws)} bis {fmt(we)}{heldWeek.length ? `, ${reviewed} von ${heldWeek.length} nachbereitet` : ""}</p>}
+          <H className={compact ? "section-title" : "page-title"}>{isMonth ? monthName(month) : isDay ? `${WD_LONG[wdIdx(day)]}, ${fmt(day).slice(0, 6)}` : <>{kw}{sem && <span className="sem-week"> · {sem}</span>}</>}</H>
+          {!isMonth && <p className="page-sub">{isDay ? `${kw}${sem ? ` · ${sem}` : ""}${day === t ? ", heute" : ""}` : `${fmt(ws)} bis ${fmt(we)}${heldWeek.length ? `, ${reviewed} von ${heldWeek.length} nachbereitet` : ""}`}</p>}
         </div>
         <div className="flex gap-1">
-          <button className="btn btn-ghost btn-icon" onClick={() => (isMonth ? shiftMonth(-1) : setWs(addDays(ws, -7)))} aria-label={isMonth ? "Vorheriger Monat" : "Vorherige Woche"}><span aria-hidden="true" className="block w-4 text-center">‹</span></button>
-          <button className="btn btn-ghost" onClick={() => (isMonth ? setMonth(t.slice(0, 7)) : setWs(weekStart(t)))} disabled={isMonth ? month === t.slice(0, 7) : ws === weekStart(t)}>Heute</button>
-          <button className="btn btn-ghost btn-icon" onClick={() => (isMonth ? shiftMonth(1) : setWs(addDays(ws, 7)))} aria-label={isMonth ? "Nächster Monat" : "Nächste Woche"}><span aria-hidden="true" className="block w-4 text-center">›</span></button>
+          <button className="btn btn-ghost btn-icon" onClick={() => shift(-1)} aria-label={isMonth ? "Vorheriger Monat" : isDay ? "Vorheriger Tag" : "Vorherige Woche"}><span aria-hidden="true" className="block w-4 text-center">‹</span></button>
+          <button className="btn btn-ghost" onClick={() => (isMonth ? setMonth(t.slice(0, 7)) : goDay(t))} disabled={isMonth ? month === t.slice(0, 7) : isDay ? day === t : ws === weekStart(t)}>Heute</button>
+          <button className="btn btn-ghost btn-icon" onClick={() => shift(1)} aria-label={isMonth ? "Nächster Monat" : isDay ? "Nächster Tag" : "Nächste Woche"}><span aria-hidden="true" className="block w-4 text-center">›</span></button>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Tabs items={compact ? [["raster", "Raster"], ["liste", "Liste"]] : [["raster", "Raster"], ["liste", "Liste"], ["monat", "Monat"]]} value={view} onChange={setMode} label="Ansicht" />
-        {!isMonth && <SelectToggle db={db} kind="session" ids={weekSes.map((s) => s.id)} />}
+        <Tabs items={compact ? [["raster", "Raster"], ["liste", "Liste"]] : [["raster", "Raster"], ["tag", "Tag"], ["liste", "Liste"], ["monat", "Monat"]]} value={view} onChange={pickMode} label="Ansicht" />
+        {!isMonth && <SelectToggle db={db} kind="session" ids={(isDay ? weekSes.filter((s) => s.date === day) : weekSes).map((s) => s.id)} />}
       </div>
-      {!compact && !isMonth && <BlockSuggestions db={db} days={days} />}
-      {isMonth ? <MonthGrid db={db} month={month} onPick={openWeek} /> : view === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
+      {!compact && !isMonth && <BlockSuggestions db={db} days={isDay ? [day] : days} />}
+      {isMonth ? <MonthGrid db={db} month={month} onPick={openWeek} />
+        : isDay ? <DaySwipe onShift={(n) => goDay(addDays(day, n))}><WeekGrid db={db} days={[day]} weekSes={weekSes.filter((s) => s.date === day)} single /></DaySwipe>
+        : view === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
+    </div>
+  );
+}
+
+/* Tagesansicht: seitlich wischen wechselt den Tag. „no-tabswipe“ hält das Wischen zwischen den Bereichen der App hier heraus. */
+function DaySwipe({ onShift, children }) {
+  const st = useRef(null);
+  return (
+    <div className="no-tabswipe"
+      onTouchStart={(e) => { const p = e.touches[0]; st.current = e.touches.length === 1 && !document.body.classList.contains("grid-dragging") ? { x: p.clientX, y: p.clientY, at: Date.now() } : null; }}
+      onTouchMove={(e) => { if (e.touches.length > 1) st.current = null; }}
+      onTouchEnd={(e) => {
+        const s = st.current;
+        st.current = null;
+        if (!s) return;
+        const p = e.changedTouches[0], dx = p.clientX - s.x, dy = p.clientY - s.y;
+        if (Date.now() - s.at < 700 && Math.abs(dx) >= 60 && Math.abs(dx) >= 2 * Math.abs(dy)) onShift(dx < 0 ? 1 : -1);
+      }}>
+      {children}
     </div>
   );
 }
@@ -122,9 +150,45 @@ function MonthGrid({ db, month, onPick }) {
   );
 }
 
-function WeekGrid({ db, days, weekSes }) {
+function WeekGrid({ db, days, weekSes, single = false }) {
   const { data } = db, t = iso();
   const hover = useHoverCard();
+  /* Stundenhöhe: zwei Finger (Pinch) oder Strg+Mausrad zoomen, pro Gerät und getrennt für Woche und Tag gemerkt */
+  const zoomKey = single ? "studyos-day-hourpx" : "studyos-week-hourpx";
+  const [hp, setHp] = useState(() => { try { return clampHour(localStorage.getItem(zoomKey) || (single ? 64 : 46)); } catch { return single ? 64 : 46; } });
+  const hpRef = useRef(hp); hpRef.current = hp;
+  const keep = useRef(0); /* Seite so nachscrollen, dass die Stelle unter den Fingern bzw. dem Mauszeiger bleibt */
+  useLayoutEffect(() => { if (keep.current) { window.scrollBy(0, keep.current); keep.current = 0; } }, [hp]);
+  const saveZoom = useRef(0);
+  const zoomTo = (px, clientY) => {
+    const next = clampHour(px), el = gridRef.current;
+    if (next === hpRef.current || !el) return;
+    keep.current += (clientY - el.getBoundingClientRect().top) * (next / hpRef.current - 1);
+    hpRef.current = next;
+    setHp(next);
+    clearTimeout(saveZoom.current);
+    saveZoom.current = setTimeout(() => { try { localStorage.setItem(zoomKey, String(next)); } catch {} }, 300);
+  };
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return undefined;
+    let pinch = null;
+    const dist = (e) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const start = (e) => { if (e.touches.length === 2) { clearTimeout(press.current.timer); pinch = { d0: dist(e), hp0: hpRef.current }; } };
+    const move = (e) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      zoomTo(pinch.hp0 * (dist(e) / pinch.d0), (e.touches[0].clientY + e.touches[1].clientY) / 2);
+    };
+    const end = (e) => { if (e.touches.length < 2) pinch = null; };
+    const wheel = (e) => { if (!e.ctrlKey) return; e.preventDefault(); zoomTo(hpRef.current * Math.exp(-e.deltaY * 0.004), e.clientY); };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: false });
+    el.addEventListener("touchend", end, { passive: true });
+    el.addEventListener("touchcancel", end, { passive: true });
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => { el.removeEventListener("touchstart", start); el.removeEventListener("touchmove", move); el.removeEventListener("touchend", end); el.removeEventListener("touchcancel", end); el.removeEventListener("wheel", wheel); };
+  }, []);
   const cardSession = hover.card && data.sessions.find((x) => x.id === hover.card.id);
   /* Freie Stelle angetippt: kleine Auswahl „Termin“ / „Lernblock“ mit dieser Uhrzeit */
   const [slot, setSlot] = useState(null);
@@ -161,7 +225,7 @@ function WeekGrid({ db, days, weekSes }) {
       if (!g.active && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 5) return;
       if (!g.active) { g.active = true; hover.close(); document.body.classList.add("grid-dragging"); }
       const col = g.mode === "move" && [...(gridRef.current?.querySelectorAll("[data-day]") || [])].find((c) => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; });
-      g.next = { date: col ? col.dataset.day : g.item.date, ...dragTo(g.item, g.mode, ((e.clientY - g.y0) / HOUR_PX) * 60) };
+      g.next = { date: col ? col.dataset.day : g.item.date, ...dragTo(g.item, g.mode, ((e.clientY - g.y0) / hpRef.current) * 60) };
       setDrag({ id: g.item.id, ...g.next });
     };
     const up = () => {
@@ -206,21 +270,26 @@ function WeekGrid({ db, days, weekSes }) {
   useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(id); }, []);
   /* Wochenende nur, wenn dort etwas ist: Termine, Prüfungen, Abgaben, Lernblöcke (oder heute) */
   const weekend = days.slice(5).filter((d) => d === t || weekSes.some((s) => s.date === d) || data.exams.some((e) => e.date === d) || data.homework.some((h) => h.due === d) || (data.blocks || []).some((b) => b.date === d));
-  const shown = [...days.slice(0, 5), ...weekend];
+  const shown = single ? days : [...days.slice(0, 5), ...weekend];
   const preview = (x) => (drag && x.id === drag.id ? { ...x, date: drag.date, start: drag.start, end: drag.end } : x);
   const exams = data.exams.filter((e) => shown.includes(e.date) && e.time).map((e) => ({ ...e, isExam: true, start: e.time, end: `${String(Math.min(23, toMin(e.time) / 60 + 2 | 0)).padStart(2, "0")}:${String(toMin(e.time) % 60).padStart(2, "0")}` }));
   const allBlocks = (data.blocks || []).map((b) => ({ ...b, isBlock: true }));
   const timed = [...weekSes, ...allBlocks].map(preview).filter((x) => shown.includes(x.date)).concat(exams);
   /* Uhrzeiten nach dem, was in der Woche liegt; beim Ziehen nur wachsen (nicht schrumpfen), damit das Raster nicht springt */
-  const base = hourRange([...weekSes, ...allBlocks].filter((x) => shown.includes(x.date)).concat(exams));
+  /* Abgaben mit Uhrzeit als Marker im Raster; Fristen um 23:59 („bis Tagesende“) sitzen am unteren Rand und ziehen das Raster nicht auf */
+  const endOfDay = (h) => h.dueTime >= "23:59";
+  const hwTimed = data.homework.filter((h) => h.dueTime && shown.includes(h.due));
+  const base = hourRange([...weekSes, ...allBlocks].filter((x) => shown.includes(x.date)).concat(exams, hwTimed.filter((h) => !endOfDay(h)).map((h) => ({ start: h.dueTime }))));
   const moved = drag ? { startH: Math.floor(toMin(drag.start) / 60), endH: Math.ceil(toMin(drag.end) / 60) } : base;
   const startH = Math.min(base.startH, moved.startH), endH = Math.max(base.endH, moved.endH);
-  const height = (endH - startH) * HOUR_PX;
-  const y = (min) => ((min - startH * 60) / 60) * HOUR_PX;
+  const height = (endH - startH) * hp;
+  const y = (min) => ((min - startH * 60) / 60) * hp;
   const hours = Array.from({ length: endH - startH + 1 }, (_, i) => startH + i);
-  const hwByDay = (d) => data.homework.filter((h) => h.due === d);
+  const hwByDay = (d) => data.homework.filter((h) => h.due === d && !h.dueTime);
+  const evName = (ev) => { const m = db.mod(ev.moduleId); return ev.isBlock ? ev.title : ev.isExam ? `Prüfung ${shortName(m?.name) || ""}`.trim() : `${shortName(m?.name) || "Termin"} ${ev.type || ""}`.trim(); };
   const anyAllDay = shown.some((d) => hwByDay(d).length || data.exams.some((e) => e.date === d && !e.time));
   const nowMin = toMin(nowHM());
+  const cardClash = cardSession && clashesOf(timed.filter((x) => x.date === cardSession.date)).get(cardSession.id);
 
   return (
     <div>
@@ -244,15 +313,16 @@ function WeekGrid({ db, days, weekSes }) {
           ))}
         </div>
       )}
-      <div className="grid-week" style={{ "--days": shown.length }} ref={gridRef} onClickCapture={(e) => { if (swallowClick.current) { e.stopPropagation(); e.preventDefault(); } }}>
+      <div className="grid-week grid-zoom" style={{ "--days": shown.length }} ref={gridRef} onClickCapture={(e) => { if (swallowClick.current) { e.stopPropagation(); e.preventDefault(); } }}>
         <div className="grid-hours" style={{ height }}>
           {hours.map((h) => <span key={h} className="grid-hour" style={{ top: y(h * 60) }}>{h}</span>)}
         </div>
         {shown.map((d) => {
-          const items = layoutDay(timed.filter((s) => s.date === d));
+          const dayItems = timed.filter((s) => s.date === d), items = layoutDay(dayItems), clash = clashesOf(dayItems);
+          const clashText = (id) => (clash.has(id) ? `überschneidet sich mit ${clash.get(id).map(evName).join(", ")}` : "");
           return (
             <div key={d} data-day={d} className={`grid-col ${d === t ? "today" : ""}`} style={{ height }} aria-label={`${WD_LONG[wdIdx(d)]} ${fmt(d)}`} role="group"
-              onClick={(e) => { if (selKind || (e.target !== e.currentTarget && !e.target.classList.contains("grid-line"))) return; const r = e.currentTarget.getBoundingClientRect(); setSlot({ date: d, min: slotAt(startH * 60 + ((e.clientY - r.top) / HOUR_PX) * 60) }); }}>
+              onClick={(e) => { if (selKind || (e.target !== e.currentTarget && !e.target.classList.contains("grid-line"))) return; const r = e.currentTarget.getBoundingClientRect(); setSlot({ date: d, min: slotAt(startH * 60 + ((e.clientY - r.top) / hp) * 60) }); }}>
               {hours.slice(1, -1).map((h) => <span key={h} className="grid-line" style={{ top: y(h * 60) }} />)}
               {slot?.date === d && (
                 <div ref={slotRef} className="grid-slot" style={{ top: y(slot.min) }} role="dialog" aria-label={`Neu am ${fmt(d)} um ${toHM(slot.min)}`}>
@@ -262,32 +332,44 @@ function WeekGrid({ db, days, weekSes }) {
                 </div>
               )}
               {d === t && nowMin >= startH * 60 && nowMin <= endH * 60 && <span className="grid-now" style={{ top: y(nowMin) }} aria-hidden="true" />}
+              {hwTimed.filter((h) => h.due === d).map((h) => {
+                const m = db.mod(h.moduleId), done = DONE_HW.has(h.status);
+                return (
+                  <button key={h.id} className={`grid-hw ${done ? "grid-hw-done" : ""}`} style={{ "--mod": m?.color || "var(--accent)", top: endOfDay(h) ? height - 14 : Math.max(0, Math.min(height - 14, y(toMin(h.dueTime)) - 7)) }}
+                    onClick={() => db.openForm("homework", h)} aria-label={`Abgabe ${h.title}${m ? ", " + m.name : ""}, bis ${h.dueTime}${done ? ", erledigt" : ""}`} title={`${h.title} bis ${h.dueTime}`}>
+                    <span>{h.title}</span>
+                  </button>
+                );
+              })}
               {items.map(({ ev, s, e, lane, lanes }) => {
-                const m = db.mod(ev.moduleId);
-                const tall = ((e - s) / 60) * HOUR_PX > 34;
+                const m = db.mod(ev.moduleId), cx = clashText(ev.id);
+                const box = { top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * hp - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto" };
+                const tall = ((e - s) / 60) * hp > 34;
                 /* Der Name beginnt mit dem sichtbaren Text (für Sprachsteuerung), danach die Einzelheiten */
                 const shown = (a, b) => (tall && b ? `${a} ${b}: ` : `${a}: `);
                 if (ev.isBlock) return (
-                  <button key={ev.id} className={`ev ev-block ev-move ${ev.done ? "ev-done" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("block", ev.id) ? "ev-selected" : ""}`} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
+                  <button key={ev.id} className={`ev ev-block ev-move ${ev.done ? "ev-done" : ""} ${cx ? "ev-clash" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("block", ev.id) ? "ev-selected" : ""}`} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}${cx ? ", " + cx : ""}`} title={cx || undefined}
                     {...(selKind === "block" ? { "aria-pressed": picked("block", ev.id), onClick: () => db.select("block", ev.id) }
                       : withDrag({ ...pressProps("block", ev.id), onClick: () => db.openForm("block", ev) }, (e) => startDrag(e, ev)))}
-                    style={{ "--mod": m?.color || "var(--accent)", top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto" }}>
+                    style={{ "--mod": m?.color || "var(--accent)", ...box }}>
                     <b>{shortName(ev.title)}</b>
                     {tall && " "}{tall && <span>{m ? shortName(m.name) : "Lernen"}</span>}
+                    {single && tall && <span className="ev-when">{ev.start}–{ev.end}</span>}
                     <span className="ev-resize" aria-hidden="true" />
                   </button>
                 );
                 const cov = ev.isExam || ev.cancelled ? null : sessionCoverage(ev);
                 const cls = ev.isExam ? "" : ev.cancelled ? "ev-cancelled" : ev.reviewed ? "ev-done" : isHeld(ev) ? "ev-review" : "";
-                const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}${cov ? `, ${cov.label}` : ""}`);
+                const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}${cov ? `, ${cov.label}` : ""}`) + (cx ? `, ${cx}` : "");
                 return (
-                  <button key={ev.id} className={`ev ${cls} ${ev.isExam ? "" : "ev-move"} ${hover.card?.id === ev.id ? "ev-active" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("session", ev.id) ? "ev-selected" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
+                  <button key={ev.id} className={`ev ${cls} ${ev.isExam ? "" : "ev-move"} ${cx ? "ev-clash" : ""} ${hover.card?.id === ev.id ? "ev-active" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("session", ev.id) ? "ev-selected" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
                     {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") }
                       : selKind === "session" ? { "aria-pressed": picked("session", ev.id), onClick: () => db.select("session", ev.id) }
                       : withDrag(chain(hover.trigger(ev.id, () => db.openForm("session", data.sessions.find((x) => x.id === ev.id) || ev)), pressProps("session", ev.id)), (e) => startDrag(e, ev)))}
-                    style={{ "--mod": ev.isExam ? "var(--danger)" : m?.color, top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto", color: ev.isExam ? "#fff" : undefined }}>
+                    style={{ "--mod": ev.isExam ? "var(--danger)" : m?.color, ...box, color: ev.isExam ? "#fff" : undefined }}>
                     <b>{ev.isExam ? "Prüfung" : shortName(m?.name)}</b>
                     {tall && " "}{tall && <span>{ev.isExam ? shortName(m?.name) : ev.type}</span>}
+                    {single && tall && <span className="ev-when">{ev.start}{ev.isExam ? "" : `–${ev.end}`}{ev.room ? `, ${ev.room}` : ""}</span>}
                     {!ev.isExam && <span className="ev-resize" aria-hidden="true" />}
                     {cov && <span className="ev-cov" data-tier={cov.ratio >= 0.9 ? "ok" : cov.ratio >= 0.34 ? "warn" : "low"} aria-hidden="true"><span style={{ width: `${Math.round(cov.ratio * 100)}%` }} /></span>}
                   </button>
@@ -297,7 +379,7 @@ function WeekGrid({ db, days, weekSes }) {
           );
         })}
       </div>
-      {cardSession && <SessionPopover s={cardSession} db={db} anchor={hover.card.anchor} onClose={hover.close} onEnter={hover.keep} onLeave={hover.leave} />}
+      {cardSession && <SessionPopover s={cardSession} note={cardClash ? `Überschneidet sich mit ${cardClash.map(evName).join(", ")}` : ""} db={db} anchor={hover.card.anchor} onClose={hover.close} onEnter={hover.keep} onLeave={hover.leave} />}
     </div>
   );
 }

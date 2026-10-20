@@ -253,8 +253,8 @@ var LEGACY_COMMUTE = {
   car: { from: "Zorneding", to: "Boltzmannstra\xDFe 15, 85748 Garching bei M\xFCnchen", park: 10 }
 };
 var CAMPUSES = [
-  { id: "garching", name: "Campus Garching", to: LEGACY_COMMUTE.car.to },
-  { id: "weihenstephan", name: "Campus Weihenstephan (Freising)", to: "Alte Akademie 8, 85354 Freising" }
+  { id: "garching", name: "Campus Garching", short: "Garching", to: LEGACY_COMMUTE.car.to, lat: 48.26, lon: 11.67 },
+  { id: "weihenstephan", name: "Campus Weihenstephan (Freising)", short: "Weihenstephan", to: "Alte Akademie 8, 85354 Freising", lat: 48.4, lon: 11.72 }
 ];
 var FIXED_TRANSIT = { station: LEGACY_COMMUTE.station, line: "230", towards: "Forschungszentrum", avoid: "", travel: 50, feeder: LEGACY_COMMUTE.feeder };
 var DEFAULT_COMMUTE = { ...LEGACY_COMMUTE, car: { park: 10 } };

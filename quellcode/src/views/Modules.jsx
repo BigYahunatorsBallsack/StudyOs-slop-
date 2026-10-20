@@ -3,16 +3,18 @@ import { DONE_HW, MODULE_STATUS, RING_COLORS } from "../lib/constants.js";
 import { dueInfo, isActive, moduleStats } from "../lib/data.js";
 import { byOrder, byTime, diffDays, fmt, fmtDec, fmtH, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
 import { Bar, Card, Empty, RingLegend, Stat, Tabs, TriRing } from "../ui/primitives.jsx";
+import { sortNotes } from "../lib/notes.js";
 import { CardList, ExamCountdown, HomeworkRow, NoteRow, RoomLabel, SessionRow, TopicRow } from "../ui/rows.jsx";
 import { SelectToggle } from "../ui/selection.jsx";
 import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
 import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
-import { bonusForecast, studyDiary, workload } from "../lib/study.js";
+import { bonusForecast, recordingBacklog, studyDiary, workload } from "../lib/study.js";
 import { rememberOpened } from "../lib/recent.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
+import { readView, saveView } from "../lib/view.js";
 
 /* ---------------- Module ---------------- */
 export function ModuleList({ db }) {
@@ -95,7 +97,8 @@ export function ModuleList({ db }) {
 
 export function ModuleDetail({ db, id, onBack }) {
   const { data } = db, m = db.mod(id), s = moduleStats(data, id), t = iso(), gop = gopCodes(curriculumOf(data));
-  const [sub, setSub] = useState("uebersicht");
+  const [sub, setSubState] = useState(() => readView().moduleSub || "uebersicht");
+  const setSub = (v) => { setSubState(v); saveView({ moduleSub: v }); };
   const [merge, setMerge] = useState(false);
   useEffect(() => rememberOpened("module", id), [id]);
   const [sesFilter, setSesFilter] = useState("anstehend");
@@ -103,7 +106,8 @@ export function ModuleDetail({ db, id, onBack }) {
   const hw = data.homework.filter((x) => x.moduleId === id).sort((a, b) => (a.due || "").localeCompare(b.due || ""));
   const topics = data.topics.filter((x) => x.moduleId === id).sort(byOrder);
   const logs = data.logs.filter((x) => x.moduleId === id).sort((a, b) => b.date.localeCompare(a.date));
-  const notes = data.notes.filter((x) => x.moduleId === id).sort((a, b) => (b.updated || "").localeCompare(a.updated || ""));
+  const notes = sortNotes(data.notes.filter((x) => x.moduleId === id));
+  const pinned = notes.filter((x) => x.pinned);
   const cards = data.cards.filter((x) => x.moduleId === id);
   const exams = data.exams.filter((x) => x.moduleId === id).sort((a, b) => a.date.localeCompare(b.date));
   const nextSes = sessions.find((x) => !isHeld(x) && isActive(x));
@@ -143,6 +147,8 @@ export function ModuleDetail({ db, id, onBack }) {
               <li className="flex justify-between gap-2"><span className="text-slate-400">Prüfung</span><span className="text-right">{nextExam ? `${fmt(nextExam.date)} (in ${diffDays(t, nextExam.date)} T.)` : <button className="text-sky-400 hover:underline" onClick={() => db.openForm("exam", { moduleId: id }, true)}>eintragen</button>}</span></li>
             </ul>
           </Card>
+          <RecordingBacklog b={recordingBacklog(data, id)} db={db} />
+          {pinned.length > 0 && <Card title="Angeheftet"><ul className="rows">{pinned.map((n) => <NoteRow key={n.id} n={n} db={db} meta={fmt(n.updated)} />)}</ul></Card>}
           <Card>
             <div className="flex items-center gap-4">
               <TriRing s={s} size={96} />
@@ -245,6 +251,20 @@ export function ModuleDetail({ db, id, onBack }) {
           <CardList cards={cards} db={db} />
         </div>
       )}
+    </div>
+  );
+}
+
+/* Aufzeichnungs-Rückstand: vergangene Vorlesungen, weder besucht noch ganz angeschaut; antippen zeigt die Liste */
+function RecordingBacklog({ b, db }) {
+  const [open, setOpen] = useState(false);
+  if (!b.list.length) return null;
+  return (
+    <div>
+      <button className="link-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {b.list.length} {b.list.length === 1 ? "Aufzeichnung" : "Aufzeichnungen"} offen · {fmtMin(b.minutes)}
+      </button>
+      {open && <ul className="rows mt-2">{b.list.map(({ s }) => <SessionRow key={s.id} s={s} db={db} showDate />)}</ul>}
     </div>
   );
 }

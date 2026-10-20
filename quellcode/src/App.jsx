@@ -29,9 +29,10 @@ import { ItemMenu, PostponeSheet } from "./ui/actions.jsx";
 import { SelectBar, countLabel } from "./ui/selection.jsx";
 import { postponeHomework } from "./lib/postpone.js";
 import { openTodayCount } from "./lib/todo.js";
-import { syncNoteCards } from "./lib/cards.js";
+import { cardFromSelection, syncNoteCards } from "./lib/cards.js";
 import { pdfText, sheetFromShare } from "./lib/sheet.js";
-import { getLocal as getFile } from "./lib/files.js";
+import { getLocal as getFile, setRemoteFiles } from "./lib/files.js";
+import { readView, saveView } from "./lib/view.js";
 
 /* Seltener genutzte Bereiche als eigene Dateien (offline über den Service Worker).
    Nach dem Start werden sie im Leerlauf vorgeladen, damit der erste Wechsel nicht auf „Lädt …“ wartet: React zeigt einen
@@ -59,12 +60,14 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries, markAttended, seriesSuggestion, reconcileAllSessionLogs, reconcileSessionLogs, toggleAttended, withoutArchived } from "./lib/study.js";
+import { examDismissKeys } from "./lib/feed.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, curriculumOf, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
 import { addTrash, purgeTrash, restoreTrash, trashEntry } from "./lib/trash.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
+import { LiveLeft } from "./ui/dayview.jsx";
 
 /* Trifft eine Media-Query zu? Folgt Änderungen (Fenster breiter oder schmaler ziehen). */
 function useMedia(q) {
@@ -85,14 +88,18 @@ const nav = [["heute", "Heute", "today"], ["module", "Module", "modules"], ["woc
 /* ---------------- App ---------------- */
 export default function App() {
   const { data, setData, dataRef, ready, loadError, saveState, saveNow, updateReady, installReady, setInstallReady } = usePersistence();
-  const [tab, setTab] = useState("heute");
+  /* Zuletzt geöffnete Ansicht dieses Geräts (lib/view.js); Verknüpfungen (?aktion=…) überschreiben sie danach */
+  const [view0] = useState(readView);
+  const [tab, setTab] = useState(view0.tab || "heute");
   /* Bereich wechseln: sofort nach oben springen (nicht weich scrollen, das wirkt wie Laden) */
   const goTab = (k) => { setTab(k); if (k === "module") setModuleId(null); window.scrollTo && window.scrollTo({ top: 0, behavior: "instant" }); };
-  const [moduleId, setModuleId] = useState(null);
-  const [learnTab, setLearnTab] = useState("timer");
-  const [moreTab, setMoreTab] = useState("rueckblick");
+  const [moduleId, setModuleId] = useState(view0.tab === "module" ? view0.moduleId || null : null);
+  const [learnTab, setLearnTab] = useState(view0.learn || "timer");
+  const [moreTab, setMoreTab] = useState(view0.more || "rueckblick");
+  useEffect(() => saveView({ tab, moduleId, learn: learnTab, more: moreTab }), [tab, moduleId, learnTab, moreTab]);
   const [cardFilter, setCardFilter] = useState("");
   const [form, setForm] = useState(null);
+  const [cardDraft, setCardDraft] = useState(null); /* Karte aus markiertem Notiztext, liegt über Notiz bzw. Editor */
   const [noteView, setNoteView] = useState(null);
   const [focusNoteId, setFocusNoteId] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -272,6 +279,13 @@ export default function App() {
       if (old.due !== item.due || (old.dueTime || "") !== (item.dueTime || "")) locked.add("due");
       item.locked = [...locked];
     }
+    if (kind === "exam" && !isNew && item.feedKey) {
+      /* ebenso Datum, Uhrzeit und Raum einer Prüfung aus dem Abo */
+      const old = d.exams.find((x) => x.id === item.id) || {};
+      const locked = new Set(old.locked || []);
+      ["date", "time", "room"].forEach((k) => { if ((old[k] || "") !== (item[k] || "")) locked.add(k); });
+      item.locked = [...locked];
+    }
     if (kind === "note") {
       item.updated = iso();
       /* Zeilen „Frage :: Antwort“ und Lückentexte werden gleich Karteikarten */
@@ -324,6 +338,9 @@ export default function App() {
     const hw = kind === "homework" && d.homework.find((x) => x.id === id);
     if (hw?.feedKey?.startsWith("moodle|") && d.settings.moodleFeed) n.settings = { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, dismissed: [...(d.settings.moodleFeed.dismissed || []), hw.feedKey].slice(-500) } };
     if (hw?.feedKey?.startsWith("artemis:")) n.settings = { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).map((f) => (hw.feedKey.startsWith(`artemis:${f.id}|`) ? { ...f, dismissed: [...(f.dismissed || []), hw.feedKey].slice(-500) } : f)) };
+    /* ebenso Prüfungen aus dem Stundenplan- oder Artemis-Abo */
+    const ex = kind === "exam" && d.exams.find((x) => x.id === id);
+    if (ex?.feedKey) n.settings = { ...d.settings, examsDismissed: [...(d.settings.examsDismissed || []), ...examDismissKeys(ex)].slice(-200) };
     return n;
   };
 
@@ -336,24 +353,14 @@ export default function App() {
 
   /* Fokusphase gleich als Lerneinheit speichern, dann nur noch nach einer Zeile Lernnotiz fragen */
   const logFocus = (init) => {
-    const id = uid();
+    /* Kennung aus dem Timer-Durchgang: hat ein anderes Gerät ihn schon eingetragen, nicht noch einmal */
+    if (init.id && dataRef.current.logs.some((l) => l.id === init.id)) return;
+    const id = init.id || uid();
     saveEntity("log", { ...init, id, note: init.note || "" }, true);
     if (form) toast("Fokusphase eingetragen.", { label: "Notiz", run: () => setFocusNoteId(id) }, 15000);
     else setFocusNoteId(id);
   };
-  const { timer, timerApi } = useTimer({
-    sound: !!data.settings.sound,
-    onFocusDone: (init, blockId) => {
-      if (blockId) patch("blocks", blockId, blockDone(true));
-      logFocus(init);
-    },
-    onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
-    onLog: logFocus,
-  });
   const focusLog = focusNoteId ? data.logs.find((l) => l.id === focusNoteId) : null;
-
-  /* Musik in der Fokusphase (Timer → „Musik in der Fokusphase“) */
-  useAmbient({ kind: ambientOf(data.settings), playing: timer.running && timer.mode === "focus", volume: ambientVolumeOf(data.settings) });
 
   /* Ersetzen (Import, Wiederherstellen, Löschen, Beispieldaten): standardmäßig mit Zeitstempeln und Grabsteinen,
      damit das Ersetzen auch per Sync auf anderen Geräten ankommt. Beim Zusammenführen sind die Stempel schon richtig. */
@@ -378,7 +385,31 @@ export default function App() {
     const what = list.every((k) => k.kind === "deleted") ? "gelöscht" : "überschrieben";
     toast(`Von einem anderen Gerät ${what}: ${names}.`, { label: "Meine behalten", run: () => { change((d) => restoreConflicts(d, list)); toast("Deine Fassung ist wiederhergestellt."); } }, 20000);
   };
-  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict });
+  const [timerBusy, setTimerBusy] = useState(false); /* läuft ein Timer-Durchgang? dann öfter synchronisieren */
+  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict, fastPoll: timerBusy });
+  /* Bilder in Notizen/Karten von anderen Geräten nachladen */
+  const cloudRef = useRef(cloud);
+  cloudRef.current = cloud;
+  useEffect(() => { setRemoteFiles((id) => (cloudRef.current.canFiles?.() ? cloudRef.current.downloadFile(id) : null)); }, []);
+  const syncOn = cloud.phase === "ready" && ready && !loadError;
+  const syncHold = !ready || cloud.phase === "loading" || (syncOn && !cloud.settled);
+  /* Timer geräteübergreifend: nur mit eingerichtetem Cloud-Sync (siehe app/useTimer.js) */
+  const { timer, timerApi } = useTimer({
+    sound: !!data.settings.sound,
+    live: syncOn ? data.settings.liveTimer || null : undefined,
+    onLive: (rec) => change((d) => ({ ...d, settings: { ...d.settings, liveTimer: rec } })),
+    hold: syncHold,
+    onFocusDone: (init, blockId) => {
+      if (blockId) patch("blocks", blockId, blockDone(true));
+      logFocus(init);
+    },
+    onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
+    onLog: logFocus,
+  });
+  useEffect(() => setTimerBusy(syncOn && !!timer.runId), [syncOn, timer.runId]);
+
+  /* Musik in der Fokusphase (Timer → „Musik in der Fokusphase“) */
+  useAmbient({ kind: ambientOf(data.settings), playing: timer.running && timer.mode === "focus", volume: ambientVolumeOf(data.settings) });
 
   const feeds = useFeeds({ ready, loadError, cloud, data, dataRef, change });
 
@@ -471,6 +502,7 @@ export default function App() {
       saveEntity(kind, vals, true);
       toast(`${label} angelegt.`, { label: "Rückgängig", run: () => removeEntity(kind, vals.id) }, 6000);
     },
+    cardFromText: (text, moduleId) => setCardDraft({ kind: "card", isNew: true, initial: { moduleId: moduleId || "", ...cardFromSelection(text) } }),
     cardsFromNote: (note, list) => {
       const today = iso();
       const fresh = list.map((c) => ({ ...c, id: uid(), moduleId: note.moduleId, topicId: "", tags: "", created: today, ease: 2.5, interval: 0, reps: 0, due: today, fromNote: note.id }));
@@ -544,7 +576,7 @@ export default function App() {
     },
     /* ▶ an einem Eintrag: Timer mit Modul und Art; die Zeit landet als Lerneinheit mit dem Titel als Notiz */
     focusOn: (kind, item) => {
-      if (kind === "homework") db.focus({ moduleId: item.moduleId || "", kind: "Übung/Hausaufgabe", note: item.title });
+      if (kind === "homework") db.focus({ moduleId: item.moduleId || "", kind: "Übung/Hausaufgabe", note: item.title, homeworkId: item.id });
       else if (kind === "session") db.focus({ moduleId: item.moduleId || "", kind: "Nacharbeiten", note: `${item.type} vom ${fmtShort(item.date)}` });
     },
   };
@@ -596,7 +628,8 @@ export default function App() {
         <div className={`mx-auto flex items-center gap-2 px-4 py-3 ${split && tab === "heute" ? "main-wide" : "max-w-3xl"}`}>
           <h1 className="brand">StudyOS</h1>
           <span className="hidden text-xs text-slate-500 sm:inline">{[data.settings.program, data.settings.university].filter(Boolean).join(", ")}</span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            <LiveLeft data={data} />
             <TimerBadge timer={timer} onClick={() => db.goLearn("timer")} />
             <SyncDot cloud={cloud} onOpenSettings={() => db.goMore("daten")} />
             {saveState === "memory" && dirty && (
@@ -695,6 +728,7 @@ export default function App() {
         onDetails={(l) => { setFocusNoteId(null); openForm("log", l); }} onDiscard={() => { setFocusNoteId(null); removeEntity("log", focusLog.id); }} />}
       {form?.kind === "card" && form.initial?.occ ? <Suspense fallback={null}><OcclusionEditor key={form.initial.id || "new"} db={db} initial={form.initial} onClose={() => setForm(null)} /></Suspense>
         : form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
+      {cardDraft && <FormModal key="card-draft" form={cardDraft} data={data} db={db} onSave={(...a) => { saveEntity(...a); toast("Karteikarte angelegt."); }} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setCardDraft(null)} />}
     </div>
   );
 }

@@ -72,7 +72,7 @@ Zusammengeführt wird pro Feld: Änderst du am Handy den Titel einer Aufgabe und
 - Exportiere regelmäßig eine Sicherung und bewahre sie an einem zweiten Ort auf. Lokale Wiederherstellungspunkte ersetzen keine Datei.
 - Verschlüsselte Sicherungen: PBKDF2-SHA256 (600 000 Runden) und AES-256-GCM. Ohne Passphrase sind sie nicht wiederherstellbar.
 - Die Website-Dateien enthalten keine persönlichen Einträge. Bei GitHub Pages ist die Website öffentlich erreichbar.
-- Eine Content-Security-Policy in `index.html` erlaubt Verbindungen nur zur eigenen Seite, zu Supabase und zum Mensa-Speiseplan (GitHub Pages kann keine eigenen HTTP-Header setzen).
+- Eine Content-Security-Policy in `index.html` erlaubt Verbindungen nur zur eigenen Seite, zu Supabase, zum Mensa-Speiseplan und zur Wettervorhersage von Open-Meteo (GitHub Pages kann keine eigenen HTTP-Header setzen).
 
 ## Hilfsskripte (Python 3)
 

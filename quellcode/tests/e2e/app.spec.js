@@ -7,8 +7,14 @@ import { join } from 'node:path';
 /* Fehler aus Konsole und Seite sammeln: jeder Test muss ohne laufen */
 const pageErrors = new WeakMap();
 const MENSA = { days: [0, 1, 2, 3, 4, 5, 6].map((n) => { const d = new Date(); d.setDate(d.getDate() + n); return { date: d.toLocaleDateString('sv-SE'), dishes: [{ name: 'Testpasta mit Tomaten', dish_type: 'Pasta', labels: ['VEGAN'], prices: { students: { base_price: 0, price_per_unit: 0.9, unit: '100g' } } }] }; }) };
+/* Am Wochenende blendet „Heute“ Tagesplan, Als Nächstes und Mensa aus: diese Tests laufen dann am nächsten Montag */
+const onWeekday = async (page) => {
+  const d = new Date();
+  if (d.getDay() % 6 === 0) { d.setDate(d.getDate() + (d.getDay() === 6 ? 2 : 1)); d.setHours(10, 0, 0, 0); await page.clock.setSystemTime(d); }
+};
 test.beforeEach(async ({ page }) => {
   await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: MENSA }));
+  await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] })); /* Wetter: nie ins Netz */
   const list = [];
   pageErrors.set(page, list);
   page.on('pageerror', (e) => list.push(String(e)));
@@ -39,10 +45,10 @@ test('alle Bereiche laden ohne Fehler und ohne horizontales Scrollen', async ({ 
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${tab}/${sub}`).toBe(true);
     }
   }
-  await expect(page.getByText('Aktivität (20 Wochen)')).toHaveCount(0); // nicht im Datenbereich
+  await expect(page.getByText('Lernzeit-Kalender')).toHaveCount(0); // nicht im Datenbereich
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Wochenrückblick' }).click();
-  await expect(page.getByText('Aktivität (20 Wochen)')).toBeVisible();
+  await expect(page.getByText('Lernzeit-Kalender')).toBeVisible();
 });
 
 test('Daten bleiben nach dem Neuladen erhalten, Änderungen tragen Zeitstempel', async ({ page }) => {
@@ -71,6 +77,7 @@ test('verschlüsselte Sicherung: Export, falsche und richtige Passphrase, Zusamm
 
   // Zweites Gerät (eigener Browser-Kontext): eigene Notiz, dann Sicherung einspielen
   const ctx = await browser.newContext({ locale: 'de-DE', acceptDownloads: true });
+  await ctx.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
   const b = await ctx.newPage();
   const errs = [];
   b.on('pageerror', (e) => errs.push(String(e)));
@@ -227,6 +234,52 @@ test('Schnelleingabe legt eine Hausaufgabe an, mit Rückgängig', async ({ page 
   await expect(page.getByLabel(/^Titel/)).toHaveValue('Blatt 10');
 });
 
+test('Schnelleingabe: Modul vervollständigen, Lernzeit nachtragen, letzte Eingabe als Vorlage', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
+  const input = page.getByLabel('Was steht an?');
+  await input.fill('1h Diskr');
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Diskrete Strukturen', exact: true })).toBeVisible();
+  await input.press('Tab');
+  await expect(input).toHaveValue('1h Diskrete Strukturen ');
+  await input.pressSequentially('gestern');
+  await expect(page.getByRole('radio', { name: 'Lerneinheit' })).toHaveAttribute('aria-checked', 'true');
+  const yesterday = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('sv-SE'); });
+  await page.getByRole('button', { name: 'Lerneinheit anlegen' }).click();
+  await expect.poll(async () => (await stored(page))?.logs.some((l) => l.minutes === 60 && l.date === yesterday)).toBe(true);
+  // Vorlage: antippen füllt das Feld, das Datum ist markiert und wird überschrieben
+  await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
+  await page.getByRole('list', { name: 'Letzte Eingaben' }).getByRole('button', { name: '1h Diskrete Strukturen gestern' }).click();
+  await expect(input).toHaveValue('1h Diskrete Strukturen gestern');
+  await expect.poll(() => input.evaluate((el) => document.activeElement === el && el.value.slice(el.selectionStart, el.selectionEnd))).toBe('gestern');
+  await page.keyboard.type('heute');
+  await expect(input).toHaveValue('1h Diskrete Strukturen heute');
+});
+
+test('Bild aus der Zwischenablage in eine Notiz einfügen', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.keyboard.press('n');
+  await page.getByLabel('Titel').fill('Tafelbild');
+  const area = page.locator('#f-text');
+  await area.click();
+  await area.evaluate((el) => {
+    const bin = atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    const dt = new DataTransfer();
+    dt.items.add(new File([Uint8Array.from(bin, (c) => c.charCodeAt(0))], 'image.png', { type: 'image/png' }));
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await expect(area).toHaveValue(/^!\[Bild [^\]]+\.png\]\(att:[\w-]+\)$/);
+  await expect(page.getByText('Bild eingefügt, wird beim Speichern angehängt.')).toBeVisible();
+  await page.getByRole('button', { name: 'Vorschau' }).click();
+  await expect.poll(() => page.locator('img.md-img').evaluate((img) => img.naturalWidth)).toBe(1);
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page))?.notes.find((n) => n.title === 'Tafelbild')?.files?.length).toBe(1);
+  const note = (await stored(page)).notes.find((n) => n.title === 'Tafelbild');
+  expect(note.text).toContain(`att:${note.files[0].id}`);
+});
+
 test('Plus im Kopf: Abgabe mit Teilaufgaben anlegen, abhaken und im Formular ergänzen', async ({ page }) => {
   await loadDemo(page);
   await nav(page, 'Woche').click();
@@ -266,7 +319,7 @@ test('Tastenkürzel: Hilfe, Tabs, Timer, Listen-Navigation', async ({ page }) =>
   await expect(page.getByRole('dialog', { name: 'Tastenkürzel' })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.keyboard.press('3');
-  await expect(page.getByRole('heading', { name: /Woche \d+/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /KW \d+/ })).toBeVisible();
   await page.keyboard.press('t');
   await expect(page.getByRole('tab', { name: 'Timer' })).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('1');
@@ -336,6 +389,7 @@ const session = (page, id) => page.evaluate(async (id) => (await window.STUDYOS_
 
 test('Wochenraster: Maus kurz über Termin zeigt Karte, dort abhaken; Klick öffnet weiter das Formular', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, locale: 'de-DE' });
+  await ctx.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
   const page = await ctx.newPage();
   await loadDemo(page);
   await sessionToday(page, '00:05', '00:06');
@@ -469,6 +523,7 @@ const seed = (page, extraFn) => page.evaluate(async (src) => {
 }, extraFn.toString());
 
 test('Blatt-Serie anlegen, Bonus-Prognose und Workload im Modul', async ({ page }) => {
+  await onWeekday(page);
   await page.goto('./');
   await page.evaluate(async () => {
     const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
@@ -555,6 +610,9 @@ test('Studienplan übernehmen und Semester archivieren', async ({ page }) => {
 });
 
 test('Mensa, GOP-Karte, Raum-Link und FSRS-Vorschau', async ({ page }) => {
+  /* fester Werktag mittags: nachts und am Wochenende blendet „Heute“ die Mensa anders ein */
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') });
+  await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [{ ...MENSA.days[0], date: '2026-10-20' }] } }));
   await page.goto('./');
   await seed(page, (day) => ({ settings: { university: 'TUM' },
     modules: [{ id: 'ds', name: 'Diskrete Strukturen', code: 'IN0015', ects: 8, semester: 1, status: 'bestanden', grade: 2.0, color: '#34d399', liveUrl: 'https://live.rbg.tum.de/old/course/2026/W/ds' },
@@ -682,6 +740,64 @@ test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('Woche: Vorlesungswoche, Überschneidungen, Abgabe-Marker, Tagesansicht mit Wischen, Pinch-Zoom', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-04T09:00:00') }); /* Mittwoch, 3. Vorlesungswoche */
+  await page.goto('./');
+  await seed(page, () => ({ settings: { university: 'TUM' },
+    sessions: [{ id: 'a', moduleId: 'ds', type: 'Vorlesung', date: '2026-11-04', start: '10:00', end: '12:00' },
+      { id: 'x', moduleId: 'ds', type: 'Übung', date: '2026-11-04', start: '10:30', end: '11:30', cancelled: true }],
+    blocks: [{ id: 'b', moduleId: 'ds', title: 'Lernen DS', date: '2026-11-04', start: '11:00', end: '13:00' }],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 4', due: '2026-11-05', dueTime: '23:59', status: 'ausgegeben' },
+      { id: 'h2', moduleId: 'ds', title: 'Quiz', due: '2026-11-04', dueTime: '14:00', status: 'ausgegeben' }] }));
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  await expect(page.getByRole('heading', { name: 'KW 45 · VL-Woche 3 von 15' })).toBeVisible();
+  // Vorlesung und Lernblock überschneiden sich, die ausgefallene Übung zählt nicht
+  await expect(page.locator('.ev-clash')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /Lernblock Lernen DS.*überschneidet sich mit DS Vorlesung$/ })).toBeVisible();
+  await expect(page.locator('.ev-cancelled.ev-clash')).toHaveCount(0);
+  // Abgaben als Marker im Raster; 23:59 am unteren Rand des Tages
+  const col = page.locator('[data-day="2026-11-05"]');
+  const marker = col.getByRole('button', { name: /Abgabe Blatt 4.*bis 23:59/ });
+  const [cb, mb] = [await col.boundingBox(), await marker.boundingBox()];
+  expect(Math.abs(cb.y + cb.height - (mb.y + mb.height))).toBeLessThan(2);
+  await page.getByRole('button', { name: /Abgabe Quiz/ }).click();
+  await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Pinch mit zwei Fingern: die Stunden werden höher, gemerkt pro Gerät
+  const grid = page.locator('.grid-zoom');
+  const h0 = (await col.boundingBox()).height;
+  await grid.evaluate((el) => {
+    const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 100;
+    const touch = (id, dy) => new Touch({ identifier: id, target: el, clientX: x, clientY: y + dy });
+    const fire = (type, list) => el.dispatchEvent(new TouchEvent(type, { touches: list, changedTouches: list, bubbles: true, cancelable: true }));
+    fire('touchstart', [touch(1, -20), touch(2, 20)]);
+    fire('touchmove', [touch(1, -40), touch(2, 40)]);
+    fire('touchend', []);
+  });
+  await expect.poll(async () => (await col.boundingBox()).height).toBeGreaterThan(h0 * 1.8);
+  await expect.poll(() => page.evaluate(() => Number(localStorage.getItem('studyos-week-hourpx')))).toBe(92);
+  // Tagesansicht: ein Tag, Wischen wechselt den Tag statt des Bereichs
+  await page.getByRole('tab', { name: 'Tag' }).click();
+  await expect(page.getByRole('heading', { name: 'Mittwoch, 04.11.' })).toBeVisible();
+  await expect(page.locator('.grid-col')).toHaveCount(1);
+  const day = page.locator('.grid-col');
+  const b = await day.boundingBox();
+  await page.locator('.no-tabswipe').evaluate((el, [x, y]) => {
+    const t = (cx) => [new Touch({ identifier: 1, target: el, clientX: cx, clientY: y })];
+    el.dispatchEvent(new TouchEvent('touchstart', { touches: t(x + 120), changedTouches: t(x + 120), bubbles: true }));
+    el.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: t(x), bubbles: true }));
+  }, [b.x + 20, b.y + 40]);
+  await expect(page.getByRole('heading', { name: 'Donnerstag, 05.11.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Vorheriger Tag' }).click();
+  await expect(page.getByRole('heading', { name: 'Mittwoch, 04.11.' })).toBeVisible();
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await expect(page.getByRole('tab', { name: 'Tag' })).toHaveAttribute('aria-selected', 'true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('Teilen-Ziel: geteilte PDF wird zur Notiz mit Anhang', async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => navigator.serviceWorker.ready);
@@ -718,7 +834,7 @@ test('Retro ist das einzige Farbschema: alle Bereiche ohne horizontales Scrollen
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0221');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe('#0d0221');
   expect(await page.evaluate(() => getComputedStyle(document.querySelector('.btn')).borderRadius)).toBe('0px');
-  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'], Woche: ['Raster', 'Liste'] };
+  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'], Woche: ['Raster', 'Tag', 'Liste'] };
   for (const tab of ['Heute', 'Module', 'Woche', 'Lernen', 'Mehr']) {
     await nav(page, tab).click();
     for (const sub of subs[tab] || [null]) {
@@ -750,6 +866,7 @@ test('Knopf auf „Als Nächstes“ bleibt nach dem Antippen in der Modulfarbe (
 });
 
 test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; Retro-Animationen umschalten', async ({ page }) => {
+  await onWeekday(page);
   await loadDemo(page);
   await expect.poll(async () => (await stored(page))?.modules?.length ?? 0).toBeGreaterThan(0);
   await page.evaluate(async () => {
@@ -1113,6 +1230,7 @@ test('Timer: „Nicht eintragen“ verwirft die Fokusphase', async ({ page }) =>
 });
 
 test('Heute anpassen: Bereich ausblenden, verschieben (Pfeil und Ziehen), Standard wiederherstellen', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') }); /* Werktag: am Wochenende wäre der Tagesplan ausgeblendet */
   await loadDemo(page);
   await nav(page, 'Heute').click();
   await expect(page.locator('.group-plan')).toBeVisible();
@@ -1140,7 +1258,8 @@ test('Heute anpassen: Bereich ausblenden, verschieben (Pfeil und Ziehen), Standa
   expect(order[0]).toBe('exams');
   await page.getByRole('button', { name: 'Heute anpassen' }).click();
   await dlg.getByRole('button', { name: 'Standard wiederherstellen' }).click();
-  await expect(dlg.locator('.customize-row').first()).toContainText('Als Nächstes');
+  await expect(dlg.locator('.customize-row').first()).toContainText('Zeitstrahl');
+  await expect(dlg.locator('.customize-row').nth(1)).toContainText('Als Nächstes');
   await expect(page.locator('.group-plan')).toBeVisible();
 });
 
@@ -1203,6 +1322,7 @@ test('Monatsansicht: Punkte für Abgaben und Prüfungen, ein Tag öffnet seine W
 });
 
 test('Breiter Bildschirm: Heute und Woche nebeneinander, abschaltbar', async ({ page }) => {
+  await onWeekday(page);
   await page.setViewportSize({ width: 1400, height: 900 });
   await loadDemo(page);
   await nav(page, 'Heute').click();
@@ -1240,6 +1360,7 @@ test('Feiertage: Termin an Allerheiligen fällt aus, Rückgängig holt ihn zurü
 });
 
 test('Stundenplan-Änderung erscheint auf Heute, „Verstanden“ blendet sie aus', async ({ page }) => {
+  await onWeekday(page);
   await page.goto('./');
   await page.evaluate(async () => {
     const t = new Date(); t.setDate(t.getDate() + 2);
@@ -1648,4 +1769,103 @@ test('Heute: lesbare Fristen, Prüfungs-Countdown und „Erledigt heute“', asy
   await page.getByRole('button', { name: /Diskrete Strukturen/ }).first().click();
   await expect(page.locator('.exam-countdown')).toContainText('noch 12 Tage');
   await expect(page.getByText('Blatt 3 · morgen 23:59')).toBeVisible();
+});
+
+test('Zeitstrahl mit freier Lücke, Restzeit in der Kopfzeile, ab 18 Uhr die Vorschau auf morgen', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:25:00') }); /* Dienstag */
+  await page.goto('./');
+  await seed(page, (day) => ({
+    sessions: [
+      { id: 'a', moduleId: 'ds', type: 'Vorlesung', date: day(0), start: '10:00', end: '11:00' },
+      { id: 'b', moduleId: 'ds', type: 'Übung', date: day(0), start: '14:00', end: '16:00' },
+      { id: 'c', moduleId: 'ds', type: 'Vorlesung', date: day(1), start: '08:15', end: '10:00', room: 'MI HS 1' },
+    ],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 4', due: day(1), status: 'offen' }],
+  }));
+  await page.reload();
+  const strip = page.getByRole('region', { name: 'Zeitstrahl' });
+  await expect(strip).toContainText('Ab 11:00 3 h frei bis 14:00');
+  await expect(strip.locator('.daystrip-item')).toHaveCount(2);
+  await expect(strip.locator('.daystrip-now')).toHaveCount(1);
+  await expect(page.locator('header .live-left')).toHaveText('DS · noch 35 min');
+  await expect(page.getByRole('region', { name: 'Morgen' })).toHaveCount(0);
+  await page.clock.fastForward('07:40:00');
+  await expect(page.locator('header .live-left')).toHaveCount(0);
+  const morgen = page.getByRole('region', { name: 'Morgen' });
+  await expect(morgen).toContainText('08:15 Diskrete Strukturen, MI HS 1');
+  await expect(morgen).toContainText('Blatt 4');
+});
+
+test('Wochenende ohne Termin: Als Nächstes und Tagesplan ausgeblendet, Zu erledigen bleibt', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-24T10:00:00') }); /* Samstag */
+  await page.goto('./');
+  await seed(page, (day) => ({
+    sessions: [{ id: 'm', moduleId: 'ds', type: 'Vorlesung', date: day(2), start: '10:00', end: '12:00' }],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 7', due: day(4), status: 'offen' }],
+  }));
+  await page.reload();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 7' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Als Nächstes' })).toHaveCount(0);
+  await expect(page.locator('.group-plan')).toHaveCount(0);
+  /* mit Termin am Samstag ist es ein normaler Tag */
+  await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); d.sessions.push({ id: 's', moduleId: 'ds', type: 'Tutorium', date: '2026-10-24', start: '13:00', end: '14:00' }); await window.STUDYOS_ENV.save(d); });
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Als Nächstes' })).toBeVisible();
+  await expect(page.locator('.group-plan')).toBeVisible();
+});
+
+test('Fokus auf eine Abgabe: nur sie auf Heute, Abhaken beendet den Fokus', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') });
+  await page.goto('./');
+  await seed(page, (day) => ({
+    homework: [{ id: 'a', moduleId: 'ds', title: 'Blatt 5', due: day(3), status: 'offen' }, { id: 'b', moduleId: 'ds', title: 'Blatt 6', due: day(5), status: 'offen' }],
+  }));
+  await page.reload();
+  await page.locator('.todo-item', { hasText: 'Blatt 5' }).locator('.todo-row').click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Blatt 5' }).getByRole('button', { name: 'Fokus' }).click();
+  const focus = page.getByRole('region', { name: 'Fokus' });
+  await expect(focus).toContainText('Blatt 5');
+  await expect(page.locator('.todo-item')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Heute anpassen' })).toHaveCount(0);
+  /* bleibt nach dem Neuladen (pro Gerät gemerkt) */
+  await page.reload();
+  await focus.getByRole('button', { name: 'Fokus beenden' }).click();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 6' })).toBeVisible();
+  await page.locator('.todo-item', { hasText: 'Blatt 5' }).locator('.todo-row').click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Blatt 5' }).getByRole('button', { name: 'Fokus' }).click();
+  await focus.getByRole('button', { name: 'Abgegeben' }).click();
+  await expect(focus).toHaveCount(0);
+  await expect.poll(async () => (await stored(page)).homework.find((h) => h.id === 'a').status).toBe('abgegeben');
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 6' })).toBeVisible();
+});
+
+test('Lernzeit-Kalender, gemerkte Ansicht nach Neustart, Speichern unten im Formular', async ({ page }) => {
+  await loadDemo(page);
+  // Kalender: gestern antippen zeigt Summe und Modul
+  await page.getByRole('tab', { name: 'Wochenrückblick' }).click();
+  await expect(page.getByText('Lernzeit-Kalender')).toBeVisible();
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const label = `${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`;
+  const now = new Date();
+  if (!(now.getDate() === 1 && [3, 9].includes(now.getMonth()))) { /* nicht am ersten Tag eines Semesters */
+    await page.getByRole('button', { name: `${label}: 50 min` }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Einführung in die Informatik (Beispiel)' })).toContainText('50 min');
+  }
+  // Modulseite mit Reiter merken
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: /Lineare Algebra \(Beispiel\)/ }).first().click();
+  await page.getByRole('tab', { name: /^Themen/ }).click();
+  await page.reload();
+  await expect(page.getByRole('tab', { name: /^Themen/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(nav(page, 'Module')).toHaveAttribute('aria-current', 'page');
+  // Verknüpfung gewinnt
+  await page.goto('./?aktion=timer');
+  await expect(page.getByRole('tab', { name: 'Timer' })).toHaveAttribute('aria-selected', 'true');
+  // Formular am Handy: Speichern bleibt unten sichtbar
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: 'Modul anlegen' }).first().click();
+  const save = page.getByRole('dialog').getByRole('button', { name: 'Speichern' });
+  await expect(save).toBeInViewport();
+  const box = await save.boundingBox(), vh = page.viewportSize().height;
+  expect(box.y + box.height).toBeGreaterThan(vh - 120);
 });

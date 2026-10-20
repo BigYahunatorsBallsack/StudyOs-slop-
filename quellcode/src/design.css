@@ -178,6 +178,9 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .quick .quick-plus { margin-left: auto; width: 2.25rem; height: 2.25rem; border-radius: 999px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 1.35rem; font-weight: 500; line-height: 1; }
 .preview-chip { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .3rem .7rem; font-size: .78rem; font-weight: 600; background: var(--surface-2); color: var(--text); }
 .preview-chip.missing { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn-text); }
+.quick-suggest .chip { color: var(--text); }
+.quick-tab { font-size: .62rem; font-weight: 700; color: var(--faint); border: 1px solid var(--line-strong); border-radius: .25rem; padding: 0 .25rem; }
+@media (hover: none) { .quick-tab { display: none; } }
 
 /* ---- Hinweise ---- */
 .notice { border-radius: var(--r-row); padding: .8rem .95rem; font-size: .8125rem; }
@@ -209,6 +212,10 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .sheet-panel { width: 100%; max-height: 92vh; max-height: 92dvh; overflow-y: auto; background: var(--surface); color: var(--text); border-radius: var(--r-hero) var(--r-hero) 0 0; padding: .6rem 1.15rem calc(1.25rem + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px -10px rgba(0, 0, 0, .5); animation: rise .26s cubic-bezier(.2, .9, .3, 1); }
 .sheet-panel::before { content: ""; display: block; width: 2.5rem; height: 5px; border-radius: 999px; background: var(--line-strong); margin: 0 auto .7rem; }
 .sheet-panel .field { background: var(--surface-2); }
+/* Einhand am Handy: Speichern und Abbrechen bleiben unten in Daumenreichweite, auch in langen Formularen */
+@media (max-width: 639px) {
+  .sheet-panel .form-actions { position: sticky; bottom: calc(-1.25rem - env(safe-area-inset-bottom)); z-index: 2; margin-left: -1.15rem; margin-right: -1.15rem; margin-bottom: calc(-1.25rem - env(safe-area-inset-bottom)); padding: .75rem 1.15rem calc(.75rem + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+}
 @media (min-width: 640px) {
   .sheet-backdrop { align-items: center; padding: 1rem; }
   .sheet-panel { max-width: 32rem; border-radius: var(--r-hero); padding-top: 1.25rem; }
@@ -321,6 +328,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .hm { display: inline-block; }
 .hm0 { background: var(--hm0); } .hm1 { background: var(--hm1); } .hm2 { background: var(--hm2); } .hm3 { background: var(--hm3); } .hm4 { background: var(--hm4); }
 .hm-f { background: transparent; outline: 1px dashed var(--hm0); outline-offset: -1px; }
+.hm-pick { outline: 2px solid var(--text); outline-offset: 1px; }
 
 /* Zeilen innerhalb einer Fläche heben sich mit der nächsthöheren Ebene ab */
 .surface .row, .surface .stat { background: var(--surface-2); }
@@ -407,6 +415,16 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .todo-late { color: var(--danger-text); font-weight: 600; }
 .todo-dot { width: .55rem; height: .55rem; border-radius: 999px; background: var(--mod); flex-shrink: 0; }
 
+/* ---- Zeitstrahl oben auf „Heute“ ---- */
+.daystrip { position: relative; height: 12px; margin: 0; padding: 0; list-style: none; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.daystrip-item { position: absolute; top: 0; bottom: 0; min-width: 3px; background: var(--mod); }
+.daystrip-block { top: 3px; bottom: 3px; background: color-mix(in srgb, var(--mod) 55%, var(--surface-2)); }
+.daystrip-past { opacity: .4; }
+.daystrip-now { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); }
+.daystrip-scale { display: flex; justify-content: space-between; margin-top: .2rem; font-size: .6875rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.daystrip-gap { margin-top: .1rem; font-size: .8125rem; color: var(--muted); }
+.live-left { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11px; color: var(--muted); white-space: nowrap; }
+
 /* ---- Prüfungs-Countdown ---- */
 .exam-chips { display: flex; gap: .5rem; overflow-x: auto; scrollbar-width: none; margin-left: -1rem; margin-right: -1rem; padding: 0 1rem; }
 .exam-chips::-webkit-scrollbar { display: none; }
@@ -464,10 +482,28 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .md a { color: var(--accent-text); }
 .md blockquote { border-left-color: var(--line-strong); color: var(--muted); }
 .md pre.code-block { position: relative; background: var(--bg); padding-top: 1.4rem; }
+.md img.md-img { display: inline-block; max-width: 100%; max-height: 28rem; height: auto; border-radius: .4rem; margin: .3em 0; }
+.md-img-missing { color: var(--faint); font-size: .8em; }
 .code-lang { position: absolute; top: .3rem; right: .6rem; font-size: .65rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .math-block { overflow-x: auto; overflow-y: hidden; padding: .35rem 0; margin: .5em 0; }
 .math-inline .katex { font-size: 1.05em; }
 .math-raw { white-space: pre-wrap; }
+/* Checklisten in Notizen (- [ ] / - [x]) */
+.md ul.md-tasks { list-style: none; padding-left: 0; }
+.md li.md-task { display: flex; align-items: flex-start; gap: .5rem; margin: .2em 0; }
+.md-check { flex-shrink: 0; width: 1.15rem; height: 1.15rem; margin-top: .15em; border: 2px solid var(--line-strong); display: grid; place-items: center; font-size: .7rem; font-weight: 700; line-height: 1; color: var(--on-module, var(--bg)); }
+.md-check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+button.md-check { cursor: pointer; }
+@media (hover: hover) { button.md-check:hover { border-color: var(--accent); } }
+.md-task-done > span:last-child { color: var(--muted); text-decoration: line-through; }
+/* „Karte daraus“ neben markiertem Text in einer Notiz */
+.sel-card { position: fixed; z-index: 60; padding: .3rem .6rem; font-size: .75rem; }
+/* Angeheftete Notiz und schwere Karte */
+.pin-mark, .hard-mark { display: inline-flex; align-items: center; gap: .2rem; font-size: .7rem; font-weight: 700; color: var(--warn); }
+.mark-icon { width: .85rem; height: .85rem; flex-shrink: 0; }
+.card-flag { color: var(--muted); }
+.card-flag-on { color: var(--warn); }
+.card-flag-on .mark-icon { fill: currentColor; }
 .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type { color: var(--accent-text); font-weight: 600; }
 .hljs-string, .hljs-regexp, .hljs-char { color: var(--ok-text); }
 .hljs-number, .hljs-literal, .hljs-symbol { color: var(--warn-text); }
@@ -490,6 +526,17 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
   .ev-move .ev-resize { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; z-index: 1; }
 }
 .ev.ev-dragging { z-index: 5; opacity: .85; outline: 2px dashed var(--text); outline-offset: 1px; }
+/* Überschneidungen: rote Kante; Abgaben als Marker zur Frist-Uhrzeit; Tagesansicht mit Uhrzeit und Raum */
+.ev.ev-clash { border: 2px solid var(--danger); }
+.ev.ev-block.ev-clash { border: 2px dashed var(--danger); }
+.ev-when { display: block; opacity: .85; font-size: .6rem; }
+.grid-hw { position: absolute; left: 0; right: 0; height: 14px; z-index: 3; display: flex; align-items: center; border-top: 2px solid var(--mod); text-align: left; }
+.grid-hw > span { max-width: 100%; margin-top: -2px; padding: 0 .25rem; background: var(--mod); color: var(--on-module); font-size: .55rem; font-weight: 700; line-height: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.grid-hw.grid-hw-done { opacity: .5; }
+.grid-hw.grid-hw-done > span { text-decoration: line-through; }
+.grid-zoom { touch-action: pan-x pan-y; }
+.sem-week { color: var(--muted); font-size: .7em; font-weight: 400; }
+.popover-warn { color: var(--danger); font-weight: 700; }
 body.grid-dragging, body.grid-dragging * { cursor: grabbing !important; user-select: none; }
 .row-block .todo-check[aria-checked="true"] { background: var(--mod); color: var(--on-module); border-color: var(--mod); font-size: .8rem; font-weight: 700; }
 @media (hover: hover) { .row-block .todo-check[aria-checked="true"]:hover::after { content: none; } }

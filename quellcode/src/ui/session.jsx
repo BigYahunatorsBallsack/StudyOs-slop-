@@ -34,7 +34,7 @@ export function SessionTri({ s, db, compact = false, color }) {
 }
 
 /** Schwebende Karte an einem Termin (Position aus dem Rechteck des Auslösers). */
-export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave }) {
+export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note = "" }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({ left: -9999, top: -9999 });
   const m = db.mod(s.moduleId);
@@ -68,6 +68,7 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave }) {
       <p className="popover-title">{m?.name || "Ohne Modul"}</p>
       <p className="row-meta mt-0.5">{s.type}, {fmtShort(s.date)}, {s.start}–{s.end}</p>
       {s.room && <p className="row-meta">{s.room}</p>}
+      {note && <p className="row-meta popover-warn">{note}</p>}
       <PlaceLinks room={s.room} live={m?.liveUrl} className="mt-1.5" />
       {!s.cancelled && <WatchProgress s={s} color={m?.color} className="mt-1.5" />}
       {s.cancelled ? <p className="mt-2 text-sm font-semibold text-slate-400">Fällt aus</p> : <div className="mt-3"><SessionTri s={s} db={db} color={m?.color} /></div>}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { PALETTE } from "../lib/constants.js";
+import { pickColor } from "../lib/colors.js";
 import { countsOf, demoData, emptyData, normalizeImport } from "../lib/data.js";
 import { buildICS, guessType, parseICS } from "../lib/ics.js";
 import { fmt, iso, saveFile, uid } from "../lib/util.js";
@@ -331,7 +331,7 @@ export function IcsImport({ db, readFile }) {
       const d = { ...data, modules: [...data.modules], sessions: [...data.sessions] };
       const created = {};
       groups.forEach((g) => {
-        if (map[g] === "__new") { const m = { id: uid(), name: g, code: "", ects: 6, semester: 1, status: "belegt", grade: null, color: PALETTE[d.modules.length % PALETTE.length] }; d.modules.push(m); created[g] = m.id; }
+        if (map[g] === "__new") { const m = { id: uid(), name: g, code: "", ects: 6, semester: 1, status: "belegt", grade: null, color: pickColor(d.modules) }; d.modules.push(m); created[g] = m.id; }
       });
       events.forEach((e) => {
         const mid = map[e.summary] === "__new" ? created[e.summary] : map[e.summary];

@@ -1,6 +1,6 @@
 /* Studienplan-Vorlagen: Pflichtmodule eines Studiengangs auf einen Klick anlegen, dazu die GOP-Regel des Studiengangs.
    gop.stages: bis Ende welchen Fachsemesters wie viele ECTS aus den GOP-Modulen bestanden sein müssen. */
-import { PALETTE } from "./constants.js";
+import { pickColor } from "./colors.js";
 import { addDays, diffDays, iso, uid } from "./util.js";
 import { breaksOf } from "./holidays.js";
 import { baseName } from "./modules.js";
@@ -71,6 +71,7 @@ export function previewSemester(data, curriculum, semNo) {
  */
 export function applySemester(data, curriculum, semNo, status = "geplant") {
   let modules = [...data.modules], added = 0, updated = 0;
+  const batch = [];
   for (const { code, name, ects, gop, existing } of previewSemester(data, curriculum, semNo)) {
     if (existing) {
       const patch = {};
@@ -80,7 +81,8 @@ export function applySemester(data, curriculum, semNo, status = "geplant") {
       if (Object.keys(patch).length) { modules = modules.map((m) => (m.id === existing.id ? { ...m, ...patch } : m)); updated++; }
       continue;
     }
-    modules.push({ id: uid(), name, code, ects, semester: semNo, status, color: PALETTE[modules.length % PALETTE.length], grade: "", bonusPct: "", gop: !!gop, fromPlan: curriculum.id });
+    const m = { id: uid(), name, code, ects, semester: semNo, status, color: pickColor(modules, batch), grade: "", bonusPct: "", gop: !!gop, fromPlan: curriculum.id };
+    modules.push(m); batch.push(m);
     added++;
   }
   /* ohne gewählten Studienplan gilt ab jetzt dieser, auch für die GOP-Regel */

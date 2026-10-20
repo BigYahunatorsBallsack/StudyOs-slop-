@@ -1,6 +1,7 @@
-import { EXAM_RESULTS, HW_STATUS, LOG_KINDS, MODULE_STATUS, PALETTE, SESSION_TYPES, TOPIC_STATES } from "./constants.js";
+import { EXAM_RESULTS, HW_STATUS, LOG_KINDS, MODULE_STATUS, SESSION_TYPES, TOPIC_STATES } from "./constants.js";
 import { addDays, byOrder, byTime, dayOf, fmtShort, iso } from "./util.js";
 import { hasCloze } from "./cards.js";
+import { pickColor } from "./colors.js";
 import { parseWatch } from "./tum.js";
 
 /* ---------------- Formulardefinitionen ---------------- */
@@ -39,7 +40,7 @@ export function formDef(kind, d) {
       { k: "liveUrl", l: "Aufzeichnungen (TUM-Live-Link)", t: "url", ph: "https://live.rbg.tum.de/…", half: true },
       { k: "gop", l: "Zählt zur Grundlagenprüfung (GOP)", t: "checkbox" },
       { k: "semesterStart", l: "Semesterbeginn (optional)", t: "date", half: true, hint: "Für die Workload-Ampel; sonst zählt der erste Termin." },
-      { k: "color", l: "Farbe", t: "color", def: () => PALETTE[d.modules.length % PALETTE.length] },
+      { k: "color", l: "Farbe", t: "color", def: () => pickColor(d.modules) },
       { k: "archived", l: "Archiviert (abgeschlossen, wird in Heute, Woche-Vorschlägen und Erinnerungen ausgeblendet)", t: "checkbox", editOnly: true },
     ], validate: (v) => (v.liveUrl && !/^https:\/\/\S+$/i.test(v.liveUrl) ? "Der Aufzeichnungs-Link muss mit https:// beginnen." : "") };
     case "session": return { title: "Lehrveranstaltung", fields: [
@@ -89,6 +90,7 @@ export function formDef(kind, d) {
       { k: "moduleId", l: "Modul", t: "select", opts: () => modOpts(d, true) },
       { k: "topicId", l: "Thema", t: "select", opts: (v) => topicOpts(d, v) },
       { k: "kind", l: "Art", t: "select", opts: opt(LOG_KINDS), def: "Nacharbeiten" },
+      { k: "homeworkId", l: "Zu Abgabe (optional)", t: "select", opts: (v) => [{ value: "", label: "– keine –" }, ...d.homework.filter((h) => h.moduleId && h.moduleId === v.moduleId).sort((a, b) => (b.due || "").localeCompare(a.due || "")).map((h) => ({ value: h.id, label: h.title }))] },
       { k: "note", l: "Notiz", t: "textarea", rows: 2, ph: "Was hast du gemacht?" },
     ], validate: (v) => (Number(v.minutes) > 0 ? "" : "Die Dauer muss größer als 0 sein.") };
     case "note": return { title: "Notiz", fields: [
@@ -96,6 +98,7 @@ export function formDef(kind, d) {
       { k: "sessionId", l: "Zu Lehrveranstaltung (optional)", t: "select", opts: (v) => [{ value: "", label: "– keine –" }, ...d.sessions.filter((s) => s.moduleId === v.moduleId).sort(byTime).reverse().map((s) => ({ value: s.id, label: `${fmtShort(s.date)} ${s.start} · ${s.type}` }))] },
       { k: "title", l: "Titel", t: "text", req: true, ph: "z. B. VL 4 – Rekursion" },
       { k: "text", l: "Inhalt", t: "textarea", rows: 12, mono: true, ph: "Mitschrift, Formeln, Code, offene Fragen …" },
+      { k: "pinned", l: "Anheften (steht in Listen oben)", t: "checkbox" },
     ] };
     case "card": return { title: "Karteikarte", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },
@@ -103,6 +106,7 @@ export function formDef(kind, d) {
       { k: "front", l: "Vorderseite (Frage)", t: "textarea", rows: 3, req: true, mono: true, hint: "Markdown und Code-Blöcke (```) gehen. Lückentext: {{c1::Antwort}} oder {{c1::Antwort::Hinweis}}." },
       { k: "back", l: "Rückseite (Antwort)", t: "textarea", rows: 4, mono: true, hint: "Bei Lückentext optional (Zusatzinfo)." },
       { k: "tags", l: "Tags", t: "text", ph: "z. B. graphen, klausur", hint: "Mit Komma trennen." },
+      { k: "hard", l: "Als schwer markieren", t: "checkbox" },
     ], validate: (v) => (!String(v.back || "").trim() && !hasCloze(v.front) ? "Bitte eine Rückseite ausfüllen oder eine Lücke {{c1::…}} verwenden." : "") };
     case "exam": return { title: "Prüfung", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },
