@@ -28,8 +28,13 @@ function hlc(now, ...after) {
   return t;
 }
 
-/* Felder, die nur gemeinsam Sinn ergeben, werden wie ein Feld behandelt (z. B. der Lernstand einer Karte). */
-const GROUPS = { cards: { srs: ["stability", "difficulty", "interval", "reps", "lapses", "due", "lastReview", "ease", "reviews"] } };
+/* Felder, die nur gemeinsam Sinn ergeben, werden wie ein Feld behandelt (z. B. der Lernstand einer Karte).
+   Erledigt-Zeitpunkte reisen mit ihrem Schalter; die Gruppe heißt wie der Schalter, damit ältere Stempel weiter gelten. */
+const GROUPS = {
+  cards: { srs: ["stability", "difficulty", "interval", "reps", "lapses", "due", "lastReview", "ease", "reviews"] },
+  sessions: { attended: ["attended", "attendedAt"] },
+  blocks: { done: ["done", "doneAt"] },
+};
 const META = new Set(["id", "updated", "fu"]);
 function groupOf(c) {
   const byField = new Map();

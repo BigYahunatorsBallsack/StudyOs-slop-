@@ -26,7 +26,7 @@ describe("Heute anpassen", () => {
   });
   it("verschieben", () => {
     const l = todayLayout({});
-    expect(moveBlock(l, 10, 0).slice(0, 2)).toEqual(["mensa", "next"]);
+    expect(moveBlock(l, l.length - 1, 0).slice(0, 2)).toEqual(["mensa", "next"]);
     expect(moveBlock(l, 0, 1).slice(0, 2)).toEqual(["changes", "next"]);
     expect(moveBlock(l, 0, 99)).toEqual(ids(l));
   });

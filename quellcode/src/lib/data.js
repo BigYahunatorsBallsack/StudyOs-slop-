@@ -73,14 +73,31 @@ export function streakOf(logs) {
   return n;
 }
 
-export function dueInfo(due, done) {
-  if (!due) return { text: "ohne Frist", cls: "text-slate-500" };
-  const t = iso(), n = diffDays(t, due);
-  if (done) return { text: `Abgabe ${fmtShort(due)}`, cls: "text-slate-500" };
-  if (n < 0) return { text: `überfällig seit ${-n} T.`, cls: "text-rose-400 font-medium" };
-  if (n === 0) return { text: "heute fällig", cls: "text-amber-300 font-medium" };
-  if (n === 1) return { text: "morgen fällig", cls: "text-amber-200" };
-  return { text: `in ${n} Tagen`, cls: "text-slate-400" };
+/**
+ * Frist einer Abgabe lesbar: „Abgabe heute 14:00“, „Abgabe morgen 23:59“, „Abgabe in 3 Tagen“, ab einer Woche „Abgabe Fr, 24.10.“.
+ * `when` ist dasselbe ohne „Abgabe“. Rot (`urgent`), sobald weniger als 24 Stunden bleiben; ohne Uhrzeit zählt das Tagesende.
+ */
+export function dueInfo(due, done, time = "", now = new Date()) {
+  const out = (when, cls, urgent = false, prefix = true) => ({ text: prefix ? `Abgabe ${when}` : when, when, cls, urgent });
+  if (!due) return out("ohne Frist", "text-slate-500", false, false);
+  if (done) return out(fmtShort(due), "text-slate-500");
+  const t = iso(now), n = diffDays(t, due), at = time ? ` ${time}` : "";
+  const left = new Date(`${due}T${time || "23:59"}:00`).getTime() - now.getTime();
+  const red = "text-rose-400 font-medium";
+  if (left < 0) return out(n < 0 ? (n === -1 ? "überfällig seit gestern" : `überfällig seit ${-n} Tagen`) : `überfällig seit ${time || "23:59"}`, red, true, false);
+  const urgent = left < 86400000;
+  const when = n === 0 ? `heute${at}` : n === 1 ? `morgen${at}` : n <= 6 ? `in ${n} Tagen` : fmtShort(due);
+  return out(when, urgent ? red : n <= 1 ? "text-amber-200" : "text-slate-400", urgent);
+}
+
+/* Ab so wenigen Tagen vor einer Prüfung zeigen „Heute“ und die Modulseite den großen Countdown */
+export const COUNTDOWN_DAYS = 28;
+/** Countdown bis zur Prüfung: „heute“, „morgen“, „noch 12 Tage“; null, wenn sie vorbei oder vier Wochen und mehr entfernt ist. */
+export function examCountdown(date, today = iso()) {
+  if (!date) return null;
+  const n = diffDays(today, date);
+  if (n < 0 || n >= COUNTDOWN_DAYS) return null;
+  return n === 0 ? "heute" : n === 1 ? "morgen" : `noch ${n} Tage`;
 }
 
 export function moduleStats(data, mid) {

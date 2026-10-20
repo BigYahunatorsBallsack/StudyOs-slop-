@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { DONE_HW } from "../lib/constants.js";
 import { postponeTargets } from "../lib/postpone.js";
+import { blockDone } from "../lib/blocks.js";
 import { addDays, fmtShort, iso } from "../lib/util.js";
 import { Modal } from "./primitives.jsx";
 
@@ -23,7 +24,7 @@ export function itemActions(db, kind, item) {
   }
   if (kind === "block") {
     return [
-      { label: item.done ? "Nicht erledigt" : "Erledigt", run: () => db.patch("blocks", item.id, { done: !item.done }) },
+      { label: item.done ? "Nicht erledigt" : "Erledigt", run: () => db.patch("blocks", item.id, blockDone(!item.done)) },
       !item.done && { label: "Verschieben …", run: () => db.postpone("block", item) },
       !item.done && { label: "Timer starten", run: () => db.focus({ moduleId: item.moduleId || "", minutes: Math.min(90, minutesOf(item)), kind: item.kind, blockId: item.id, note: item.title }) },
       { label: "Bearbeiten", run: () => db.openForm("block", item) },

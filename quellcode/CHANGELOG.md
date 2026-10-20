@@ -1,6 +1,10 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Raumwechsel direkt im „Als Nächstes“:** Meldet der TUMonline-Kalender einen neuen Raum, steht er hervorgehoben bei „Als Nächstes“ auf „Heute“ und auf der Modulseite („Raum neu: Interims 1“), der alte Raum durchgestrichen daneben.
+- **Countdown bis zur Prüfung:** Ist die nächste Prüfung weniger als vier Wochen entfernt, zeigen „Heute“ und die Modulseite groß „noch 12 Tage“, „morgen“ oder „heute“.
+- **„Erledigt heute“:** Ein zugeklappter Bereich auf „Heute“ zeigt, was du heute abgegeben, besucht, nachbereitet und an Lernblöcken geschafft hast, dazu die Lernzeit. Der Haken dort öffnet einen Eintrag wieder; unter „Heute anpassen“ lässt sich der Bereich verschieben oder ausblenden.
+- **Lesbare Abgabefristen:** Abgaben zeigen „Abgabe morgen 23:59“, „Abgabe heute 14:00“, „Abgabe in 3 Tagen“ oder ab einer Woche „Abgabe Fr, 24.10.“. Bleiben weniger als 24 Stunden, ist die Frist rot.
 
 ## 2.11.0
 - **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.

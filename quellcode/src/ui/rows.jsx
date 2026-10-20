@@ -1,6 +1,8 @@
 import React from "react";
 import { DONE_HW, HW_STATUS, TOPIC_STATES } from "../lib/constants.js";
-import { dueInfo } from "../lib/data.js";
+import { dueInfo, examCountdown } from "../lib/data.js";
+import { blockDone } from "../lib/blocks.js";
+import { roomChange } from "../lib/feed.js";
 import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";
 import { Chip, Empty, Icon } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
@@ -46,10 +48,10 @@ export function BlockRow({ b, db, showDate }) {
   const m = db.mod(b.moduleId);
   const mins = Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
   return (
-    <SwipeRow className={`row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }} onSwipeRight={() => db.patch("blocks", b.id, { done: !b.done })} rightLabel={b.done ? "Nicht erledigt" : "Erledigt"}
+    <SwipeRow className={`row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }} onSwipeRight={() => db.patch("blocks", b.id, blockDone(!b.done))} rightLabel={b.done ? "Nicht erledigt" : "Erledigt"}
       onSwipeLeft={b.done ? null : () => db.postpone("block", b)} onLongPress={() => db.menu("block", b)}>
       <div className="flex items-start gap-3">
-        <button className="todo-check mt-0.5" role="checkbox" aria-checked={!!b.done} aria-label={`${b.title} erledigt`} onClick={() => db.patch("blocks", b.id, { done: !b.done })}><span aria-hidden="true">{b.done ? "✓" : ""}</span></button>
+        <button className="todo-check mt-0.5" role="checkbox" aria-checked={!!b.done} aria-label={`${b.title} erledigt`} onClick={() => db.patch("blocks", b.id, blockDone(!b.done))}><span aria-hidden="true">{b.done ? "✓" : ""}</span></button>
         <button className="row-main min-w-0 flex-1" onClick={() => db.openForm("block", b)}>
           <p className={`row-title truncate ${b.done ? "line-through" : ""}`}>{b.title}</p>
           <p className="row-meta truncate">Lernblock{showDate ? `, ${fmtShort(b.date)}` : ""}, {b.start}–{b.end}{m ? `, ${m.name}` : ""}</p>
@@ -61,7 +63,7 @@ export function BlockRow({ b, db, showDate }) {
 }
 
 export function HomeworkRow({ h, db }) {
-  const m = db.mod(h.moduleId), done = DONE_HW.has(h.status), dl = dueInfo(h.due, done);
+  const m = db.mod(h.moduleId), done = DONE_HW.has(h.status), dl = dueInfo(h.due, done, h.dueTime);
   const toggleDone = () => {
     const prev = h.status, next = done ? "in Arbeit" : "abgegeben";
     db.setHwStatus(h.id, next);
@@ -75,7 +77,7 @@ export function HomeworkRow({ h, db }) {
         <button onClick={() => db.openForm("homework", h)} className="row-main min-w-0 flex-1">
           <p className={`row-title truncate ${done ? "line-through" : ""}`}>{h.title}</p>
           <p className="row-meta truncate">{m?.name}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}</p>
-          <p className={`text-xs font-semibold ${dl.cls}`}>{h.missed && !done ? "nicht abgegeben, " : ""}{dl.text}{h.dueTime && !done ? `, ${h.dueTime} Uhr` : ""}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
+          <p className={`text-xs font-semibold ${dl.cls}`}>{h.missed && !done ? "nicht abgegeben, " : ""}{dl.text}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
         {!done && <button className="btn btn-ghost btn-icon shrink-0" onClick={() => db.focusOn("homework", h)} aria-label={`Timer starten: ${h.title}`} title="Timer starten"><Icon name="play" className="h-4 w-4" /></button>}
         <label className="sr-only" htmlFor={"hw-" + h.id}>Status von {h.title}</label>
@@ -85,6 +87,33 @@ export function HomeworkRow({ h, db }) {
       </div>
       <SubtaskChecklist h={h} db={db} color={m?.color} />
     </SwipeRow>
+  );
+}
+
+/** Raum eines Termins; ein vom Stundenplan-Abo gemeldeter Raumwechsel steht hervorgehoben da, der alte Raum durchgestrichen. */
+export function RoomLabel({ s }) {
+  const rc = roomChange(s);
+  if (!rc) return s.room ? <>{s.room}</> : null;
+  return (
+    <span>
+      <span className="room-new">Raum neu: {rc.to || "ohne"}</span>
+      {rc.from && <> <span className="sr-only">statt </span><del className="room-old">{rc.from}</del></>}
+    </span>
+  );
+}
+
+/** Großer Countdown zur nächsten Prüfung, sobald sie weniger als vier Wochen entfernt ist */
+export function ExamCountdown({ e, date = e.date, retake = false, db, showModule = true }) {
+  const label = examCountdown(date);
+  if (!label) return null;
+  const m = db.mod(e.moduleId);
+  const what = `${retake ? "Wiederholungsprüfung" : "Prüfung"}${showModule && m ? ` ${m.name}` : ""}`;
+  return (
+    <button className="exam-countdown" style={{ "--mod": m?.color }} onClick={() => db.goLearn("pruefungen")}>
+      <span className="exam-countdown-what">{what}</span>
+      <span className="exam-countdown-days">{label}</span>
+      <span className="exam-countdown-meta">{fmtShort(date)}{!retake && e.time ? `, ${e.time} Uhr` : ""}{!retake && e.room ? `, ${e.room}` : ""}</span>
+    </button>
   );
 }
 

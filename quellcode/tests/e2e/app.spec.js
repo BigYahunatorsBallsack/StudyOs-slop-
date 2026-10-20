@@ -1252,9 +1252,19 @@ test('Stundenplan-Änderung erscheint auf Heute, „Verstanden“ blendet sie au
   await page.reload();
   const box = page.getByRole('region', { name: 'Stundenplan geändert' });
   await expect(box.getByText('Zeit: 10:00–14:00 → 12:00–14:00, Raum: MI HS 1 → Interims 1')).toBeVisible();
+  /* auch im „Als Nächstes“ und auf der Modulseite: neuer Raum hervorgehoben, alter durchgestrichen */
+  const hero = page.getByRole('region', { name: 'Als Nächstes' });
+  await expect(hero.locator('.room-new')).toHaveText('Raum neu: Interims 1');
+  await expect(hero.locator('del.room-old')).toHaveText('MI HS 1');
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: /Diskrete Strukturen/ }).first().click();
+  await expect(page.locator('.room-new')).toHaveText('Raum neu: Interims 1');
+  await nav(page, 'Heute').click();
   await box.getByRole('button', { name: /^Verstanden/ }).click();
   await expect(box).toHaveCount(0);
   await expect.poll(async () => (await session(page, 'chg'))?.change).toBeNull();
+  await expect(hero).toContainText('Interims 1');
+  await expect(hero.locator('.room-new')).toHaveCount(0);
 });
 
 test('Notizen verlinken: [[Titel]] öffnet die andere Notiz, dort steht „Verlinkt von“', async ({ page }) => {
@@ -1437,4 +1447,40 @@ test('Suche findet Termine nach Raum und Anhänge nach Dateinamen', async ({ pag
   await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
   await page.getByLabel('Suchbegriff').fill('kapitel_3');
   await expect(page.getByRole('option', { name: /Kapitel_3\.pdf/ })).toContainText('Anhang · Notiz Skript');
+});
+
+test('Heute: lesbare Fristen, Prüfungs-Countdown und „Erledigt heute“', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({
+    homework: [
+      { id: 'a', moduleId: 'ds', title: 'Blatt 3', issued: day(-2), due: day(1), dueTime: '23:59', status: 'ausgegeben' },
+      { id: 'b', moduleId: 'ds', title: 'Blatt 4', issued: day(-2), due: day(3), status: 'ausgegeben' },
+    ],
+    exams: [{ id: 'e', moduleId: 'ds', date: day(12), time: '09:00', room: 'MW 2001' }],
+  }));
+  await page.reload();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 3' })).toContainText('Abgabe morgen 23:59');
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 4' })).toContainText('Abgabe in 3 Tagen');
+  await expect(page.locator('.group-exams .exam-countdown')).toContainText('noch 12 Tage');
+  await expect(page.locator('.group-erledigt')).toHaveCount(0);
+
+  /* Abhaken: der Eintrag landet unter „Erledigt heute“ (zugeklappt), der Haken dort öffnet ihn wieder */
+  await page.getByRole('button', { name: 'Erledigt: Blatt 4' }).click();
+  const done = page.locator('.group-erledigt');
+  const toggle = done.getByRole('button', { name: /Erledigt heute/ });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(done.getByText('Blatt 4')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).homework.find((h) => h.id === 'b').status).toBe('abgegeben');
+  await page.reload();
+  await expect(page.locator('.group-erledigt').getByText('Blatt 4')).toBeVisible(); // bleibt aufgeklappt
+  await page.getByRole('checkbox', { name: 'Wieder offen: Blatt 4' }).click();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 4' })).toContainText('Abgabe in 3 Tagen');
+  await expect(page.locator('.group-erledigt')).toHaveCount(0);
+
+  /* Modulseite: großer Countdown und die Frist der nächsten Abgabe */
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: /Diskrete Strukturen/ }).first().click();
+  await expect(page.locator('.exam-countdown')).toContainText('noch 12 Tage');
+  await expect(page.getByText('Blatt 3 · morgen 23:59')).toBeVisible();
 });

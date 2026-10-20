@@ -229,6 +229,10 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .tile-swatch { height: .5rem; width: 1.5rem; }
 :root[data-theme="retro"] .exam-chip { background: var(--surface); --pxc: var(--mod, var(--accent)); }
 :root[data-theme="retro"] .commute-plan { background: var(--surface-2); --pxc: var(--mod, var(--accent)); }
+:root[data-theme="retro"] .exam-countdown { background: var(--surface); --pxc: var(--mod, var(--accent)); box-shadow: 0 -2px 0 0 var(--pxc), 0 2px 0 0 var(--pxc), -2px 0 0 0 var(--pxc), 2px 0 0 0 var(--pxc), 5px 5px 0 0 var(--drop); }
+:root[data-theme="retro"] .exam-countdown-what { font-family: var(--font-display); font-weight: 400; font-size: .7rem; letter-spacing: .02em; }
+:root[data-theme="retro"] .exam-countdown-days { font-family: var(--font-num); font-weight: 400; font-size: 3.2rem; line-height: 1; letter-spacing: .02em; color: var(--accent-2); text-shadow: 2px 2px 0 var(--accent-2-shade); }
+:root[data-theme="retro"] .room-new { border-radius: 0; background: var(--warn); color: var(--bg); text-shadow: none; }
 :root[data-theme="retro"] .merge-row.on { --pxc: var(--mod); }
 :root[data-theme="retro"] .row::before, :root[data-theme="retro"] .tl-body::before, :root[data-theme="retro"] .popover::before, :root[data-theme="retro"] .merge-row::before { width: 4px; filter: saturate(1.3); }
 :root[data-theme="retro"] .tl-live .tl-body { --pxc: var(--mod, var(--accent)); }
