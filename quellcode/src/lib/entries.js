@@ -3,7 +3,7 @@
 import { COLL } from "./constants.js";
 import { movePatch } from "./gridmove.js";
 import { shortName } from "./modules.js";
-import { toggleAttended } from "./study.js";
+export { markAttended } from "./study.js";
 import { addDays, fmt, uid } from "./util.js";
 
 /* Was eine Kopie nie übernimmt: Abo-Verknüpfung, eigene Sperren, Anhänge (die Datei gehört zum Original),
@@ -30,12 +30,6 @@ export function duplicateEntry(kind, item, today, newId = uid) {
     Object.assign(x, { sessionId: "", title: `${item.title || "Notiz"} (Kopie)`, updated: today });
   }
   return x;
-}
-
-/** Ausgewählte Termine als besucht markieren, über denselben Weg wie der Schalter (Lernzeit aus dem Besuch) */
-export function markAttended(data, ids, today) {
-  const todo = data.sessions.filter((s) => ids.includes(s.id) && !s.attended && !s.cancelled).map((s) => s.id);
-  return todo.reduce((d, id) => toggleAttended(d, id, today), data);
 }
 
 /** Termine um `days` Tage verschieben; Abo-Termine merken sich das Datum als von Hand geändert */
