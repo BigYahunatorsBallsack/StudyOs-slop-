@@ -6,6 +6,7 @@ import { postponeTargets } from "../lib/postpone.js";
 import { blockDone } from "../lib/blocks.js";
 import { addDays, fmtShort, iso } from "../lib/util.js";
 import { Modal } from "./primitives.jsx";
+import { taskLinkLabel } from "../lib/moodle.js";
 
 const minutesOf = (b) => Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
 
@@ -32,6 +33,7 @@ export function itemActions(db, kind, item) {
       { label: done ? "Wieder offen" : "Abgegeben", run: () => db.hwDone(item, !done) },
       !done && { label: "Verschieben …", run: () => db.postpone("homework", item) },
       !done && { label: "Timer starten", run: () => db.focusOn("homework", item) },
+      taskLinkLabel(item) && { label: taskLinkLabel(item), run: () => window.open(item.url, "_blank", "noopener") },
       { label: "Bearbeiten", run: () => db.openForm("homework", item) },
       { label: "Duplizieren", run: () => duplicate(db, "homework", item) },
       db.select && { label: "Mehrere auswählen", run: () => db.select("homework", item.id) },

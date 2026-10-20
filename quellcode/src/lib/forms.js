@@ -89,6 +89,7 @@ export function formDef(kind, d) {
       { k: "moduleId", l: "Modul", t: "select", opts: () => modOpts(d, true) },
       { k: "topicId", l: "Thema", t: "select", opts: (v) => topicOpts(d, v) },
       { k: "kind", l: "Art", t: "select", opts: opt(LOG_KINDS), def: "Nacharbeiten" },
+      { k: "homeworkId", l: "Zu Abgabe (optional)", t: "select", opts: (v) => [{ value: "", label: "– keine –" }, ...d.homework.filter((h) => h.moduleId && h.moduleId === v.moduleId).sort((a, b) => (b.due || "").localeCompare(a.due || "")).map((h) => ({ value: h.id, label: h.title }))] },
       { k: "note", l: "Notiz", t: "textarea", rows: 2, ph: "Was hast du gemacht?" },
     ], validate: (v) => (Number(v.minutes) > 0 ? "" : "Die Dauer muss größer als 0 sein.") };
     case "note": return { title: "Notiz", fields: [

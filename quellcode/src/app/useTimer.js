@@ -42,8 +42,8 @@ export function useTimer({ sound, onFocusDone, onBreakDone, onLog }) {
     if (!timer.running || remainingOf(timer) > 0) return;
     signal();
     if (timer.mode === "focus") {
-      setTimer((t) => ({ ...t, running: false, mode: "break", remaining: t.brk * 60, blockId: null, note: "" }));
-      onFocusDone({ minutes: timer.length, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso(), note: timer.note || "" }, timer.blockId);
+      setTimer((t) => ({ ...t, running: false, mode: "break", remaining: t.brk * 60, blockId: null, note: "", homeworkId: "" }));
+      onFocusDone({ minutes: timer.length, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso(), note: timer.note || "", ...(timer.homeworkId && { homeworkId: timer.homeworkId }) }, timer.blockId);
     } else { setTimer((t) => ({ ...t, running: false, mode: "focus", remaining: t.length * 60 })); onBreakDone(); }
   }, [expiry, timer.running, timer.endAt]);
 
@@ -60,16 +60,16 @@ export function useTimer({ sound, onFocusDone, onBreakDone, onLog }) {
     set: (p) => setTimer((t) => ({ ...t, ...p })),
     stopAndLog: () => {
       const mins = Math.round((timer.length * 60 - remainingOf(timer)) / 60);
-      setTimer((t) => ({ ...t, running: false, remaining: t.length * 60, note: "" }));
-      if (mins >= 1) onLog({ minutes: mins, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso(), note: timer.note || "" });
+      setTimer((t) => ({ ...t, running: false, remaining: t.length * 60, note: "", homeworkId: "" }));
+      if (mins >= 1) onLog({ minutes: mins, moduleId: timer.moduleId, topicId: timer.topicId, kind: timer.kind || "Nacharbeiten", date: iso(), note: timer.note || "", ...(timer.homeworkId && { homeworkId: timer.homeworkId }) });
     },
     /* Fokus-Timer für eine bestimmte Aufgabe sofort starten (aus „Was jetzt?“, Lernblöcken und dem ▶ an Einträgen).
-       Ohne Minuten gilt die eingestellte Länge; `note` landet als Notiz in der Lerneinheit. */
-    focus: ({ moduleId = "", minutes, kind = "Nacharbeiten", topicId = "", blockId = null, note = "" }) => {
+       Ohne Minuten gilt die eingestellte Länge; `note` landet als Notiz in der Lerneinheit, `homeworkId` verknüpft sie mit der Abgabe. */
+    focus: ({ moduleId = "", minutes, kind = "Nacharbeiten", topicId = "", blockId = null, note = "", homeworkId = "" }) => {
       unlockAudio();
       setTimer((t) => {
         const n = Math.max(5, Math.min(120, Math.round(minutes ?? t.length)));
-        return { ...t, moduleId, topicId, kind, blockId, note, mode: "focus", length: n, remaining: n * 60, running: true, endAt: Date.now() + n * 60000 };
+        return { ...t, moduleId, topicId, kind, blockId, note, homeworkId, mode: "focus", length: n, remaining: n * 60, running: true, endAt: Date.now() + n * 60000 };
       });
     },
   };

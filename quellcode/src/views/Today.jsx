@@ -29,7 +29,7 @@ import { offDay } from "../lib/holidays.js";
 import { describeChange, feedChanges } from "../lib/feed.js";
 import { semesterSwitch } from "../lib/curriculum.js";
 import { blockDone } from "../lib/blocks.js";
-import { ExamCountdown, RoomLabel } from "../ui/rows.jsx";
+import { DueCrowding, ExamCountdown, RoomLabel } from "../ui/rows.jsx";
 
 /* ---------------- Heute ---------------- */
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
@@ -145,6 +145,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
     ),
     todo: (
       <Group id="todo" title="Zu erledigen" count={todo.length}>
+        <DueCrowding homework={data.homework} className="mb-2" />
         {todo.length ? <TodoList db={db} items={todo} /> : <AllDone key={cleared} shot={cleared > 0} />}
       </Group>
     ),

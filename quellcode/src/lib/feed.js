@@ -121,7 +121,7 @@ export function groupParallel(events, map) {
 
 /**
  * Gleicht Kalender-Termine mit den vorhandenen Terminen ab.
- * Parallele Säle werden zu einem Termin; früher doppelt importierte Termine werden dabei zusammengelegt
+ * Parallele Säle werden zu einem Termin, Prüfungstermine bleiben außen vor; früher doppelt importierte Termine werden dabei zusammengelegt
  * (Häkchen bleiben erhalten, Notizen wandern mit).
  * @returns {{ sessions, notes, stats: { added, updated, cancelled, removed, merged } }}
  */
@@ -134,7 +134,10 @@ export function applyFeed(data, events, map, today = iso()) {
   const indexOf = new Map(result.map((s, i) => [s.id, i]));
   const put = (s) => { result[indexOf.get(s.id)] = s; };
 
-  for (const g of groupParallel(events, map)) {
+  /* Prüfungstermine werden Prüfungen (applyExams), keine Lehrtermine; früher als Termin übernommene ohne eigene Häkchen fallen weg */
+  const examKeys = new Set(events.filter(isExamEvent).map((e) => `${e.uid}|${e.occurrence || e.date}`));
+  examKeys.forEach((k) => seen.add(k));
+  for (const g of groupParallel(events.filter((e) => !isExamEvent(e)), map)) {
     g.keys.forEach((k) => seen.add(k));
     const fields = { moduleId: g.moduleId, date: g.date, start: g.start, end: g.end, room: g.room, cancelled: g.cancelled };
     const existing = [...new Set(g.keys.map((k) => byKey.get(k)).filter(Boolean))].map((s) => result[indexOf.get(s.id)]);
@@ -172,7 +175,7 @@ export function applyFeed(data, events, map, today = iso()) {
   /* Termine, die aus dem Kalender verschwunden sind: künftige entfernen, mit eigenen Häkchen als „fällt aus“ markieren */
   const final = [];
   for (const s of result) {
-    if (drop.has(s.id)) continue;
+    if (drop.has(s.id) || (examKeys.has(s.feedKey) && !touched(s, data.notes))) continue;
     /* Schutz: Ein leerer Kalender (z. B. Störung beim Anbieter) löscht nichts */
     if (events.length && s.feedKey && !seen.has(s.feedKey) && s.date >= today) {
       /* bearbeitete und bald anstehende Termine bleiben als „fällt aus“ stehen, damit man den Ausfall sieht */
@@ -184,3 +187,83 @@ export function applyFeed(data, events, map, today = iso()) {
   const notes = remap.size ? data.notes.map((n) => (remap.has(n.sessionId) ? { ...n, sessionId: remap.get(n.sessionId) } : n)) : data.notes;
   return { sessions: [...final, ...created], notes, stats };
 }
+
+/* ---------------- Prüfungstermine aus den Abos ---------------- */
+
+/* Wonach ein Termin aussieht: Prüfung, Klausur, Exam (auch zusammengesetzt wie „Modulprüfung“), aber nicht Einsicht,
+   Anmeldung, Probeklausur, Vorbereitung oder die Artemis-Nebentermine („Veröffentlichung Ergebnisse:“, „Einsicht Start:“). */
+const EXAM_WORD = /(prüfung|pruefung|klausur)|\b(exam|examination|endterm|midterm)\b/i;
+const NOT_EXAM = /(einsicht|anmeld|registr|review|besprechung|probe|übungsklausur|mock|practice|test ?exam|testklausur|ergebnis|result|veröffentlich|release|vorbereitung|preparation|training|repetitorium|tutor|sprechstunde)/i;
+const RETAKE = /(wiederhol|nachklausur|nachholklausur|retake|repeat|resit)/i;
+const ARTEMIS_EXAM = /^.*?\s*\b(?:Exam|Klausur)\s*\|\s*(.*)$/;
+
+/** Sieht ein Kalender-Termin nach einer Prüfung aus? Artemis-Prüfungen erkennt man an „<Kurs> Exam | <Titel>“. */
+export function isExamEvent(e) {
+  const a = ARTEMIS_EXAM.exec(String(e?.summary || ""));
+  if (a) return !NOT_EXAM.test(a[1]);
+  const text = `${e?.summary || ""} ${e?.course || ""}`;
+  return EXAM_WORD.test(text) && !NOT_EXAM.test(text);
+}
+
+/** Modul zu einem Prüfungstermin aus dem Stundenplan-Abo: Zuordnung des Titels, sonst der Titel ohne „Klausur“ usw. wie beim Zuordnen geraten. */
+export function examModuleOf(e, map, modules) {
+  const id = map[e.summary];
+  if (id === SKIP) return null;
+  if (id && id !== NEW && modules.some((m) => m.id === id)) return id;
+  const plain = String(e.summary || "").replace(/\b(wiederholungs|nachhol|modul|semestral|end|abschluss)?(prüfung|pruefung|klausur)(en)?\b|\b(final |retake )?(exam|examination|endterm|midterm)\b|[:–-]/gi, " ").replace(/\s+/g, " ").trim();
+  if (!plain) return null;
+  const hit = guessMapping([plain], modules)[plain];
+  return hit && hit !== NEW ? hit : null;
+}
+
+/**
+ * Legt Prüfungen aus Kalender-Terminen an (Datum, Uhrzeit, Raum, Modul) oder aktualisiert sie.
+ * Wiedererkannt wird eine Prüfung an `feedKey` („Quelle|UID“), sonst an Modul und Tag (dann wird die vorhandene übernommen).
+ * Uhrzeit und Datum ändert nur das Abo, aus dem die Prüfung stammt; ein zweites Abo füllt nur einen fehlenden Raum.
+ * Gelöschte (feedKey oder „Modul|Tag“ in `dismissed`) und bewertete Prüfungen bleiben, wie sie sind.
+ * Ein Wiederholungstermin wird beim ersten Termin des Moduls als `retakeDate` eingetragen.
+ * @returns {{ exams: any[], stats: { added: number, updated: number } }}
+ */
+export function applyExams(data, events, moduleOf, { prefix, today = iso(), dismissed = [] }) {
+  const gone = new Set(dismissed), seen = new Set();
+  const exams = [...(data.exams || [])];
+  const stats = { added: 0, updated: 0 };
+  const put = (old, patch) => { if (!Object.keys(patch).length) return; exams[exams.indexOf(old)] = { ...old, ...patch }; stats.updated++; };
+  for (const e of events) {
+    if (e.cancelled || !e.date || !isExamEvent(e)) continue;
+    const moduleId = moduleOf(e);
+    if (!moduleId) continue;
+    const key = `${prefix}|${e.uid}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const time = e.allDay ? "" : e.start || "", room = String(e.room || "").trim();
+    const mine = exams.find((x) => x.feedKey === key);
+    if (RETAKE.test(e.summary) && !mine) {
+      const first = exams.filter((x) => x.moduleId === moduleId && x.date < e.date).sort((a, b) => a.date.localeCompare(b.date))[0];
+      if (first) {
+        if (first.result !== "bestanden" && (!first.retakeDate || first.retakeKey === key) && first.retakeDate !== e.date) put(first, { retakeDate: e.date, retakeKey: key });
+        continue;
+      }
+    }
+    const cur = mine || exams.find((x) => x.moduleId === moduleId && x.date === e.date);
+    if (cur) {
+      if (cur.result && cur.result !== "offen") continue;
+      const patch = {}, own = new Set(cur.locked || []); /* von Hand geänderte Felder bleiben */
+      if (!cur.feedKey || cur.feedKey === key) {
+        if (!cur.feedKey) patch.feedKey = key;
+        if (!own.has("date") && cur.date !== e.date) patch.date = e.date;
+        if (!own.has("time") && time && cur.time !== time) patch.time = time;
+        if (!own.has("room") && room && cur.room !== room) patch.room = room;
+      } else if (room && !cur.room) patch.room = room;
+      put(cur, patch);
+      continue;
+    }
+    if (e.date < today || gone.has(key) || gone.has(`${moduleId}|${e.date}`)) continue;
+    exams.push({ id: newId(), moduleId, date: e.date, time: time || "09:00", room, dailyMinutes: 90, notes: "", attempt: 1, freeWeekdays: [], result: "offen", feedKey: key, created: today });
+    stats.added++;
+  }
+  return { exams, stats };
+}
+
+/** Was sich `settings.examsDismissed` beim Löschen einer Prüfung aus dem Abo merkt, damit sie nicht wiederkommt. */
+export const examDismissKeys = (x) => (x?.feedKey ? [x.feedKey, `${x.moduleId}|${x.date}`] : []);
