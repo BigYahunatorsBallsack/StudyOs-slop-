@@ -1,6 +1,7 @@
-import { EXAM_RESULTS, HW_STATUS, LOG_KINDS, MODULE_STATUS, PALETTE, SESSION_TYPES, TOPIC_STATES } from "./constants.js";
+import { EXAM_RESULTS, HW_STATUS, LOG_KINDS, MODULE_STATUS, SESSION_TYPES, TOPIC_STATES } from "./constants.js";
 import { addDays, byOrder, byTime, dayOf, fmtShort, iso } from "./util.js";
 import { hasCloze } from "./cards.js";
+import { pickColor } from "./colors.js";
 import { parseWatch } from "./tum.js";
 
 /* ---------------- Formulardefinitionen ---------------- */
@@ -39,7 +40,7 @@ export function formDef(kind, d) {
       { k: "liveUrl", l: "Aufzeichnungen (TUM-Live-Link)", t: "url", ph: "https://live.rbg.tum.de/…", half: true },
       { k: "gop", l: "Zählt zur Grundlagenprüfung (GOP)", t: "checkbox" },
       { k: "semesterStart", l: "Semesterbeginn (optional)", t: "date", half: true, hint: "Für die Workload-Ampel; sonst zählt der erste Termin." },
-      { k: "color", l: "Farbe", t: "color", def: () => PALETTE[d.modules.length % PALETTE.length] },
+      { k: "color", l: "Farbe", t: "color", def: () => pickColor(d.modules) },
       { k: "archived", l: "Archiviert (abgeschlossen, wird in Heute, Woche-Vorschlägen und Erinnerungen ausgeblendet)", t: "checkbox", editOnly: true },
     ], validate: (v) => (v.liveUrl && !/^https:\/\/\S+$/i.test(v.liveUrl) ? "Der Aufzeichnungs-Link muss mit https:// beginnen." : "") };
     case "session": return { title: "Lehrveranstaltung", fields: [

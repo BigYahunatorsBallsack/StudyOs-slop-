@@ -40,10 +40,10 @@ test('alle Bereiche laden ohne Fehler und ohne horizontales Scrollen', async ({ 
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${tab}/${sub}`).toBe(true);
     }
   }
-  await expect(page.getByText('Aktivität (20 Wochen)')).toHaveCount(0); // nicht im Datenbereich
+  await expect(page.getByText('Lernzeit-Kalender')).toHaveCount(0); // nicht im Datenbereich
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Wochenrückblick' }).click();
-  await expect(page.getByText('Aktivität (20 Wochen)')).toBeVisible();
+  await expect(page.getByText('Lernzeit-Kalender')).toBeVisible();
 });
 
 test('Daten bleiben nach dem Neuladen erhalten, Änderungen tragen Zeitstempel', async ({ page }) => {
@@ -1824,4 +1824,35 @@ test('Fokus auf eine Abgabe: nur sie auf Heute, Abhaken beendet den Fokus', asyn
   await expect(focus).toHaveCount(0);
   await expect.poll(async () => (await stored(page)).homework.find((h) => h.id === 'a').status).toBe('abgegeben');
   await expect(page.locator('.todo-item', { hasText: 'Blatt 6' })).toBeVisible();
+});
+
+test('Lernzeit-Kalender, gemerkte Ansicht nach Neustart, Speichern unten im Formular', async ({ page }) => {
+  await loadDemo(page);
+  // Kalender: gestern antippen zeigt Summe und Modul
+  await page.getByRole('tab', { name: 'Wochenrückblick' }).click();
+  await expect(page.getByText('Lernzeit-Kalender')).toBeVisible();
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const label = `${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`;
+  const now = new Date();
+  if (!(now.getDate() === 1 && [3, 9].includes(now.getMonth()))) { /* nicht am ersten Tag eines Semesters */
+    await page.getByRole('button', { name: `${label}: 50 min` }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Einführung in die Informatik (Beispiel)' })).toContainText('50 min');
+  }
+  // Modulseite mit Reiter merken
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: /Lineare Algebra \(Beispiel\)/ }).first().click();
+  await page.getByRole('tab', { name: /^Themen/ }).click();
+  await page.reload();
+  await expect(page.getByRole('tab', { name: /^Themen/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(nav(page, 'Module')).toHaveAttribute('aria-current', 'page');
+  // Verknüpfung gewinnt
+  await page.goto('./?aktion=timer');
+  await expect(page.getByRole('tab', { name: 'Timer' })).toHaveAttribute('aria-selected', 'true');
+  // Formular am Handy: Speichern bleibt unten sichtbar
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: 'Modul anlegen' }).first().click();
+  const save = page.getByRole('dialog').getByRole('button', { name: 'Speichern' });
+  await expect(save).toBeInViewport();
+  const box = await save.boundingBox(), vh = page.viewportSize().height;
+  expect(box.y + box.height).toBeGreaterThan(vh - 120);
 });

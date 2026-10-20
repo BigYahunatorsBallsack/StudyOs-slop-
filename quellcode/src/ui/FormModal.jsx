@@ -160,7 +160,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
           {db && form.isNew && (form.kind === "homework" || form.kind === "note") && <p className="mt-3 text-[11px] text-slate-500">Dateien (z. B. das Übungsblatt als PDF) kannst du nach dem Speichern anhängen.</p>}
           {fileColl && <p className="mt-2 text-[11px] text-slate-500" role="status">{pasteMsg || "Bilder einfügen: Strg+V oder hineinziehen."}</p>}
           {err && <p role="alert" className="mt-3 text-sm text-rose-400">{err}</p>}
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+          <div className="form-actions mt-5 flex flex-wrap items-center gap-2">
             <button type="submit" className={btnPrimary}>Speichern</button>
             <button type="button" className={btnGhost} onClick={onClose}>Abbrechen</button>
             <div className="ml-auto flex gap-2">

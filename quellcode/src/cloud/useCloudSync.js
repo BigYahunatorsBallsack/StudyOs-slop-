@@ -8,7 +8,8 @@
             ready      synchronisiert automatisch
 
    Synchronisiert wird beim Start, beim Zurückkehren in die App, wenn wieder Netz da ist,
-   ein paar Sekunden nach jeder Änderung und alle 5 Minuten. */
+   ein paar Sekunden nach jeder Änderung und alle 5 Minuten (mit `fastPoll`, solange ein Timer-Durchgang läuft,
+   alle 20 Sekunden, damit Pausieren auf einem anderen Gerät bald ankommt). */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fingerprint, syncOnce, checkKey } from "../lib/cloudsync.js";
 import { deriveSyncKey, KeyMismatchError, newSalt } from "../lib/crypto.js";
@@ -28,6 +29,8 @@ function withTimeout(promise, ms, message) {
   return Promise.race([promise, new Promise((_, reject) => { t = setTimeout(() => reject(new Error(message)), ms); })]).finally(() => clearTimeout(t));
 }
 const INTERVAL_MS = 5 * 60 * 1000;
+const FAST_MS = 20 * 1000;
+const SETTLE_MS = 8000; /* so lange wartet der Timer höchstens auf den ersten Sync nach dem Start */
 const LAST_KEY = "studyos-cloud-last";
 const BACKUP_KEY = "studyos-cloud-backup"; /* Name der letzten Cloud-Sicherung dieses Geräts */
 const STAMPS_KEY = "studyos-cloud-stamps"; /* Zeitstempel nach dem letzten Sync, übersteht das Neuladen */
@@ -36,7 +39,7 @@ const loadStamps = (uid) => { try { return decodeStamps(localStorage.getItem(STA
 const saveStamps = (map, uid) => { try { localStorage.setItem(STAMPS_KEY, encodeStamps(map, uid)); } catch {} };
 const dropStamps = () => { try { localStorage.removeItem(STAMPS_KEY); } catch {} };
 
-export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict }) {
+export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict, fastPoll = false }) {
   const cloud = getCloud();
   const batchRef = useRef(null); /* kann die Funktion Sammelabfragen? null = noch unbekannt */
   const [phase, setPhase] = useState(cloud ? "loading" : "off");
@@ -53,6 +56,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   const syncedRef = useRef(null); /* Zeitstempel nach dem letzten erfolgreichen Sync, für den Konflikthinweis */
   const onConflictRef = useRef(onConflict); onConflictRef.current = onConflict;
   const uidRef = useRef(null);
+  const [settled, setSettled] = useState(false); /* erster Sync seit dem Start versucht (egal mit welchem Ergebnis) */
 
   /* Anmeldestatus, gespeicherten Schlüssel und Zeitstempel des letzten Syncs laden */
   const enterUser = useCallback(async (u) => {
@@ -98,7 +102,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   const run = useCallback(async () => {
     if (!cloud || !keyRef.current || !enabledRef.current) return;
     if (running.current) { again.current = true; return; }
-    if (typeof navigator !== "undefined" && navigator.onLine === false) { setStatus("offline"); return; }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) { setStatus("offline"); setSettled(true); return; }
     running.current = true;
     setStatus("syncing");
     try {
@@ -117,6 +121,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       setStatus("error"); setError(e.message || String(e));
     } finally {
       running.current = false;
+      setSettled(true);
       if (again.current) { again.current = false; setTimeout(run, 0); }
     }
   }, [cloud, getLocal, applyLocal, weeklyBackup]);
@@ -127,13 +132,24 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   useEffect(() => {
     if (!active) return;
     run();
-    const onVis = () => { if (document.visibilityState === "visible") run(); else if (fingerprint(getLocal()) !== lastFp.current) run(); };
+    const onVis = () => { if (document.visibilityState === "visible") { setSettled(false); run(); } else if (fingerprint(getLocal()) !== lastFp.current) run(); };
     const onOnline = () => run();
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("online", onOnline);
     const id = setInterval(run, INTERVAL_MS);
     return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("online", onOnline); clearInterval(id); };
   }, [active, run, getLocal]);
+
+  useEffect(() => {
+    if (!active || settled) return;
+    const id = setTimeout(() => setSettled(true), SETTLE_MS);
+    return () => clearTimeout(id);
+  }, [active, settled]);
+  useEffect(() => {
+    if (!active || !fastPoll) return;
+    const id = setInterval(() => { if (document.visibilityState === "visible") run(); }, FAST_MS);
+    return () => clearInterval(id);
+  }, [active, fastPoll, run]);
 
   /* Auslöser: lokale Änderung (entprellt). Ergebnisse eines Syncs selbst lösen keinen weiteren aus. */
   useEffect(() => {
@@ -176,7 +192,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   };
 
   return {
-    available: !!cloud, phase, user, email, status, error, busy, lastSync, remoteExists,
+    available: !!cloud, phase, user, email, status, error, busy, lastSync, remoteExists, settled,
     sendCode: wrap(async (addr) => {
       const clean = String(addr || "").trim();
       if (!/^\S+@\S+\.\S+$/.test(clean)) throw new Error("Bitte eine gültige E-Mail-Adresse eingeben.");

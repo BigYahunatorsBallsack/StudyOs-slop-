@@ -32,6 +32,7 @@ import { openTodayCount } from "./lib/todo.js";
 import { cardFromSelection, syncNoteCards } from "./lib/cards.js";
 import { pdfText, sheetFromShare } from "./lib/sheet.js";
 import { getLocal as getFile, setRemoteFiles } from "./lib/files.js";
+import { readView, saveView } from "./lib/view.js";
 
 /* Seltener genutzte Bereiche als eigene Dateien (offline über den Service Worker).
    Nach dem Start werden sie im Leerlauf vorgeladen, damit der erste Wechsel nicht auf „Lädt …“ wartet: React zeigt einen
@@ -87,12 +88,15 @@ const nav = [["heute", "Heute", "today"], ["module", "Module", "modules"], ["woc
 /* ---------------- App ---------------- */
 export default function App() {
   const { data, setData, dataRef, ready, loadError, saveState, saveNow, updateReady, installReady, setInstallReady } = usePersistence();
-  const [tab, setTab] = useState("heute");
+  /* Zuletzt geöffnete Ansicht dieses Geräts (lib/view.js); Verknüpfungen (?aktion=…) überschreiben sie danach */
+  const [view0] = useState(readView);
+  const [tab, setTab] = useState(view0.tab || "heute");
   /* Bereich wechseln: sofort nach oben springen (nicht weich scrollen, das wirkt wie Laden) */
   const goTab = (k) => { setTab(k); if (k === "module") setModuleId(null); window.scrollTo && window.scrollTo({ top: 0, behavior: "instant" }); };
-  const [moduleId, setModuleId] = useState(null);
-  const [learnTab, setLearnTab] = useState("timer");
-  const [moreTab, setMoreTab] = useState("rueckblick");
+  const [moduleId, setModuleId] = useState(view0.tab === "module" ? view0.moduleId || null : null);
+  const [learnTab, setLearnTab] = useState(view0.learn || "timer");
+  const [moreTab, setMoreTab] = useState(view0.more || "rueckblick");
+  useEffect(() => saveView({ tab, moduleId, learn: learnTab, more: moreTab }), [tab, moduleId, learnTab, moreTab]);
   const [cardFilter, setCardFilter] = useState("");
   const [form, setForm] = useState(null);
   const [cardDraft, setCardDraft] = useState(null); /* Karte aus markiertem Notiztext, liegt über Notiz bzw. Editor */
@@ -349,24 +353,14 @@ export default function App() {
 
   /* Fokusphase gleich als Lerneinheit speichern, dann nur noch nach einer Zeile Lernnotiz fragen */
   const logFocus = (init) => {
-    const id = uid();
+    /* Kennung aus dem Timer-Durchgang: hat ein anderes Gerät ihn schon eingetragen, nicht noch einmal */
+    if (init.id && dataRef.current.logs.some((l) => l.id === init.id)) return;
+    const id = init.id || uid();
     saveEntity("log", { ...init, id, note: init.note || "" }, true);
     if (form) toast("Fokusphase eingetragen.", { label: "Notiz", run: () => setFocusNoteId(id) }, 15000);
     else setFocusNoteId(id);
   };
-  const { timer, timerApi } = useTimer({
-    sound: !!data.settings.sound,
-    onFocusDone: (init, blockId) => {
-      if (blockId) patch("blocks", blockId, blockDone(true));
-      logFocus(init);
-    },
-    onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
-    onLog: logFocus,
-  });
   const focusLog = focusNoteId ? data.logs.find((l) => l.id === focusNoteId) : null;
-
-  /* Musik in der Fokusphase (Timer → „Musik in der Fokusphase“) */
-  useAmbient({ kind: ambientOf(data.settings), playing: timer.running && timer.mode === "focus", volume: ambientVolumeOf(data.settings) });
 
   /* Ersetzen (Import, Wiederherstellen, Löschen, Beispieldaten): standardmäßig mit Zeitstempeln und Grabsteinen,
      damit das Ersetzen auch per Sync auf anderen Geräten ankommt. Beim Zusammenführen sind die Stempel schon richtig. */
@@ -391,11 +385,31 @@ export default function App() {
     const what = list.every((k) => k.kind === "deleted") ? "gelöscht" : "überschrieben";
     toast(`Von einem anderen Gerät ${what}: ${names}.`, { label: "Meine behalten", run: () => { change((d) => restoreConflicts(d, list)); toast("Deine Fassung ist wiederhergestellt."); } }, 20000);
   };
-  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict });
+  const [timerBusy, setTimerBusy] = useState(false); /* läuft ein Timer-Durchgang? dann öfter synchronisieren */
+  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict, fastPoll: timerBusy });
   /* Bilder in Notizen/Karten von anderen Geräten nachladen */
   const cloudRef = useRef(cloud);
   cloudRef.current = cloud;
   useEffect(() => { setRemoteFiles((id) => (cloudRef.current.canFiles?.() ? cloudRef.current.downloadFile(id) : null)); }, []);
+  const syncOn = cloud.phase === "ready" && ready && !loadError;
+  const syncHold = !ready || cloud.phase === "loading" || (syncOn && !cloud.settled);
+  /* Timer geräteübergreifend: nur mit eingerichtetem Cloud-Sync (siehe app/useTimer.js) */
+  const { timer, timerApi } = useTimer({
+    sound: !!data.settings.sound,
+    live: syncOn ? data.settings.liveTimer || null : undefined,
+    onLive: (rec) => change((d) => ({ ...d, settings: { ...d.settings, liveTimer: rec } })),
+    hold: syncHold,
+    onFocusDone: (init, blockId) => {
+      if (blockId) patch("blocks", blockId, blockDone(true));
+      logFocus(init);
+    },
+    onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
+    onLog: logFocus,
+  });
+  useEffect(() => setTimerBusy(syncOn && !!timer.runId), [syncOn, timer.runId]);
+
+  /* Musik in der Fokusphase (Timer → „Musik in der Fokusphase“) */
+  useAmbient({ kind: ambientOf(data.settings), playing: timer.running && timer.mode === "focus", volume: ambientVolumeOf(data.settings) });
 
   const feeds = useFeeds({ ready, loadError, cloud, data, dataRef, change });
 

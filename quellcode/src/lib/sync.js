@@ -15,6 +15,7 @@ const tombKey = (t) => `${t.c}:${t.id}`;
 let clockOffset = 0;
 export function setClockOffset(ms) { clockOffset = Number.isFinite(ms) && Math.abs(ms) > 2000 ? Math.round(ms) : 0; }
 export const nowIso = () => new Date(Date.now() + clockOffset).toISOString();
+export const clockOffsetMs = () => clockOffset;
 
 /* Hybride Uhr: mindestens `now`, aber immer jünger als alles in `after` (z. B. die bisherige Fassung des Eintrags).
    So gewinnt eine Änderung auf einem Gerät mit nachgehender Uhr trotzdem gegen den Stand, den es bearbeitet hat. */
