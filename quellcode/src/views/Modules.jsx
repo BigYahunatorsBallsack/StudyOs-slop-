@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { DONE_HW, MODULE_STATUS, RING_COLORS } from "../lib/constants.js";
-import { isActive, moduleStats } from "../lib/data.js";
+import { dueInfo, isActive, moduleStats } from "../lib/data.js";
 import { byOrder, byTime, diffDays, fmt, fmtDec, fmtH, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
 import { Bar, Card, Empty, RingLegend, Stat, Tabs, TriRing } from "../ui/primitives.jsx";
-import { CardList, HomeworkRow, SessionRow, TopicRow } from "../ui/rows.jsx";
+import { CardList, ExamCountdown, HomeworkRow, NoteRow, RoomLabel, SessionRow, TopicRow } from "../ui/rows.jsx";
 import { SelectToggle } from "../ui/selection.jsx";
 import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
 import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
 import { bonusForecast, studyDiary, workload } from "../lib/study.js";
+import { rememberOpened } from "../lib/recent.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
 
@@ -96,6 +97,7 @@ export function ModuleDetail({ db, id, onBack }) {
   const { data } = db, m = db.mod(id), s = moduleStats(data, id), t = iso(), gop = gopCodes(curriculumOf(data));
   const [sub, setSub] = useState("uebersicht");
   const [merge, setMerge] = useState(false);
+  useEffect(() => rememberOpened("module", id), [id]);
   const [sesFilter, setSesFilter] = useState("anstehend");
   const sessions = data.sessions.filter((x) => x.moduleId === id).sort(byTime);
   const hw = data.homework.filter((x) => x.moduleId === id).sort((a, b) => (a.due || "").localeCompare(b.due || ""));
@@ -107,6 +109,7 @@ export function ModuleDetail({ db, id, onBack }) {
   const nextSes = sessions.find((x) => !isHeld(x) && isActive(x));
   const nextHw = hw.find((x) => !DONE_HW.has(x.status));
   const nextExam = exams.find((x) => x.date >= t);
+  const nextDue = nextHw && dueInfo(nextHw.due, false, nextHw.dueTime);
   const topicMin = (tid) => sum(logs.filter((l) => l.topicId === tid), (l) => l.minutes);
   const shownSes = sesFilter === "anstehend" ? sessions.filter((x) => !isHeld(x)) : sesFilter === "offen" ? sessions.filter((x) => isHeld(x) && !x.reviewed && isActive(x)).reverse() : sessions.filter(isHeld).reverse();
 
@@ -132,10 +135,11 @@ export function ModuleDetail({ db, id, onBack }) {
 
       {sub === "uebersicht" && (
         <div className="space-y-4">
+          {nextExam && nextExam.result !== "bestanden" && <ExamCountdown e={nextExam} db={db} showModule={false} />}
           <Card title="Als Nächstes">
             <ul className="space-y-2 text-sm">
-              <li className="flex justify-between gap-2"><span className="text-slate-400">Termin</span><span className="text-right">{nextSes ? `${fmtShort(nextSes.date)} ${nextSes.start} · ${nextSes.type}` : "–"}</span></li>
-              <li className="flex justify-between gap-2"><span className="text-slate-400">Abgabe</span><span className="text-right">{nextHw ? `${nextHw.title} · ${fmtShort(nextHw.due)}` : "–"}</span></li>
+              <li className="flex justify-between gap-2"><span className="text-slate-400">Termin</span><span className="text-right">{nextSes ? <>{fmtShort(nextSes.date)} {nextSes.start} · {nextSes.type}{nextSes.room || nextSes.change?.was?.room ? " · " : ""}<RoomLabel s={nextSes} /></> : "–"}</span></li>
+              <li className="flex justify-between gap-2"><span className="text-slate-400">Abgabe</span><span className="text-right">{nextHw ? <>{nextHw.title} · <span className={nextDue.urgent ? nextDue.cls : ""}>{nextDue.when}</span></> : "–"}</span></li>
               <li className="flex justify-between gap-2"><span className="text-slate-400">Prüfung</span><span className="text-right">{nextExam ? `${fmt(nextExam.date)} (in ${diffDays(t, nextExam.date)} T.)` : <button className="text-sky-400 hover:underline" onClick={() => db.openForm("exam", { moduleId: id }, true)}>eintragen</button>}</span></li>
             </ul>
           </Card>
@@ -221,17 +225,11 @@ export function ModuleDetail({ db, id, onBack }) {
 
       {sub === "notizen" && (
         <div className="space-y-3">
-          <div className="flex justify-end"><button className={btnPrimary} onClick={() => db.openForm("note", { moduleId: id }, true)}>+ Notiz</button></div>
+          <div className="flex items-center justify-end gap-3"><SelectToggle db={db} kind="note" ids={notes.map((n) => n.id)} /><button className={btnPrimary} onClick={() => db.openForm("note", { moduleId: id }, true)}>+ Notiz</button></div>
           {notes.length ? (
             <ul className="rows">
               {notes.map((n) => { const ses = data.sessions.find((x) => x.id === n.sessionId); return (
-                <li key={n.id}>
-                  <button onClick={() => db.openNote(n.id)} className={`w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-left hover:bg-slate-800/50 ${focusRing}`}>
-                    <p className="text-sm font-medium">{n.title}</p>
-                    <p className="text-xs text-slate-500">{fmt(n.updated)}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""}</p>
-                    {n.text && <p className="font-num mt-1 max-h-10 overflow-hidden whitespace-pre-wrap text-xs text-slate-400">{n.text}</p>}
-                  </button>
-                </li>
+                <NoteRow key={n.id} n={n} db={db} meta={`${fmt(n.updated)}${ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""}`} />
               ); })}
             </ul>
           ) : <Empty art="book">Noch keine Notizen.</Empty>}

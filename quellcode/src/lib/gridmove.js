@@ -6,6 +6,19 @@ const DAY_END = 23 * 60 + 59;
 export const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 export const snap = (min, step = SNAP) => Math.round(min / step) * step;
 
+/**
+ * Sichtbare Stunden des Wochenrasters aus Einträgen mit `start`/`end`: eine Stunde vor dem frühesten Beginn bis zum
+ * spätesten Ende, mindestens `minSpan` Stunden; ohne Einträge 8–18 Uhr. Ergebnis { startH, endH } innerhalb 0–24.
+ */
+export function hourRange(items, minSpan = 8) {
+  const timed = (items || []).filter((x) => x && x.start);
+  if (!timed.length) return { startH: 8, endH: 18 };
+  let startH = Math.max(0, Math.floor(Math.min(...timed.map((x) => toMin(x.start))) / 60) - 1);
+  let endH = Math.min(24, Math.ceil(Math.max(...timed.map((x) => Math.max(toMin(x.start), toMin(x.end || x.start)))) / 60));
+  if (endH - startH < minSpan) { endH = Math.min(24, startH + minSpan); startH = Math.max(0, endH - minSpan); }
+  return { startH, endH };
+}
+
 /** Beginn für einen Tipp auf eine freie Stelle: auf die Viertelstunde davor, innerhalb des Tages */
 export const slotAt = (min) => Math.max(0, Math.min(DAY_END - 60, Math.floor(min / SNAP) * SNAP));
 

@@ -5,6 +5,9 @@ import { addDays, iso, wdIdx } from "./util.js";
 export const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 export const toHM = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
+/** Lernblock abhaken oder wieder öffnen; `doneAt` (ISO-Zeitpunkt) braucht „Erledigt heute“. */
+export const blockDone = (on) => ({ done: !!on, doneAt: on ? new Date().toISOString() : null });
+
 /**
  * Freie Lücken eines Tages zwischen `from` und `to` (ohne Termine, Prüfungen und vorhandene Blöcke),
  * mit `gap` Minuten Abstand zu Terminen (Weg, Pause) und mindestens `min` Minuten Länge.

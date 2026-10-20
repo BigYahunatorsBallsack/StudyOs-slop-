@@ -5,16 +5,22 @@ import React, { createContext, useContext, useLayoutEffect, useRef, useState } f
 const Opens = createContext(0);
 export const useGroupOpens = () => useContext(Opens);
 
-const CLOSED_KEY = "studyos-heute-zu";
+const CLOSED_KEY = "studyos-heute-zu"; /* Liste der zugeklappten; bei standardmäßig zugeklappten steht „+id“ für aufgeklappt */
 const readClosed = () => { try { const v = JSON.parse(localStorage.getItem(CLOSED_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
 
-export function Group({ id, title, count, action, className = "", children }) {
-  const [phase, setPhase] = useState(() => (readClosed().includes(id) ? "closed" : "open"));
+const isClosed = (id, byDefault) => (byDefault ? !readClosed().includes("+" + id) : readClosed().includes(id));
+
+export function Group({ id, title, count, action, className = "", closedByDefault = false, children }) {
+  const [phase, setPhase] = useState(() => (isClosed(id, closedByDefault) ? "closed" : "open"));
   const body = useRef(null);
   const [opens, setOpens] = useState(0);
   const open = phase === "open" || phase === "opening";
   const toggle = () => {
-    try { const s = new Set(readClosed()); if (open) s.add(id); else s.delete(id); localStorage.setItem(CLOSED_KEY, JSON.stringify([...s])); } catch { /* egal */ }
+    try {
+      const s = new Set(readClosed()), key = closedByDefault ? "+" + id : id;
+      if (open === !closedByDefault) s.add(key); else s.delete(key);
+      localStorage.setItem(CLOSED_KEY, JSON.stringify([...s]));
+    } catch { /* egal */ }
     if (!open) setOpens((n) => n + 1);
     setPhase(open ? "closing" : "opening");
   };

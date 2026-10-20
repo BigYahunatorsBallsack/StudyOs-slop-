@@ -33,6 +33,13 @@ export function commuteOf(settings = {}) {
 /** Fehlt noch eine Haltestelle (Öffis) bzw. Start oder Ziel (Auto)? */
 export const commuteIncomplete = (c) => (c.mode === "car" ? !String(c.car.from || "").trim() || !String(c.car.to || "").trim() : !c.station?.id || (!!c.feeder && !c.feeder.station?.id));
 
+/* Online-Termine (Raum ist ein Link oder heißt „Online“, „Zoom“ …): dafür muss niemand los */
+const ONLINE = /^(https?:\/\/|www\.)|\b(online|zoom|webex|teams|livestream|virtuell|bbb)\b/i;
+export const isOnline = (s) => ONLINE.test(String(s?.room || "")) || /\bonline\b/i.test(String(s?.type || ""));
+
+/** Erster stattfindender Termin eines Tages mit Uhrzeit (oder undefined) */
+export const firstSessionOn = (sessions, day) => sessions.filter((s) => s.date === day && !s.cancelled && /^\d{2}:\d{2}$/.test(s.start || "")).sort((a, b) => a.start.localeCompare(b.start))[0];
+
 /** Mit dem Auto: wann losfahren, damit man mit Parken und Fußweg (park) und Puffer rechtzeitig da ist? */
 export function carPlan(route, session, c, startMs = null) {
   if (!route || !session) return null;

@@ -141,6 +141,23 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .swipe > .row { will-change: transform; }
 .swipe.dragging > .row { transition: none; }
 
+/* Merkmal ohne eigene Darstellung: Hier wechselt seitliches Wischen nicht den Bereich (siehe App.jsx) */
+.no-tabswipe { }
+/* Karteikarte bewerten per Wischen: Die Karte folgt dem Finger und springt beim Loslassen zurück (nur als Antwort auf die Geste) */
+.card-swipe { position: relative; border-radius: .75rem; }
+.card-swipe > .swipe-under { border-radius: .75rem; }
+.card-swipe > .swipe-under.swipe-left { background: var(--danger); color: var(--bg); }
+.card-stage { position: relative; touch-action: pan-y; transition: transform .22s cubic-bezier(.2, .9, .3, 1.2); }
+.card-swipe.dragging > .card-stage { transition: none; }
+@media (pointer: fine) { .card-swipe-hint { display: none; } }
+@media (prefers-reduced-motion: reduce) { .card-stage { transition: none; } }
+
+/* Vollbild beim Abfragen: deckt Kopfzeile und Navigation ab, größere Karte */
+.card-full { position: fixed; inset: 0; z-index: 30; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); color: var(--text); padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom)); }
+.card-full-inner { max-width: 48rem; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; justify-content: center; }
+.card-full .card-stage { min-height: 50vh; font-size: 1.125rem; }
+.card-full-toggle { padding: .3rem .7rem; font-size: .75rem; }
+
 /* ---- „Als Nächstes“: die eine laute Stelle ---- */
 .hero { position: relative; border-radius: var(--r-hero); padding: 1.25rem 1.25rem 1.1rem; background: var(--mod, var(--accent)); color: var(--on-module); overflow: hidden; box-shadow: var(--shadow); }
 .hero::after { content: ""; position: absolute; right: -56px; bottom: -72px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255, 255, 255, .16); pointer-events: none; }
@@ -180,6 +197,12 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 @media (hover: hover) { .tab:hover { color: var(--text-2); } }
 .tab[aria-current="page"] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-text); }
 .pill-status { border-radius: 999px; padding: .25rem .7rem; font-size: .75rem; font-weight: 600; }
+/* Sync-Punkt: ruhige Farbe, kein Blinken */
+.sync-dot { flex-shrink: 0; }
+.sync-dot-mark { display: block; width: .55rem; height: .55rem; border-radius: 999px; background: var(--ok); }
+.sync-dot-mark.sync-busy { background: var(--warn); }
+.sync-dot-mark.sync-error { background: var(--danger); }
+.sync-dot-mark.sync-offline { background: var(--faint); }
 
 /* ---- Bottom Sheet ---- */
 .sheet-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; background: rgba(8, 6, 20, .55); animation: fade .18s ease; }
@@ -345,6 +368,9 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .popover::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--mod, var(--accent)); }
 .popover-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; line-height: 1.2; }
 .ev-active { outline: 2px solid var(--text); outline-offset: 1px; z-index: 4; }
+/* Mehrfachauswahl im Raster: ausgewählte Termine umrandet und mit Haken */
+.ev-selected { outline: 3px solid var(--text); outline-offset: 1px; z-index: 4; }
+.ev-selected::after { content: "✓"; position: absolute; right: 3px; top: 1px; font-weight: 700; font-size: .75rem; }
 .mt-0\.5 { margin-top: .125rem; }
 
 /* ---- Heute: Kennzahlen als Zeile ---- */
@@ -387,6 +413,21 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .exam-chip { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; max-width: 12rem; padding: .65rem .9rem; border-radius: var(--r-row); background: color-mix(in srgb, var(--mod, var(--accent)) 22%, var(--surface)); text-align: left; }
 .exam-chip-days { font-family: var(--font-display); font-weight: 750; font-size: 1.15rem; }
 .exam-chip-name { font-size: .75rem; color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Großer Countdown, sobald die nächste Prüfung weniger als vier Wochen entfernt ist (Heute und Modulseite) */
+.exam-countdown { display: flex; flex-direction: column; align-items: flex-start; gap: .15rem; width: 100%; padding: 1rem 1.1rem; border-radius: var(--r-row); background: color-mix(in srgb, var(--mod, var(--accent)) 22%, var(--surface)); text-align: left; }
+.exam-countdown-what { font-size: .8rem; font-weight: 650; color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exam-countdown-days { font-family: var(--font-display); font-weight: 780; font-size: 2.5rem; line-height: 1.05; letter-spacing: -.02em; }
+.exam-countdown-meta { font-size: .8rem; color: var(--muted); }
+
+/* Raumwechsel aus dem Stundenplan-Abo: neuer Raum hervorgehoben, alter durchgestrichen */
+.room-new { font-weight: 700; padding: .05rem .35rem; border-radius: .35rem; background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn-text); }
+.hero .room-new { background: var(--on-module); color: var(--mod, var(--accent)); }
+.room-old { opacity: .75; }
+
+/* „Erledigt heute“: abgehakte Einträge mit gefülltem Haken */
+.done-list .todo-check[aria-checked="true"] { background: var(--mod, var(--accent)); color: var(--on-module); border-color: var(--mod, var(--accent)); font-size: .8rem; font-weight: 700; }
+@media (hover: hover) { .done-list .todo-check[aria-checked="true"]:hover::after { content: none; } }
+.done-list .row-title { color: var(--muted); }
 .block { display: block; }
 .popover { width: 19.5rem; }
 .popover .tri { display: flex; width: 100%; }
@@ -509,6 +550,9 @@ body.grid-dragging, body.grid-dragging * { cursor: grabbing !important; user-sel
 .menu-meta { font-weight: 500; font-size: .8125rem; color: var(--muted); }
 /* Seitliches Wischen wechselt den Bereich; der Browser soll dabei nicht zurückblättern */
 html { overscroll-behavior-x: none; }
+/* Nach unten ziehen zum Aktualisieren: Hinweis folgt dem Finger (Höhe per style), danach kurz der Stand */
+.pull-ind { display: flex; align-items: flex-end; justify-content: center; min-height: 1.75rem; overflow: hidden; padding-bottom: .35rem; font-size: .75rem; font-weight: 600; color: var(--muted); }
+.pull-status { margin-bottom: .5rem; text-align: center; font-size: .75rem; color: var(--faint); }
 
 /* Mehrfachauswahl */
 .row.row-select { padding-top: .55rem; padding-bottom: .55rem; }
@@ -516,3 +560,4 @@ html { overscroll-behavior-x: none; }
 .row-selected .todo-check { background: var(--mod, var(--accent)); color: var(--on-module); }
 .select-bar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(.5rem + env(safe-area-inset-top)); z-index: 45; width: min(44rem, calc(100% - 1.5rem)); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem .75rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: 0 10px 30px rgb(0 0 0 / .45); }
 .select-count { font-size: .85rem; font-weight: 600; }
+.select-module { width: auto; min-width: 9.5rem; padding-top: .4rem; padding-bottom: .4rem; font-size: .8rem; }

@@ -4,7 +4,10 @@ import { addDays, fmtMin, fmtShort, iso, sum, wdIdx } from "./util.js";
 import { describeChange } from "./feed.js";
 import { withoutArchived } from "./study.js";
 import { blockReminders } from "./blocks.js";
-import { commuteIncomplete, commuteOf } from "./transit.js";
+import { commuteIncomplete, commuteOf, firstSessionOn, isOnline } from "./transit.js";
+
+/* Uhrzeit der Abendfrage „Heute besucht?“ (vor der Nachbereitungs-Erinnerung um 20 Uhr) */
+export const ATTEND_TIME = "19:00";
 
 export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
@@ -29,6 +32,19 @@ export function deadlinesFromData(all, today = iso()) {
     for (const [date, list] of byDay) {
       const names = [...new Set(list.map((s) => `${mod(s.moduleId) || "Termin"} (${s.type})`))];
       out.push({ id: `review-${date}`, kind: "review", title: `${list.length} ${list.length === 1 ? "Termin" : "Termine"}`, date, body: names.join(", ") });
+    }
+  }
+  /* Abends: Termine des Tages, die noch nicht als besucht abgehakt sind, mit Knopf „Alle besucht“ (14 Tage vorab wie oben) */
+  if (settings.pushAttended !== false) {
+    const byDay = new Map();
+    data.sessions.forEach((s) => {
+      if (s.cancelled || s.attended || s.date < today || s.date > addDays(today, 14) || !s.start || (s.end || s.start) > ATTEND_TIME) return;
+      if (!byDay.has(s.date)) byDay.set(s.date, []);
+      byDay.get(s.date).push(s);
+    });
+    for (const [date, list] of byDay) {
+      const names = list.sort((a, b) => a.start.localeCompare(b.start)).map((s) => `${s.start} ${mod(s.moduleId) || "Termin"} (${s.type})`);
+      out.push({ id: `attend-${date}`, kind: "attend", title: `${list.length} ${list.length === 1 ? "Termin" : "Termine"}`, date, time: ATTEND_TIME, body: names.join(", ") });
     }
   }
   /* Sonntags: Rückblick (Lernzeit, fällige Karten) und Ausblick auf die kommende Woche.
@@ -66,14 +82,25 @@ export function deadlinesFromData(all, today = iso()) {
   }
   /* Weg zur Uni: erste Veranstaltung der nächsten 7 Tage mit Haltestellen und Zeiten, damit der Server vor
      der Abfahrt die Echtzeit prüfen kann (nur wenn eingeschaltet) */
-  const c = settings.pushCommute ? commuteOf(settings) : null;
-  if (c && c.mode !== "car" && !commuteIncomplete(c)) { /* mit dem Auto gibt es keinen Fahrplan zu prüfen, ohne Haltestelle nichts abzufragen */
-    const pick = (l) => ({ station: { id: l.station.id }, line: l.line || "", towards: l.towards || "", avoid: l.avoid || "", travel: Number(l.travel) || 0 });
-    const commute = { ...pick(c), walk: Number(c.walk) || 0, buffer: Number(c.buffer) || 0, feeder: c.feeder ? { ...pick(c.feeder), transfer: Number(c.feeder.transfer) || 0 } : null };
+  const c = commuteOf(settings);
+  const transit = !!c && c.mode !== "car" && !commuteIncomplete(c); /* mit dem Auto gibt es keinen Fahrplan zu prüfen, ohne Haltestelle nichts abzufragen */
+  const pick = (l) => ({ station: { id: l.station.id }, line: l.line || "", towards: l.towards || "", avoid: l.avoid || "", travel: Number(l.travel) || 0 });
+  const commute = transit ? { ...pick(c), walk: Number(c.walk) || 0, buffer: Number(c.buffer) || 0, feeder: c.feeder ? { ...pick(c.feeder), transfer: Number(c.feeder.transfer) || 0 } : null } : null;
+  if (settings.pushCommute && transit) {
     for (let i = 0; i < 7; i++) {
-      const day = addDays(today, i);
-      const first = data.sessions.filter((s) => s.date === day && !s.cancelled && /^\d{2}:\d{2}$/.test(s.start || "")).sort((a, b) => a.start.localeCompare(b.start))[0];
+      const day = addDays(today, i), first = firstSessionOn(data.sessions, day);
       if (first) out.push({ id: `weg-${day}`, kind: "commute", title: mod(first.moduleId) || first.type || "Vorlesung", date: day, time: first.start, commute });
+    }
+  }
+  /* „Jetzt losgehen“: an Tagen, deren erster Termin vor Ort ist, rechnet der Server kurz vorher mit Echtzeit bzw.
+     Verkehrslage aus, wann man los muss (an, sobald „Weg zur Uni“ eingerichtet ist). Mit dem Auto gehen Start und Ziel mit. */
+  if (c && settings.pushLeave && !commuteIncomplete(c)) {
+    const how = c.mode === "car"
+      ? { mode: "car", buffer: Number(c.buffer) || 0, car: { from: String(c.car.from).trim(), to: String(c.car.to).trim(), park: Number(c.car.park) || 0 } }
+      : { mode: "transit", ...commute };
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(today, i), first = firstSessionOn(data.sessions, day);
+      if (first && !isOnline(first)) out.push({ id: `los-${day}`, kind: "leave", title: mod(first.moduleId) || first.type || "Vorlesung", date: day, time: first.start, commute: how });
     }
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));

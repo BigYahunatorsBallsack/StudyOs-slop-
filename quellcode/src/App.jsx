@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
 import { useCloudSync } from "./cloud/useCloudSync.js";
+import { blockDone } from "./lib/blocks.js";
 import { COLL, COLLS, DATA_VERSION, DONE_HW } from "./lib/constants.js";
 import { buildWeeklySeries } from "./lib/data.js";
 import { ENV } from "./lib/env.js";
@@ -23,8 +24,9 @@ import { useAmbient } from "./ui/ambient.js";
 import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 import { playSfx, setSfxEnabled } from "./ui/sfx.js";
+import { SyncDot } from "./ui/syncdot.jsx";
 import { ItemMenu, PostponeSheet } from "./ui/actions.jsx";
-import { SelectBar } from "./ui/selection.jsx";
+import { SelectBar, countLabel } from "./ui/selection.jsx";
 import { postponeHomework } from "./lib/postpone.js";
 import { openTodayCount } from "./lib/todo.js";
 import { syncNoteCards } from "./lib/cards.js";
@@ -56,7 +58,7 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
-import { buildHomeworkSeries, seriesSuggestion, reconcileAllSessionLogs, reconcileSessionLogs, toggleAttended, withoutArchived } from "./lib/study.js";
+import { buildHomeworkSeries, markAttended, seriesSuggestion, reconcileAllSessionLogs, reconcileSessionLogs, toggleAttended, withoutArchived } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, curriculumOf, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
@@ -98,7 +100,7 @@ export default function App() {
   const [bannerOpen, setBannerOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
   const [menu, setMenu] = useState(null);
-  /* Mehrfachauswahl in Listen: { kind: "homework" | "session" | "card", ids } */
+  /* Mehrfachauswahl in Listen: { kind: "homework" | "session" | "card" | "note" | "block", ids } */
   const [sel, setSel] = useState(null);
   useEffect(() => setSel(null), [tab, moduleId, moreTab, learnTab]);
   const wide = useMedia("(min-width: 1100px)");
@@ -168,6 +170,11 @@ export default function App() {
       const ids = d.sessions.filter((s) => s.date === day && !s.cancelled && !s.reviewed && (s.date < iso() || (s.end || s.start || "") <= new Date().toTimeString().slice(0, 5))).map((s) => s.id);
       if (!ids.length) return;
       withUndo(`${ids.length} ${ids.length === 1 ? "Termin" : "Termine"} nachbereitet.`, (x) => ({ ...x, sessions: x.sessions.map((s) => (ids.includes(s.id) ? { ...s, reviewed: true, reviewedAt: iso() } : s)) }));
+    } else if (what === "besucht") {
+      const day = params.get("tag") || iso();
+      const ids = d.sessions.filter((s) => s.date === day && !s.cancelled && !s.attended && (s.date < iso() || (s.start || "") <= new Date().toTimeString().slice(0, 5))).map((s) => s.id);
+      if (!ids.length) return;
+      withUndo(`${ids.length} ${ids.length === 1 ? "Termin" : "Termine"} als besucht abgehakt.`, (x) => markAttended(x, ids));
     } else if (what === "timer") {
       const b = (d.blocks || []).find((x) => x.id === id);
       if (b) db.focus({ moduleId: b.moduleId || "", kind: b.kind, blockId: b.id, note: b.title });
@@ -337,7 +344,7 @@ export default function App() {
   const { timer, timerApi } = useTimer({
     sound: !!data.settings.sound,
     onFocusDone: (init, blockId) => {
-      if (blockId) patch("blocks", blockId, { done: true });
+      if (blockId) patch("blocks", blockId, blockDone(true));
       logFocus(init);
     },
     onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),
@@ -454,8 +461,7 @@ export default function App() {
       },
       remove: (kind, list) => {
         setSel(null);
-        const noun = { homework: ["Abgabe", "Abgaben"], session: ["Termin", "Termine"], card: ["Karte", "Karten"] }[kind];
-        const label = `${list.length} ${noun[list.length === 1 ? 0 : 1]}`;
+        const label = countLabel(kind, list.length);
         withTrash(`${label} gelöscht.`, (d) => list.reduce((acc, x) => removeFrom(acc, kind, x.id), d), list.length === 1 ? undefined : label);
       },
     },
@@ -592,6 +598,7 @@ export default function App() {
           <span className="hidden text-xs text-slate-500 sm:inline">{[data.settings.program, data.settings.university].filter(Boolean).join(", ")}</span>
           <div className="ml-auto flex items-center gap-2">
             <TimerBadge timer={timer} onClick={() => db.goLearn("timer")} />
+            <SyncDot cloud={cloud} onOpenSettings={() => db.goMore("daten")} />
             {saveState === "memory" && dirty && (
               <button onClick={() => db.goMore("daten")} className="pill-status bg-amber-500/15 text-amber-200">Nicht gesichert</button>
             )}

@@ -2,7 +2,7 @@
    sortiert nach Dringlichkeit (Tage bis zur Frist; Nachbereitung sollte innerhalb von 2 Tagen passieren). */
 import { DONE_HW } from "./constants.js";
 import { isActive } from "./data.js";
-import { addDays, diffDays, isHeld, iso } from "./util.js";
+import { addDays, dayOf, diffDays, isHeld, iso, sum } from "./util.js";
 
 export const REVIEW_WITHIN_DAYS = 2;
 
@@ -41,4 +41,22 @@ export function dueLabel(due, today = iso()) {
   if (n === 0) return "heute";
   if (n === 1) return "morgen";
   return `in ${n} Tagen`;
+}
+
+/**
+ * „Erledigt heute“: heute abgegebene Abgaben, nachbereitete und besuchte Termine und erledigte Lernblöcke,
+ * dazu die heutige Lernzeit. Grundlage sind die Erledigt-Zeitpunkte (doneAt, reviewedAt, attendedAt).
+ */
+export function doneToday(data, today = iso()) {
+  const on = (v) => !!v && dayOf(v) === today;
+  const items = [];
+  data.homework.forEach((h) => { if (DONE_HW.has(h.status) && on(h.doneAt)) items.push({ kind: "homework", id: h.id, item: h, moduleId: h.moduleId }); });
+  data.sessions.forEach((s) => {
+    if (s.reviewed && on(s.reviewedAt)) items.push({ kind: "reviewed", id: s.id, item: s, moduleId: s.moduleId });
+    if (s.attended && on(s.attendedAt)) items.push({ kind: "attended", id: s.id, item: s, moduleId: s.moduleId });
+  });
+  /* Lernblöcke ohne Zeitpunkt (ältere Daten, vom Timer abgehakt) zählen an ihrem geplanten Tag */
+  (data.blocks || []).forEach((b) => { if (b.done && (b.doneAt ? on(b.doneAt) : b.date === today)) items.push({ kind: "block", id: b.id, item: b, moduleId: b.moduleId }); });
+  const logs = data.logs.filter((l) => l.date === today);
+  return { items, minutes: sum(logs, (l) => l.minutes), logs: logs.length };
 }

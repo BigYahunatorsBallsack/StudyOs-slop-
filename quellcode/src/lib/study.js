@@ -203,12 +203,18 @@ export function reconcileSessionLogs(logs, s, today = iso(), { add = true, addPr
   return { logs: out, delta };
 }
 
-/** Besucht an- oder abhaken und die Lernzeit des Termins angleichen (ohne Zeitstempel; die setzt stampChanges). */
+/** Besucht an- oder abhaken und die Lernzeit des Termins angleichen (Sync-Zeitstempel setzt stampChanges;
+    `attendedAt` merkt sich den Zeitpunkt für „Erledigt heute“). */
 export function toggleAttended(data, id, today = iso()) {
   const s = data.sessions.find((x) => x.id === id);
   if (!s) return data;
-  const next = { ...s, attended: !s.attended };
+  const next = { ...s, attended: !s.attended, attendedAt: s.attended ? null : new Date().toISOString() };
   return { ...data, sessions: data.sessions.map((x) => (x.id === id ? next : x)), logs: reconcileSessionLogs(data.logs, next, today).logs };
+}
+
+/** Mehrere Termine als besucht abhaken (z. B. „Alle besucht“ aus der Push-Nachricht); schon besuchte bleiben, wie sie sind. */
+export function markAttended(data, ids, today = iso()) {
+  return ids.reduce((d, id) => (d.sessions.some((s) => s.id === id && !s.attended && !s.cancelled) ? toggleAttended(d, id, today) : d), data);
 }
 
 /**

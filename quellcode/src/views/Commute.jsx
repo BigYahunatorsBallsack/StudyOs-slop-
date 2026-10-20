@@ -322,6 +322,10 @@ export function CommuteSettings({ db }) {
             <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushCommute} onChange={(e) => db.patchSettings({ pushCommute: e.target.checked })} />
             <span>Bei Verspätung oder Ausfall per Push sagen, wenn ich früher los muss<span className="block text-[11px] text-slate-500">Braucht eingeschaltete Erinnerungen. Dafür liegen Haltestellen, Linien und die Uhrzeit deiner ersten Veranstaltung je Tag unverschlüsselt bei Supabase.</span></span>
           </label>
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushLeave} onChange={(e) => db.patchSettings({ pushLeave: e.target.checked })} />
+            <span>Per Push „Jetzt losgehen“ vor dem ersten Termin vor Ort<span className="block text-[11px] text-slate-500">Kommt kurz bevor du los musst, nach Echtzeit-Abfahrt bzw. mit dem Auto nach aktueller Verkehrslage. Braucht eingeschaltete Erinnerungen; dafür liegen Haltestellen und Linien bzw. Start und Ziel sowie die Uhrzeit deines ersten Termins je Tag unverschlüsselt bei Supabase. Online-Termine (Raum „Online“, „Zoom“ oder ein Link) zählen nicht.</span></span>
+          </label>
           <p className="mt-2 text-[11px] text-slate-500">Echtzeitdaten der MVG (Großraum München mit Freising) über deine Supabase-Funktion. Fahrzeiten trägst du laut Fahrplan ein, bei Verspätung rechnet StudyOS mit der tatsächlichen Abfahrt.</p>
         </>
       )}

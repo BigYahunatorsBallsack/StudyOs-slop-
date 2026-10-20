@@ -165,3 +165,42 @@ export function syncNoteCards(cards, note, today, newId) {
   const next = cards.filter((c) => !gone.has(c.id)).map((c) => (patches.has(c.id) ? { ...c, ...patches.get(c.id) } : c));
   return { cards: [...next, ...extra], added, updated, removed: gone.size };
 }
+
+/* ---------------- Abfragen als Lernzeit ---------------- */
+
+/** Längste Pause zwischen zwei Schritten der Abfrage, die noch als Lernzeit zählt (wer länger nichts tut, ist weg). */
+export const REVIEW_GAP_MAX = 2 * 60000;
+
+/** Zeit seit dem letzten Schritt der Abfrage in ms, auf REVIEW_GAP_MAX gedeckelt; ohne Startzeit 0 */
+export const reviewGap = (last, now) => (last ? Math.max(0, Math.min(REVIEW_GAP_MAX, now - last)) : 0);
+
+/**
+ * Gesammelte Abfragezeit (ms je Modul) in ganze Minuten aufteilen. Ohne `final` bleibt der Rest unter einer Minute
+ * liegen (kommt mit der nächsten Karte dazu), mit `final` wird ab einer halben Minute aufgerundet und nichts bleibt übrig.
+ * @param {Record<string, number>} pending
+ * @returns {{ add: Record<string, number>, rest: Record<string, number> }} add: Minuten je Modul, rest: übrige ms
+ */
+export function splitReviewTime(pending, final = false) {
+  const add = {}, rest = {};
+  for (const [mod, ms] of Object.entries(pending || {})) {
+    const mins = final ? Math.round(ms / 60000) : Math.floor(ms / 60000);
+    if (mins >= 1) add[mod] = mins;
+    const left = final ? 0 : ms - mins * 60000;
+    if (left > 0) rest[mod] = left;
+  }
+  return { add, rest };
+}
+
+/**
+ * Abfragezeit als Lerneinheit „Karteikarten“ eintragen: je Modul und Tag eine automatische Einheit (auto: "karten"),
+ * weitere Minuten am selben Tag kommen dazu. Von Hand angelegte Einheiten bleiben unberührt.
+ * @param {{ date: string, at: string, newId: () => string }} opts
+ */
+export function addReviewMinutes(logs, moduleId, minutes, opts) {
+  const { date, at, newId } = opts;
+  if (!(minutes >= 1)) return logs;
+  const mod = moduleId || "";
+  const hit = logs.find((l) => l.auto === "karten" && (l.moduleId || "") === mod && l.date === date);
+  if (hit) return logs.map((l) => (l === hit ? { ...l, minutes: (Number(l.minutes) || 0) + minutes } : l));
+  return [...logs, { id: newId(), moduleId: mod, topicId: "", kind: "Karteikarten", auto: "karten", date, at, minutes, note: "Karteikarten abgefragt", created: date }];
+}

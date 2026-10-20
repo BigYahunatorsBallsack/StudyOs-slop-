@@ -1,11 +1,13 @@
 import React from "react";
 import { DONE_HW, HW_STATUS, TOPIC_STATES } from "../lib/constants.js";
-import { dueInfo } from "../lib/data.js";
+import { dueInfo, examCountdown } from "../lib/data.js";
+import { blockDone } from "../lib/blocks.js";
+import { roomChange } from "../lib/feed.js";
 import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";
 import { Chip, Empty, Icon } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
 import { isOcc, occLabel } from "../lib/occlusion.js";
-import { SwipeRow } from "./swipe.jsx";
+import { SwipeRow, useSwipe } from "./swipe.jsx";
 import { WatchProgress } from "./links.jsx";
 import { SubtaskChecklist } from "./subtasks.jsx";
 import { Select } from "./select.jsx";
@@ -45,11 +47,12 @@ export function SessionRow({ s, db, showDate }) {
 export function BlockRow({ b, db, showDate }) {
   const m = db.mod(b.moduleId);
   const mins = Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
+  if (db.sel?.kind === "block") return <SelectRow db={db} kind="block" id={b.id} color={m?.color || "var(--accent)"} muted={b.done} title={b.title} meta={`${fmtShort(b.date)}, ${b.start}–${b.end}${m ? ", " + m.name : ""}`} />;
   return (
-    <SwipeRow className={`row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }} onSwipeRight={() => db.patch("blocks", b.id, { done: !b.done })} rightLabel={b.done ? "Nicht erledigt" : "Erledigt"}
+    <SwipeRow className={`row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }} onSwipeRight={() => db.patch("blocks", b.id, blockDone(!b.done))} rightLabel={b.done ? "Nicht erledigt" : "Erledigt"}
       onSwipeLeft={b.done ? null : () => db.postpone("block", b)} onLongPress={() => db.menu("block", b)}>
       <div className="flex items-start gap-3">
-        <button className="todo-check mt-0.5" role="checkbox" aria-checked={!!b.done} aria-label={`${b.title} erledigt`} onClick={() => db.patch("blocks", b.id, { done: !b.done })}><span aria-hidden="true">{b.done ? "✓" : ""}</span></button>
+        <button className="todo-check mt-0.5" role="checkbox" aria-checked={!!b.done} aria-label={`${b.title} erledigt`} onClick={() => db.patch("blocks", b.id, blockDone(!b.done))}><span aria-hidden="true">{b.done ? "✓" : ""}</span></button>
         <button className="row-main min-w-0 flex-1" onClick={() => db.openForm("block", b)}>
           <p className={`row-title truncate ${b.done ? "line-through" : ""}`}>{b.title}</p>
           <p className="row-meta truncate">Lernblock{showDate ? `, ${fmtShort(b.date)}` : ""}, {b.start}–{b.end}{m ? `, ${m.name}` : ""}</p>
@@ -60,8 +63,23 @@ export function BlockRow({ b, db, showDate }) {
   );
 }
 
+/** Notiz in der Liste eines Moduls: antippen öffnet sie, lange drücken das Schnellmenü */
+export function NoteRow({ n, db, meta }) {
+  const { bind } = useSwipe({ onLongPress: () => db.menu("note", n) });
+  if (db.sel?.kind === "note") return <SelectRow db={db} kind="note" id={n.id} color={db.mod(n.moduleId)?.color} title={n.title} meta={meta} />;
+  return (
+    <li {...bind}>
+      <button onClick={() => db.openNote(n.id)} className="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-left hover:bg-slate-800/50">
+        <p className="text-sm font-medium">{n.title}</p>
+        <p className="text-xs text-slate-500">{meta}</p>
+        {n.text && <p className="font-num mt-1 max-h-10 overflow-hidden whitespace-pre-wrap text-xs text-slate-400">{n.text}</p>}
+      </button>
+    </li>
+  );
+}
+
 export function HomeworkRow({ h, db }) {
-  const m = db.mod(h.moduleId), done = DONE_HW.has(h.status), dl = dueInfo(h.due, done);
+  const m = db.mod(h.moduleId), done = DONE_HW.has(h.status), dl = dueInfo(h.due, done, h.dueTime);
   const toggleDone = () => {
     const prev = h.status, next = done ? "in Arbeit" : "abgegeben";
     db.setHwStatus(h.id, next);
@@ -75,7 +93,7 @@ export function HomeworkRow({ h, db }) {
         <button onClick={() => db.openForm("homework", h)} className="row-main min-w-0 flex-1">
           <p className={`row-title truncate ${done ? "line-through" : ""}`}>{h.title}</p>
           <p className="row-meta truncate">{m?.name}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}</p>
-          <p className={`text-xs font-semibold ${dl.cls}`}>{h.missed && !done ? "nicht abgegeben, " : ""}{dl.text}{h.dueTime && !done ? `, ${h.dueTime} Uhr` : ""}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
+          <p className={`text-xs font-semibold ${dl.cls}`}>{h.missed && !done ? "nicht abgegeben, " : ""}{dl.text}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
         {!done && <button className="btn btn-ghost btn-icon shrink-0" onClick={() => db.focusOn("homework", h)} aria-label={`Timer starten: ${h.title}`} title="Timer starten"><Icon name="play" className="h-4 w-4" /></button>}
         <label className="sr-only" htmlFor={"hw-" + h.id}>Status von {h.title}</label>
@@ -85,6 +103,33 @@ export function HomeworkRow({ h, db }) {
       </div>
       <SubtaskChecklist h={h} db={db} color={m?.color} />
     </SwipeRow>
+  );
+}
+
+/** Raum eines Termins; ein vom Stundenplan-Abo gemeldeter Raumwechsel steht hervorgehoben da, der alte Raum durchgestrichen. */
+export function RoomLabel({ s }) {
+  const rc = roomChange(s);
+  if (!rc) return s.room ? <>{s.room}</> : null;
+  return (
+    <span>
+      <span className="room-new">Raum neu: {rc.to || "ohne"}</span>
+      {rc.from && <> <span className="sr-only">statt </span><del className="room-old">{rc.from}</del></>}
+    </span>
+  );
+}
+
+/** Großer Countdown zur nächsten Prüfung, sobald sie weniger als vier Wochen entfernt ist */
+export function ExamCountdown({ e, date = e.date, retake = false, db, showModule = true }) {
+  const label = examCountdown(date);
+  if (!label) return null;
+  const m = db.mod(e.moduleId);
+  const what = `${retake ? "Wiederholungsprüfung" : "Prüfung"}${showModule && m ? ` ${m.name}` : ""}`;
+  return (
+    <button className="exam-countdown" style={{ "--mod": m?.color }} onClick={() => db.goLearn("pruefungen")}>
+      <span className="exam-countdown-what">{what}</span>
+      <span className="exam-countdown-days">{label}</span>
+      <span className="exam-countdown-meta">{fmtShort(date)}{!retake && e.time ? `, ${e.time} Uhr` : ""}{!retake && e.room ? `, ${e.room}` : ""}</span>
+    </button>
   );
 }
 

@@ -14,7 +14,7 @@ import { CommuteSettings } from "./Commute.jsx";
 import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
 import { Select } from "../ui/select.jsx";
 import { TUM_BREAKS, offDay } from "../lib/holidays.js";
-import { playSfx } from "../ui/sfx.js";
+import { buzz, canVibrate, hapticsOn, playSfx, setHapticsOn } from "../ui/sfx.js";
 import { TRASH_DAYS, trashOf } from "../lib/trash.js";
 
 export function DataView({ db }) {
@@ -36,6 +36,7 @@ export function DataView({ db }) {
   const [icsOptions, setIcsOptions] = useState({ homework: true, exams: true, sessions: false });
   const [snapshots, setSnapshots] = useState([]);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [vibrate, setVibrate] = useState(hapticsOn);
   useEffect(() => { if (db.env?.listSnapshots) db.env.listSnapshots().then(setSnapshots).catch(() => {}); }, [db.env]);
   const refreshSnapshots = () => db.env?.listSnapshots && db.env.listSnapshots().then(setSnapshots).catch(() => {});
   const createSnapshot = async () => {
@@ -275,6 +276,12 @@ export function DataView({ db }) {
             <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={!!data.settings.sfx} onChange={(e) => { db.patchSettings({ sfx: e.target.checked }); if (e.target.checked) playSfx("coin", true); }} />
             8-Bit-Klickgeräusche (beim Abhaken und bei neuen Abzeichen)
           </label>
+          {canVibrate() && (
+            <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
+              <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={vibrate} onChange={(e) => { setHapticsOn(e.target.checked); setVibrate(e.target.checked); if (e.target.checked) buzz(); }} />
+              Kurz vibrieren beim Abhaken (nur dieses Gerät)
+            </label>
+          )}
           <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
             <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.wideLayout !== false} onChange={(e) => db.patchSettings({ wideLayout: e.target.checked })} />
             Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen

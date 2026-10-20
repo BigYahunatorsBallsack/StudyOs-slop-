@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { playSfx } from "./sfx.js";
 import { PlaceLinks, WatchProgress } from "./links.jsx";
+import { openSessionNote } from "./actions.jsx";
 import { fmtShort, isHeld } from "../lib/util.js";
 
 export const SESSION_STEPS = [
@@ -71,7 +72,7 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave }) {
       {!s.cancelled && <WatchProgress s={s} color={m?.color} className="mt-1.5" />}
       {s.cancelled ? <p className="mt-2 text-sm font-semibold text-slate-400">Fällt aus</p> : <div className="mt-3"><SessionTri s={s} db={db} color={m?.color} /></div>}
       <div className="mt-3 flex flex-wrap gap-1.5">
-        <button className="btn btn-ghost" onClick={() => { onClose(); db.openForm("note", { moduleId: s.moduleId, sessionId: s.id }, true); }}>Notiz</button>
+        <button className="btn btn-ghost" onClick={() => { onClose(); openSessionNote(db, s); }}>Notiz</button>
         <button className="btn btn-ghost" onClick={() => { onClose(); db.openForm("session", s); }}>Details</button>
       </div>
     </div>

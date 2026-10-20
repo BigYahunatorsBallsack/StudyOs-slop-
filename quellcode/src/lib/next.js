@@ -19,7 +19,7 @@ export function nextUp(data, today = iso(), now = nowHM()) {
 
   const open = data.homework.filter((h) => h.due && !h.missed && !DONE_HW.has(h.status)).sort((a, b) => a.due.localeCompare(b.due));
   const urgent = open.find((h) => h.due <= today);
-  if (urgent) return { type: "homework", item: urgent, moduleId: urgent.moduleId, when: urgent.due < today ? `Überfällig seit ${diffDays(urgent.due, today)} ${diffDays(urgent.due, today) === 1 ? "Tag" : "Tagen"}` : "Abgabe heute" };
+  if (urgent) return { type: "homework", item: urgent, moduleId: urgent.moduleId, when: urgent.due < today ? `Überfällig seit ${diffDays(urgent.due, today)} ${diffDays(urgent.due, today) === 1 ? "Tag" : "Tagen"}` : `Abgabe heute${urgent.dueTime ? ` ${urgent.dueTime}` : ""}` };
 
   const laterToday = ses.find((s) => s.date === today && toMin(s.start) > nowMin);
   if (laterToday) {
@@ -28,7 +28,7 @@ export function nextUp(data, today = iso(), now = nowHM()) {
   }
 
   const tomorrowHw = open.find((h) => h.due === addDays(today, 1));
-  if (tomorrowHw) return { type: "homework", item: tomorrowHw, moduleId: tomorrowHw.moduleId, when: "Abgabe morgen" };
+  if (tomorrowHw) return { type: "homework", item: tomorrowHw, moduleId: tomorrowHw.moduleId, when: `Abgabe morgen${tomorrowHw.dueTime ? ` ${tomorrowHw.dueTime}` : ""}` };
 
   const soon = ses.find((s) => s.date > today && s.date <= addDays(today, 3));
   if (soon) {

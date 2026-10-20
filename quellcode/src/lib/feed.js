@@ -81,6 +81,13 @@ export function describeChange(s) {
   return parts.join(", ") || "geändert";
 }
 
+/** Gemeldeter, noch nicht bestätigter Raumwechsel eines Termins: { from, to } (leer = ohne Raum) oder null. */
+export function roomChange(s) {
+  const was = s?.change?.was;
+  if (!was || !("room" in was) || (was.room || "") === (s.room || "")) return null;
+  return { from: was.room || "", to: s.room || "" };
+}
+
 const touched = (s, notes) => s.prepared || s.attended || s.reviewed || notes.some((n) => n.sessionId === s.id);
 
 /* Ab dieser Version werden parallele Säle zusammengeführt; ältere Abos werden einmal sofort neu abgeglichen */

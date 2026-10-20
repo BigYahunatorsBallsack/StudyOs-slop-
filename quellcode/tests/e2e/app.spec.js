@@ -1252,9 +1252,19 @@ test('Stundenplan-Änderung erscheint auf Heute, „Verstanden“ blendet sie au
   await page.reload();
   const box = page.getByRole('region', { name: 'Stundenplan geändert' });
   await expect(box.getByText('Zeit: 10:00–14:00 → 12:00–14:00, Raum: MI HS 1 → Interims 1')).toBeVisible();
+  /* auch im „Als Nächstes“ und auf der Modulseite: neuer Raum hervorgehoben, alter durchgestrichen */
+  const hero = page.getByRole('region', { name: 'Als Nächstes' });
+  await expect(hero.locator('.room-new')).toHaveText('Raum neu: Interims 1');
+  await expect(hero.locator('del.room-old')).toHaveText('MI HS 1');
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: /Diskrete Strukturen/ }).first().click();
+  await expect(page.locator('.room-new')).toHaveText('Raum neu: Interims 1');
+  await nav(page, 'Heute').click();
   await box.getByRole('button', { name: /^Verstanden/ }).click();
   await expect(box).toHaveCount(0);
   await expect.poll(async () => (await session(page, 'chg'))?.change).toBeNull();
+  await expect(hero).toContainText('Interims 1');
+  await expect(hero.locator('.room-new')).toHaveCount(0);
 });
 
 test('Notizen verlinken: [[Titel]] öffnet die andere Notiz, dort steht „Verlinkt von“', async ({ page }) => {
@@ -1354,7 +1364,11 @@ test.describe('am PC mit Maus', () => {
     await page.getByRole('tab', { name: 'Raster' }).click();
     const cols = page.locator('.grid-col');
     const mon = await cols.nth(0).boundingBox(), tue = await cols.nth(1).boundingBox();
-    const hourPx = 46, startH = 8;
+    /* Das Raster beginnt eine Stunde vor dem frühesten Termin (10:00) und zeigt mindestens 8 Stunden */
+    const hours = page.locator('.grid-hour');
+    await expect(hours.first()).toHaveText('9');
+    await expect(hours.last()).toHaveText('17');
+    const hourPx = 46, startH = 9;
     /* Dienstag 14:20 antippen: Beginn 14:15 */
     await page.mouse.click(tue.x + tue.width / 2, tue.y + (14 + 20 / 60 - startH) * hourPx);
     const slot = page.getByRole('dialog', { name: /Neu am .* um 14:15/ });
@@ -1437,4 +1451,201 @@ test('Suche findet Termine nach Raum und Anhänge nach Dateinamen', async ({ pag
   await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
   await page.getByLabel('Suchbegriff').fill('kapitel_3');
   await expect(page.getByRole('option', { name: /Kapitel_3\.pdf/ })).toContainText('Anhang · Notiz Skript');
+});
+
+test('Duplizieren im Schnellmenü und Notiz-Vorlage am Termin', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({
+    homework: [{ id: 'h1', moduleId: 'ds', title: 'Blatt 3', due: day(2), status: 'in Arbeit', feedKey: 'moodle|1', subtasks: [{ id: 'a', title: 'a', done: true }, { id: 'b', title: 'b', done: false }] }],
+    sessions: [{ id: 's1', moduleId: 'ds', type: 'Vorlesung', date: day(0), start: '10:00', end: '12:00', room: 'MI HS 1', attended: true, reviewed: true }],
+  }));
+  await page.reload();
+  /* Abgabe duplizieren: Kopie offen, ohne Haken und Abo, Formular zum Anpassen */
+  await page.locator('.todo-item', { hasText: 'Blatt 3' }).locator('.todo-row').click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Blatt 3' }).getByRole('button', { name: 'Duplizieren' }).click();
+  await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toBeVisible();
+  await expect(page.getByText('Kopie angelegt.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).homework.length).toBe(2);
+  const copy = (await stored(page)).homework.find((h) => h.id !== 'h1');
+  expect(copy).toMatchObject({ title: 'Blatt 3', status: 'ausgegeben' });
+  expect(copy.feedKey).toBeUndefined();
+  expect(copy.subtasks.map((s) => s.done)).toEqual([false, false]);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Rückgängig' }).last().click();
+  await expect.poll(async () => (await stored(page)).homework.map((h) => h.id)).toEqual(['h1']);
+
+  /* Notiz am Termin: neue Notiz mit Titel und Gerüst, beim zweiten Mal die vorhandene */
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Liste' }).click();
+  const row = page.locator('.swipe .row', { hasText: 'MI HS 1' });
+  await row.click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Notiz' }).click();
+  const form = page.getByRole('dialog', { name: 'Notiz anlegen' });
+  await expect(form.getByLabel('Titel')).toHaveValue(/^DS Vorlesung \d\d\.\d\d\.\d{4}$/);
+  await expect(form.getByLabel('Inhalt')).toHaveValue(/^# Vorlesung, .*\n10:00–12:00, MI HS 1\n/);
+  await form.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page)).notes.map((n) => n.sessionId)).toEqual(['s1']);
+  await row.click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Notiz' }).click();
+  await expect(page.getByRole('dialog', { name: 'Notiz bearbeiten' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  /* Termin duplizieren: nicht besucht, nicht nachbereitet (das Schnellmenü öffnet sich höchstens alle 0,8 s) */
+  await page.waitForTimeout(900);
+  await row.click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Duplizieren' }).click();
+  await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toBeVisible();
+  await expect.poll(async () => (await stored(page)).sessions.length).toBe(2);
+  expect((await stored(page)).sessions[1]).toMatchObject({ room: 'MI HS 1', attended: false, reviewed: false });
+});
+
+test('Mehrfachauswahl im Wochenraster: besucht, verschieben, Modul ändern', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({
+    modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }, { id: 'an', name: 'Analysis', ects: 8, semester: 1, status: 'belegt', color: '#f472b6' }],
+    sessions: [
+      { id: 's1', moduleId: 'ds', type: 'Vorlesung', date: day(0), start: '10:00', end: '11:30' },
+      { id: 's2', moduleId: 'ds', type: 'Übung', date: day(0), start: '14:00', end: '15:00' },
+    ],
+  }));
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  /* Schnellmenü per Rechtsklick, dort die Auswahl starten; Antippen hakt weitere an statt die Karte zu öffnen */
+  await page.locator('.ev', { hasText: 'Vorlesung' }).click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Mehrere auswählen' }).click();
+  const bar = page.getByRole('toolbar', { name: 'Auswahl' });
+  await expect(bar).toContainText('1 Termin ausgewählt');
+  await page.locator('.ev', { hasText: 'Übung' }).tap();
+  await expect(bar).toContainText('2 Termine ausgewählt');
+  await expect(page.locator('.popover')).toHaveCount(0);
+  await expect(page.locator('.ev-selected')).toHaveCount(2);
+  await bar.getByRole('button', { name: 'Besucht' }).click();
+  await expect(page.getByText('2 Termine besucht.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).logs.filter((l) => l.kind === 'Besucht').map((l) => l.minutes).sort()).toEqual([60, 90]);
+
+  /* über „Auswählen“: alle eine Woche später, dann zurück */
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('button', { name: 'Alle 2' }).click();
+  await bar.getByRole('button', { name: 'Verschieben' }).click();
+  await page.getByRole('dialog', { name: '2 Termine verschieben' }).getByRole('button', { name: '1 Woche später' }).click();
+  await expect(page.getByText('2 Termine verschoben (1 Woche später).')).toBeVisible();
+  const today = await page.evaluate(() => new Date().toLocaleDateString('sv-SE'));
+  const week = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toLocaleDateString('sv-SE'); });
+  await expect.poll(async () => (await stored(page)).sessions.map((s) => s.date)).toEqual([week, week]);
+  await page.getByRole('button', { name: 'Rückgängig' }).last().click();
+  await expect.poll(async () => (await stored(page)).sessions.map((s) => s.date)).toEqual([today, today]);
+
+  /* Modul ändern: Termine und ihre Lernzeit gehören dann zu Analysis */
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('button', { name: 'Alle 2' }).click();
+  await choose(bar.getByRole('combobox', { name: 'Modul ändern' }), { label: 'Analysis' });
+  await expect(page.getByText('2 Termine: Modul „Analysis“.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).sessions.map((s) => s.moduleId)).toEqual(['an', 'an']);
+  expect((await stored(page)).logs.map((l) => l.moduleId)).toEqual(['an', 'an']);
+});
+
+test('Mehrfachauswahl für Notizen: Modul ändern und löschen, Notiz duplizieren', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, () => ({
+    modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }, { id: 'an', name: 'Analysis', ects: 8, semester: 1, status: 'belegt', color: '#f472b6' }],
+    notes: ['Graphen', 'Bäume', 'Logik'].map((title, i) => ({ id: 'n' + i, moduleId: 'ds', sessionId: '', title, text: 'x', updated: '2026-10-0' + (i + 1) })),
+  }));
+  await page.reload();
+  await nav(page, 'Module').click();
+  await page.getByText('Diskrete Strukturen').first().click();
+  await page.getByRole('tab', { name: /Notizen/ }).click();
+  await page.getByRole('button', { name: /Graphen/ }).click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Graphen' }).getByRole('button', { name: 'Mehrere auswählen' }).click();
+  await page.getByRole('checkbox', { name: /Bäume/ }).click();
+  const bar = page.getByRole('toolbar', { name: 'Auswahl' });
+  await expect(bar).toContainText('2 Notizen ausgewählt');
+  await choose(bar.getByRole('combobox', { name: 'Modul ändern' }), { label: 'Analysis' });
+  await expect.poll(async () => (await stored(page)).notes.filter((n) => n.moduleId === 'an').map((n) => n.title).sort()).toEqual(['Bäume', 'Graphen']);
+
+  await page.getByRole('button', { name: /Logik/ }).click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Logik' }).getByRole('button', { name: 'Duplizieren' }).click();
+  await expect(page.getByRole('dialog', { name: 'Notiz bearbeiten' }).getByLabel('Titel')).toHaveValue('Logik (Kopie)');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('button', { name: 'Alle 2' }).click();
+  await bar.getByRole('button', { name: 'Löschen' }).click();
+  await expect(page.getByText('2 Notizen gelöscht.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).notes.map((n) => n.title).sort()).toEqual(['Bäume', 'Graphen']);
+});
+
+test('Strg + K zeigt zuletzt Geöffnetes; Vibration beim Abhaken abschaltbar', async ({ page }) => {
+  await page.addInitScript(() => { window.__buzz = []; navigator.vibrate = (ms) => { window.__buzz.push(ms); return true; }; });
+  await page.goto('./');
+  await seed(page, () => ({ notes: [{ id: 'n1', moduleId: 'ds', title: 'Skript', text: 'x' }, { id: 'n2', moduleId: 'ds', title: 'Weg damit', text: 'y' }] }));
+  await page.reload();
+  const search = () => page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  /* Notizen öffnen, dann das Modul */
+  for (const q of ['weg damit', 'skript']) {
+    await search();
+    await page.getByLabel('Suchbegriff').fill(q);
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Schließen' }).last().click();
+  }
+  await search();
+  await page.getByLabel('Suchbegriff').fill('diskrete');
+  await page.getByRole('option', { name: /Modul/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Diskrete Strukturen' })).toBeVisible();
+  /* gelöschte Notiz fällt weg */
+  await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); await window.STUDYOS_ENV.save({ ...d, notes: d.notes.filter((n) => n.id !== 'n2') }); });
+  await page.reload();
+  await search();
+  const opts = page.getByRole('option');
+  await expect(opts.nth(0)).toContainText('Diskrete Strukturen');
+  await expect(opts.nth(0)).toContainText('Zuletzt geöffnet');
+  await expect(opts.nth(1)).toContainText('Skript');
+  await expect(opts.nth(2)).toContainText('Aktion');
+  await expect(page.getByRole('option', { name: /Weg damit/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  /* Vibration: Voreinstellung an, nur auf diesem Gerät */
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  const vib = page.getByLabel('Kurz vibrieren beim Abhaken (nur dieses Gerät)');
+  await expect(vib).toBeChecked();
+  await vib.uncheck();
+  expect(await page.evaluate(() => localStorage.getItem('studyos-vibration'))).toBe('aus');
+  await vib.check();
+  expect(await page.evaluate(() => window.__buzz)).toEqual([15]);
+});
+
+test('Heute: lesbare Fristen, Prüfungs-Countdown und „Erledigt heute“', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({
+    homework: [
+      { id: 'a', moduleId: 'ds', title: 'Blatt 3', issued: day(-2), due: day(1), dueTime: '23:59', status: 'ausgegeben' },
+      { id: 'b', moduleId: 'ds', title: 'Blatt 4', issued: day(-2), due: day(3), status: 'ausgegeben' },
+    ],
+    exams: [{ id: 'e', moduleId: 'ds', date: day(12), time: '09:00', room: 'MW 2001' }],
+  }));
+  await page.reload();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 3' })).toContainText('Abgabe morgen 23:59');
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 4' })).toContainText('Abgabe in 3 Tagen');
+  await expect(page.locator('.group-exams .exam-countdown')).toContainText('noch 12 Tage');
+  await expect(page.locator('.group-erledigt')).toHaveCount(0);
+
+  /* Abhaken: der Eintrag landet unter „Erledigt heute“ (zugeklappt), der Haken dort öffnet ihn wieder */
+  await page.getByRole('button', { name: 'Erledigt: Blatt 4' }).click();
+  const done = page.locator('.group-erledigt');
+  const toggle = done.getByRole('button', { name: /Erledigt heute/ });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(done.getByText('Blatt 4')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).homework.find((h) => h.id === 'b').status).toBe('abgegeben');
+  await page.reload();
+  await expect(page.locator('.group-erledigt').getByText('Blatt 4')).toBeVisible(); // bleibt aufgeklappt
+  await page.getByRole('checkbox', { name: 'Wieder offen: Blatt 4' }).click();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 4' })).toContainText('Abgabe in 3 Tagen');
+  await expect(page.locator('.group-erledigt')).toHaveCount(0);
+
+  /* Modulseite: großer Countdown und die Frist der nächsten Abgabe */
+  await nav(page, 'Module').click();
+  await page.getByRole('button', { name: /Diskrete Strukturen/ }).first().click();
+  await expect(page.locator('.exam-countdown')).toContainText('noch 12 Tage');
+  await expect(page.getByText('Blatt 3 · morgen 23:59')).toBeVisible();
 });
