@@ -66,6 +66,7 @@ export function itemActions(db, kind, item) {
   }
   if (kind === "note") {
     return [
+      { label: item.pinned ? "Lösen" : "Anheften", run: () => db.patch("notes", item.id, { pinned: !item.pinned }) },
       { label: "Bearbeiten", run: () => db.openForm("note", item) },
       { label: "Duplizieren", run: () => duplicate(db, "note", item) },
       db.select && { label: "Mehrere auswählen", run: () => db.select("note", item.id) },

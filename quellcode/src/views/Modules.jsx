@@ -3,6 +3,7 @@ import { DONE_HW, MODULE_STATUS, RING_COLORS } from "../lib/constants.js";
 import { dueInfo, isActive, moduleStats } from "../lib/data.js";
 import { byOrder, byTime, diffDays, fmt, fmtDec, fmtH, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
 import { Bar, Card, Empty, RingLegend, Stat, Tabs, TriRing } from "../ui/primitives.jsx";
+import { sortNotes } from "../lib/notes.js";
 import { CardList, ExamCountdown, HomeworkRow, NoteRow, RoomLabel, SessionRow, TopicRow } from "../ui/rows.jsx";
 import { SelectToggle } from "../ui/selection.jsx";
 import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
@@ -103,7 +104,8 @@ export function ModuleDetail({ db, id, onBack }) {
   const hw = data.homework.filter((x) => x.moduleId === id).sort((a, b) => (a.due || "").localeCompare(b.due || ""));
   const topics = data.topics.filter((x) => x.moduleId === id).sort(byOrder);
   const logs = data.logs.filter((x) => x.moduleId === id).sort((a, b) => b.date.localeCompare(a.date));
-  const notes = data.notes.filter((x) => x.moduleId === id).sort((a, b) => (b.updated || "").localeCompare(a.updated || ""));
+  const notes = sortNotes(data.notes.filter((x) => x.moduleId === id));
+  const pinned = notes.filter((x) => x.pinned);
   const cards = data.cards.filter((x) => x.moduleId === id);
   const exams = data.exams.filter((x) => x.moduleId === id).sort((a, b) => a.date.localeCompare(b.date));
   const nextSes = sessions.find((x) => !isHeld(x) && isActive(x));
@@ -144,6 +146,7 @@ export function ModuleDetail({ db, id, onBack }) {
             </ul>
           </Card>
           <RecordingBacklog b={recordingBacklog(data, id)} db={db} />
+          {pinned.length > 0 && <Card title="Angeheftet"><ul className="rows">{pinned.map((n) => <NoteRow key={n.id} n={n} db={db} meta={fmt(n.updated)} />)}</ul></Card>}
           <Card>
             <div className="flex items-center gap-4">
               <TriRing s={s} size={96} />

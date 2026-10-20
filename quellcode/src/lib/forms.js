@@ -97,6 +97,7 @@ export function formDef(kind, d) {
       { k: "sessionId", l: "Zu Lehrveranstaltung (optional)", t: "select", opts: (v) => [{ value: "", label: "– keine –" }, ...d.sessions.filter((s) => s.moduleId === v.moduleId).sort(byTime).reverse().map((s) => ({ value: s.id, label: `${fmtShort(s.date)} ${s.start} · ${s.type}` }))] },
       { k: "title", l: "Titel", t: "text", req: true, ph: "z. B. VL 4 – Rekursion" },
       { k: "text", l: "Inhalt", t: "textarea", rows: 12, mono: true, ph: "Mitschrift, Formeln, Code, offene Fragen …" },
+      { k: "pinned", l: "Anheften (steht in Listen oben)", t: "checkbox" },
     ] };
     case "card": return { title: "Karteikarte", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },
@@ -104,6 +105,7 @@ export function formDef(kind, d) {
       { k: "front", l: "Vorderseite (Frage)", t: "textarea", rows: 3, req: true, mono: true, hint: "Markdown und Code-Blöcke (```) gehen. Lückentext: {{c1::Antwort}} oder {{c1::Antwort::Hinweis}}." },
       { k: "back", l: "Rückseite (Antwort)", t: "textarea", rows: 4, mono: true, hint: "Bei Lückentext optional (Zusatzinfo)." },
       { k: "tags", l: "Tags", t: "text", ph: "z. B. graphen, klausur", hint: "Mit Komma trennen." },
+      { k: "hard", l: "Als schwer markieren", t: "checkbox" },
     ], validate: (v) => (!String(v.back || "").trim() && !hasCloze(v.front) ? "Bitte eine Rückseite ausfüllen oder eine Lücke {{c1::…}} verwenden." : "") };
     case "exam": return { title: "Prüfung", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { RING_COLORS } from "../lib/constants.js";
 import { pct } from "../lib/util.js";
 import { Markdown } from "./markdown.jsx";
+import { toggleTask } from "../lib/notes.js";
 import { btnDanger, focusRing } from "./styles.js";
 
 export const ICONS = {
@@ -13,6 +14,8 @@ export const ICONS = {
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   play: <path d="M8 5.5v13l10.5-6.5z" />,
+  pin: <><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z" /><path d="M12 14v7" /></>,
+  flag: <><path d="M5 21V4" /><path d="M5 4h12l-2.5 4L17 12H5" /></>,
 };
 
 export function Icon({ name, className = "h-5 w-5" }) {
@@ -130,9 +133,23 @@ export function ConfirmButton({ label, confirmLabel = "Wirklich?", onConfirm, cl
   );
 }
 
-export function MarkdownInput({ id, value, onChange, rows, placeholder }) {
+/** onMakeCard(text): bei markiertem Text erscheint „Karte daraus“ */
+export function MarkdownInput({ id, value, onChange, rows, placeholder, onMakeCard }) {
   const [preview, setPreview] = useState(false);
+  const [hasSel, setHasSel] = useState(false);
   const ref = useRef(null);
+  const onSelect = () => { const el = ref.current; setHasSel(!!el && el.selectionEnd > el.selectionStart && !!el.value.slice(el.selectionStart, el.selectionEnd).trim()); };
+  /* Markierung per Finger meldet nicht jeder Browser über onSelect: zusätzlich auf die nativen Ereignisse hören */
+  const selRef = useRef(onSelect); selRef.current = onSelect;
+  useEffect(() => {
+    if (!onMakeCard || preview) return;
+    const el = ref.current, f = () => selRef.current();
+    const doc = () => { if (document.activeElement === el) f(); };
+    el?.addEventListener("select", f);
+    document.addEventListener("selectionchange", doc);
+    return () => { el?.removeEventListener("select", f); document.removeEventListener("selectionchange", doc); };
+  }, [!!onMakeCard, preview]);
+  const makeCard = () => { const el = ref.current; if (!el) return; const t = (value || "").slice(el.selectionStart, el.selectionEnd).trim(); if (t) onMakeCard(t); };
   const insert = (before, after = before, selected = "Text") => {
     const el = ref.current; if (!el) return;
     const start = el.selectionStart, end = el.selectionEnd, text = value || "", chosen = text.slice(start, end) || selected;
@@ -147,12 +164,13 @@ export function MarkdownInput({ id, value, onChange, rows, placeholder }) {
           <button type="button" key={l} onClick={() => insert(a, b, s)} className={`rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-100 ${focusRing}`} title={s}>{l}</button>
         ))}
         <span className="flex-1" />
+        {onMakeCard && hasSel && !preview && <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={makeCard} className={`rounded px-2 py-1 text-xs text-sky-300 hover:bg-slate-800 ${focusRing}`}>Karte daraus</button>}
         <button type="button" onClick={() => setPreview((p) => !p)} className={`rounded px-2 py-1 text-xs text-sky-300 hover:bg-slate-800 ${focusRing}`} aria-pressed={preview}>{preview ? "Bearbeiten" : "Vorschau"}</button>
       </div>
       {preview ? (
-        <div className="min-h-28 p-3">{value ? <Markdown text={value} /> : <p className="text-sm text-slate-500">Noch kein Inhalt.</p>}</div>
+        <div className="min-h-28 p-3">{value ? <Markdown text={value} onToggleTask={(ln) => onChange(toggleTask(value, ln))} /> : <p className="text-sm text-slate-500">Noch kein Inhalt.</p>}</div>
       ) : (
-        <textarea ref={ref} id={id} value={value || ""} onChange={(e) => onChange(e.target.value)} rows={rows || 8} placeholder={placeholder}
+        <textarea ref={ref} id={id} value={value || ""} onChange={(e) => onChange(e.target.value)} onSelect={onSelect} rows={rows || 8} placeholder={placeholder}
           className="w-full resize-y bg-transparent p-3 font-num text-sm text-slate-100 placeholder-slate-600 focus:outline-none" />
       )}
       <p className="border-t border-slate-800 px-3 py-1 text-[10px] text-slate-600">Markdown: # Überschrift · **fett** · *kursiv* · `Code` · - Liste · ``` Codeblock ``` · [Link](https://…)</p>
@@ -169,6 +187,9 @@ export function Modal({ title, onClose, children }) {
     const el = ref.current?.querySelector("input:not([type=hidden]),select,textarea,[role=combobox]") || ref.current?.querySelector("button");
     el && el.focus();
     const onKey = (e) => {
+      /* Liegen zwei Fenster übereinander (Karte aus einer Notiz), gilt die Taste nur dem obersten */
+      const open = document.querySelectorAll(".sheet-panel");
+      if (open.length > 1 && open[open.length - 1] !== ref.current) return;
       if (e.key === "Escape") { e.stopPropagation(); closeRef.current(); return; }
       if (e.key !== "Tab" || !ref.current) return;
       const els = [...ref.current.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null || x === document.activeElement);

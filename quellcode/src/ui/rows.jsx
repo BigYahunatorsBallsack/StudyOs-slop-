@@ -72,7 +72,7 @@ export function NoteRow({ n, db, meta }) {
   return (
     <li {...bind}>
       <button onClick={() => db.openNote(n.id)} className="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-left hover:bg-slate-800/50">
-        <p className="text-sm font-medium">{n.title}</p>
+        <p className="flex items-center gap-1.5 text-sm font-medium">{n.pinned && <span className="pin-mark" title="Angeheftet"><Icon name="pin" className="mark-icon" /><span className="sr-only">Angeheftet:</span></span>}<span className="min-w-0">{n.title}</span></p>
         <p className="text-xs text-slate-500">{meta}</p>
         {n.text && <p className="font-num mt-1 max-h-10 overflow-hidden whitespace-pre-wrap text-xs text-slate-400">{n.text}</p>}
       </button>
@@ -206,6 +206,7 @@ export function CardList({ cards, db }) {
         <li key={c.id} className="row" style={{ "--mod": m?.color }}>
           <button onClick={() => db.openForm("card", c)} className="row-main flex items-start gap-3">
             <p className="min-w-0 flex-1 truncate text-sm">{isOcc(c) ? <><span className="occ-tag">Bild</span>{occLabel(c)}</> : hasCloze(c.front) ? renderCloze(c.front, true).replace(/\*\*/g, "") : c.front}{c.tags ? <span className="ml-2 text-[11px] text-slate-500">{parseTags(c.tags).map((t) => "#" + t).join(" ")}</span> : null}</p>
+            {c.hard && <span className="hard-mark shrink-0"><Icon name="flag" className="mark-icon" />schwer</span>}
             <span className={`shrink-0 text-xs font-semibold ${c.due <= t ? "text-amber-300" : "text-slate-500"}`}>{c.due <= t ? "fällig" : fmtShort(c.due)}</span>
           </button>
         </li>

@@ -6,7 +6,7 @@ import { moduleStats } from "../lib/data.js";
 import { modOpts } from "../lib/forms.js";
 import { buildPlan } from "../lib/plan.js";
 import { byOrder, diffDays, fmt, fmtH, fmtMin, fmtShort, iso, saveFile, sum, uid, wdIdx } from "../lib/util.js";
-import { Bar, Card, Dot, Empty, Stat, Tabs } from "../ui/primitives.jsx";
+import { Bar, Card, Dot, Empty, Icon, Stat, Tabs } from "../ui/primitives.jsx";
 import { CardList, LogRow } from "../ui/rows.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls, inputFlex } from "../ui/styles.js";
 import { useRemaining } from "../ui/timer.jsx";
@@ -281,7 +281,10 @@ export function CardsView({ db, timer, filter, setFilter }) {
 
   const weak = weakCards(pool);
   const practice = () => { setQueue(weak.map((c) => c.id)); setRevealed(false); setDone(0); rt.start(); };
-  const start = () => { const ids = due.map((c) => c.id); for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } setQueue(ids); setRevealed(false); setDone(0); rt.start(); };
+  const begin = (list) => { const ids = list.map((c) => c.id); for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } setQueue(ids); setRevealed(false); setDone(0); rt.start(); };
+  const start = () => begin(due);
+  /* „Nur schwere“: alle markierten Karten, egal ob fällig (z. B. kurz vor der Prüfung) */
+  const hard = pool.filter((c) => c.hard);
   const stopSession = () => { if (current) rt.stop(current.moduleId); setQueue(null); };
   const rate = (r) => {
     if (!current) return;
@@ -353,6 +356,7 @@ export function CardsView({ db, timer, filter, setFilter }) {
             <span className="flex min-w-0 items-center gap-2"><Dot color={m?.color} /><span className="truncate">{m?.name}</span></span>
             <span className="flex shrink-0 items-center gap-2">
               <span className="font-num">{done} gelernt · {q.length} übrig</span>
+              <button className={`btn btn-ghost btn-icon card-flag ${current.hard ? "card-flag-on" : ""}`} aria-pressed={!!current.hard} aria-label="Als schwer markieren" title={current.hard ? "Als schwer markiert" : "Als schwer markieren"} onClick={() => db.patch("cards", current.id, { hard: !current.hard })}><Icon name="flag" className="mark-icon" /></button>
               <button ref={fullBtn} className="btn btn-ghost card-full-toggle" onClick={() => { fullFocus.current = true; setFull(!full); }}>{full ? "Vollbild beenden" : "Vollbild"}</button>
             </span>
           </div>
@@ -383,7 +387,10 @@ export function CardsView({ db, timer, filter, setFilter }) {
         <Card>
           {q && done > 0 && <p className="mb-2 text-sm text-emerald-300">Sitzung abgeschlossen: {done} Karten gelernt.{rt.logged > 0 && ` ${fmtMin(rt.logged)} als Lernzeit eingetragen.`}</p>}
           <p className="text-sm text-slate-300"><span className="font-num text-2xl font-semibold text-slate-100">{due.length}</span> Karten fällig · {pool.length} gesamt</p>
-          <button className={`${btnPrimary} mt-3`} disabled={!due.length} onClick={start}>Lernen starten</button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className={btnPrimary} disabled={!due.length} onClick={start}>Lernen starten</button>
+            {hard.length > 0 && <button className={btnGhost} onClick={() => begin(hard)}>Nur schwere ({hard.length})</button>}
+          </div>
         </Card>
       )}
       {!current && weak.length > 0 && <WeakSpots db={db} cards={weak} onPractice={practice} />}

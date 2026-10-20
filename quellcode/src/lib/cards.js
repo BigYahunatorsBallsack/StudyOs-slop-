@@ -116,7 +116,8 @@ export function cardsFromNote(text, existingFronts = []) {
   for (const raw of String(text || "").split("\n")) {
     if (/^\s*```/.test(raw)) { inCode = !inCode; continue; }
     if (inCode) continue;
-    const line = raw.replace(/^\s*(?:[-*+]|\d+[.)]|#{1,6})\s+/, "").trim();
+    /* Kästchen einer Checkliste gehören nicht zur Frage: Abhaken ändert so keine Karte */
+    const line = raw.replace(/^\s*(?:[-*+]|\d+[.)]|#{1,6})\s+/, "").replace(/^\[[ xX]\](?:\s+|$)/, "").trim();
     let card = null;
     const sep = line.indexOf(" :: ");
     if (sep > 0 && !/\{\{c\d+::/.test(line.slice(0, sep))) card = { front: line.slice(0, sep).trim(), back: line.slice(sep + 4).trim() };
@@ -128,6 +129,21 @@ export function cardsFromNote(text, existingFronts = []) {
     out.push(card);
   }
   return out;
+}
+
+/**
+ * Vorlage für eine Karte aus markiertem Text einer Notiz: Sieht die Markierung aus wie „Frage :: Antwort“
+ * (eine Zeile), werden daraus Vorder- und Rückseite, sonst wird der ganze Text die Rückseite.
+ * @returns {{ front: string, back: string }}
+ */
+export function cardFromSelection(text) {
+  const t = String(text || "").replace(/\r/g, "").trim();
+  if (!t.includes("\n")) {
+    const line = t.replace(/^(?:[-*+]|\d+[.)]|#{1,6})\s+/, "").replace(/^\[[ xX]\]\s+/, "");
+    const m = /^(.+?)\s+::\s+(.+)$/.exec(line);
+    if (m && !/\{\{c\d+::/.test(m[1])) return { front: m[1].trim(), back: m[2].trim() };
+  }
+  return { front: "", back: t };
 }
 
 /**

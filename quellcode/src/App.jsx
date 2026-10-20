@@ -29,7 +29,7 @@ import { ItemMenu, PostponeSheet } from "./ui/actions.jsx";
 import { SelectBar, countLabel } from "./ui/selection.jsx";
 import { postponeHomework } from "./lib/postpone.js";
 import { openTodayCount } from "./lib/todo.js";
-import { syncNoteCards } from "./lib/cards.js";
+import { cardFromSelection, syncNoteCards } from "./lib/cards.js";
 import { pdfText, sheetFromShare } from "./lib/sheet.js";
 import { getLocal as getFile, setRemoteFiles } from "./lib/files.js";
 
@@ -94,6 +94,7 @@ export default function App() {
   const [moreTab, setMoreTab] = useState("rueckblick");
   const [cardFilter, setCardFilter] = useState("");
   const [form, setForm] = useState(null);
+  const [cardDraft, setCardDraft] = useState(null); /* Karte aus markiertem Notiztext, liegt über Notiz bzw. Editor */
   const [noteView, setNoteView] = useState(null);
   const [focusNoteId, setFocusNoteId] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -486,6 +487,7 @@ export default function App() {
       saveEntity(kind, vals, true);
       toast(`${label} angelegt.`, { label: "Rückgängig", run: () => removeEntity(kind, vals.id) }, 6000);
     },
+    cardFromText: (text, moduleId) => setCardDraft({ kind: "card", isNew: true, initial: { moduleId: moduleId || "", ...cardFromSelection(text) } }),
     cardsFromNote: (note, list) => {
       const today = iso();
       const fresh = list.map((c) => ({ ...c, id: uid(), moduleId: note.moduleId, topicId: "", tags: "", created: today, ease: 2.5, interval: 0, reps: 0, due: today, fromNote: note.id }));
@@ -710,6 +712,7 @@ export default function App() {
         onDetails={(l) => { setFocusNoteId(null); openForm("log", l); }} onDiscard={() => { setFocusNoteId(null); removeEntity("log", focusLog.id); }} />}
       {form?.kind === "card" && form.initial?.occ ? <Suspense fallback={null}><OcclusionEditor key={form.initial.id || "new"} db={db} initial={form.initial} onClose={() => setForm(null)} /></Suspense>
         : form && <FormModal key={form.kind + (form.initial?.id || "new")} form={form} data={data} db={db} onSave={saveEntity} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setForm(null)} />}
+      {cardDraft && <FormModal key="card-draft" form={cardDraft} data={data} db={db} onSave={(...a) => { saveEntity(...a); toast("Karteikarte angelegt."); }} onDelete={removeEntity} onDeleteSeries={removeSeries} onClose={() => setCardDraft(null)} />}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { needsExtras, useExtras } from "./extras.js";
 import { fileUrl } from "../lib/files.js";
+import { TASK_ITEM } from "../lib/notes.js";
 
 /* Kleiner, sicherer Markdown-Renderer für Notizen und Karten (ohne HTML-Injection).
    Formeln ($…$, $$…$$) und eingefärbter Code werden über KaTeX bzw. highlight.js gezeigt, sobald geladen;
@@ -63,7 +65,17 @@ export function mdInline(text, keyBase) {
   return out;
 }
 
-export function Markdown({ text }) {
+/* Punkt einer Checkliste: mit onToggle antippbar, sonst nur angezeigt */
+function TaskItem({ text, done, onToggle, k }) {
+  const label = String(text).replace(/[*_`[\]$]/g, "").trim() || "Punkt";
+  const box = onToggle
+    ? <button type="button" className="md-check" role="checkbox" aria-checked={done} aria-label={label} onClick={onToggle}><span aria-hidden="true">{done ? "✓" : ""}</span></button>
+    : <span className="md-check" role="checkbox" aria-checked={done} aria-disabled="true" aria-label={label}><span aria-hidden="true">{done ? "✓" : ""}</span></span>;
+  return <li className={`md-task ${done ? "md-task-done" : ""}`}>{box}<span className="min-w-0 flex-1">{mdInline(text, k)}</span></li>;
+}
+
+/** onToggleTask(zeile): Kästchen „- [ ]“ antippbar machen; zeile ist die Zeilennummer im Text (ab 0). */
+export function Markdown({ text, onToggleTask }) {
   const src = String(text || "");
   const x = useExtras(needsExtras(src));
   const lines = src.split("\n"); const blocks = []; let i = 0;
@@ -84,9 +96,14 @@ export function Markdown({ text }) {
     if (h) { const T = "h" + h[1].length; blocks.push(<T key={i}>{mdInline(h[2], "h" + i)}</T>); i++; continue; }
     if (/^\s*[-*]\s+/.test(ln) || /^\s*\d+[.)]\s+/.test(ln)) {
       const ordered = /^\s*\d+[.)]\s+/.test(ln); const items = [];
-      while (i < lines.length && (ordered ? /^\s*\d+[.)]\s+/ : /^\s*[-*]\s+/).test(lines[i])) { items.push(lines[i].replace(/^\s*([-*]|\d+[.)])\s+/, "")); i++; }
+      while (i < lines.length && (ordered ? /^\s*\d+[.)]\s+/ : /^\s*[-*]\s+/).test(lines[i])) { items.push({ text: lines[i].replace(/^\s*([-*]|\d+[.)])\s+/, ""), line: i }); i++; }
       const L = ordered ? "ol" : "ul";
-      blocks.push(<L key={i}>{items.map((x2, j) => <li key={j}>{mdInline(x2, `l${i}-${j}`)}</li>)}</L>); continue;
+      const tasks = items.some((x2) => TASK_ITEM.test(x2.text));
+      blocks.push(<L key={i} className={tasks ? "md-tasks" : undefined}>{items.map((x2, j) => {
+        const t = TASK_ITEM.exec(x2.text);
+        if (!t) return <li key={j}>{mdInline(x2.text, `l${i}-${j}`)}</li>;
+        return <TaskItem key={j} k={`l${i}-${j}`} text={x2.text.slice(t[0].length)} done={t[1] !== " "} onToggle={onToggleTask ? () => onToggleTask(x2.line) : null} />;
+      })}</L>); continue;
     }
     if (/^>\s?/.test(ln)) { const buf = []; while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, "")); blocks.push(<blockquote key={i}>{mdInline(buf.join(" "), "q" + i)}</blockquote>); continue; }
     if (!ln.trim()) { i++; continue; }
@@ -95,4 +112,28 @@ export function Markdown({ text }) {
     blocks.push(<p key={i}>{buf.map((x2, j) => <React.Fragment key={j}>{j > 0 && <br />}{mdInline(x2, `p${i}-${j}`)}</React.Fragment>)}</p>);
   }
   return <ExtrasCtx.Provider value={x}><div className="md text-sm leading-relaxed text-slate-200">{blocks}</div></ExtrasCtx.Provider>;
+}
+
+/** Kleiner Knopf „Karte daraus“ unter markiertem Text innerhalb von `within` (Notizansicht). */
+export function SelectionCardButton({ within, onMake }) {
+  const [pos, setPos] = React.useState(null);
+  React.useEffect(() => {
+    let hide = 0;
+    const update = () => {
+      const sel = window.getSelection(), box = within.current;
+      const text = sel && sel.rangeCount && !sel.isCollapsed ? sel.toString().trim() : "";
+      clearTimeout(hide);
+      /* kurz warten: hebt das Antippen des Knopfs die Markierung auf, soll er trotzdem noch reagieren */
+      if (!text || !box || !box.contains(sel.getRangeAt(0).commonAncestorContainer)) { hide = window.setTimeout(() => setPos(null), 300); return; }
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      const top = r.bottom + 48 > window.innerHeight ? Math.max(8, r.top - 40) : r.bottom + 10;
+      setPos({ top, left: Math.min(Math.max(8, r.left), window.innerWidth - 136), text });
+    };
+    document.addEventListener("selectionchange", update);
+    window.addEventListener("scroll", update, true);
+    return () => { clearTimeout(hide); document.removeEventListener("selectionchange", update); window.removeEventListener("scroll", update, true); };
+  }, [within]);
+  if (!pos) return null;
+  const make = () => { const t = pos.text; setPos(null); window.getSelection()?.removeAllRanges(); onMake(t); };
+  return createPortal(<button type="button" className="btn btn-solid sel-card" style={{ top: pos.top, left: pos.left }} onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={make}>Karte daraus</button>, document.body);
 }

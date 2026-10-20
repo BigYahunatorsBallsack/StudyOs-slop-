@@ -29,7 +29,9 @@ function hlc(now, ...after) {
 }
 
 /* Felder, die nur gemeinsam Sinn ergeben, werden wie ein Feld behandelt (z. B. der Lernstand einer Karte).
-   Erledigt-Zeitpunkte reisen mit ihrem Schalter; die Gruppe heißt wie der Schalter, damit ältere Stempel weiter gelten. */
+   Erledigt-Zeitpunkte reisen mit ihrem Schalter; die Gruppe heißt wie der Schalter, damit ältere Stempel weiter gelten.
+   Bewusst nicht im Lernstand: `hard` (Karte als schwer markiert) und `pinned` (Notiz angeheftet) sind eigene Felder,
+   damit Markieren auf einem Gerät und Abfragen auf einem anderen beide erhalten bleiben. */
 const GROUPS = {
   cards: { srs: ["stability", "difficulty", "interval", "reps", "lapses", "due", "lastReview", "ease", "reviews"] },
   sessions: { attended: ["attended", "attendedAt"] },
