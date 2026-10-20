@@ -17,7 +17,7 @@ describe("Bus zur Uni", () => {
   const ses = [{ id: "a", date: "2026-10-19", start: "10:15", moduleId: "ds" }, { id: "b", date: "2026-10-19", start: "14:00" }, { id: "c", date: "2026-10-20", start: "08:30" }];
   it("bisherige Vorgabe: 230 ab Haar Richtung Forschungszentrum", () => {
     expect(c).toMatchObject({ line: "230", towards: "Forschungszentrum", station: { id: "de:09184:2140" }, feeder: { line: "S6", station: { name: "Zorneding" }, travel: 8 } });
-    expect(commuteOf({ commute: { ...LEGACY_COMMUTE, feeder: null } }).feeder).toBeNull();
+    expect(commuteOf({ commute: { ...LEGACY_COMMUTE, feeder: null } }).feeder.line).toBe("S6"); /* Zubringer gehört fest dazu */
     expect(matches({ line: "S6", destination: "Grafing-Bahnhof" }, c.feeder)).toBe(false);
     expect(matches({ line: "S6", destination: "Leuchtenbergring" }, c.feeder)).toBe(true);
     expect(commuteOf({ commute: null })).toBeNull();

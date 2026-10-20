@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Fester Weg zur Uni:** Mit den Öffis geht es immer mit der S6 ab Zorneding und in Haar weiter mit dem Bus 230 zum Campus Garching, Haltestellen und Linien stellt man nicht mehr ein. Mit dem Auto geht es ab Zorneding oder dem aktuellen Standort, als Ziel wählst du auf „Heute“ oder in den Einstellungen Campus Garching oder Campus Weihenstephan (Freising). Wer Pharmazeutische Bioprozesstechnik studiert, startet mit Weihenstephan.
 - **Karteikarten zählen als Lernzeit:** Die Zeit beim Abfragen landet automatisch als Lerneinheit „Karteikarten“ beim Modul, eine pro Modul und Tag, und zählt für Serie, Wochenziel und ECTS-Soll. Längere Pausen zählen nicht mit, und läuft gleichzeitig der Fokus-Timer, zählt nur der.
 - **Karteikarten per Wischen bewerten:** Nach dem Aufdecken am Handy nach rechts wischen heißt „gewusst“ (Gut), nach links „nicht gewusst“ (Nochmal). Knöpfe und die Tasten 1 bis 4 gehen weiter; die Tasten wechseln jetzt nicht mehr nebenbei den Bereich.
 - **Vollbild beim Karteikarten-Lernen:** Der Knopf „Vollbild“ blendet beim Abfragen Kopfzeile und Navigation aus und zeigt die Karte größer; Esc oder „Vollbild beenden“ schließt es. Das Gerät merkt sich die Wahl.

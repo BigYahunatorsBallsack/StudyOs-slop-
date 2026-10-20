@@ -36,7 +36,7 @@ describe("„Jetzt losgehen“: was die App hochlädt", () => {
   it("mit dem Auto gehen Start, Ziel und Parkzeit mit", () => {
     const l = leave({ commute: { ...LEGACY_COMMUTE, mode: "car" }, pushLeave: true });
     expect(l[0].commute).toEqual({ mode: "car", buffer: 10, car: { from: "Zorneding", to: "Boltzmannstraße 15, 85748 Garching bei München", park: 10 } });
-    expect(leave({ commute: { ...LEGACY_COMMUTE, mode: "car", car: { from: "", to: "Garching" } }, pushLeave: true })).toEqual([]);
+    expect(leave({ commute: { ...LEGACY_COMMUTE, mode: "car", car: { campus: "weihenstephan" } }, pushLeave: true })[0].commute.car).toEqual({ from: "Zorneding", to: "Alte Akademie 8, 85354 Freising", park: 10 });
   });
 
   it("erkennt Online-Termine", () => {

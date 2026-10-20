@@ -2,7 +2,7 @@
    Zeigt die nächsten Abfahrten und welche Verbindung für die erste Lehrveranstaltung reicht.
    Alternativ mit dem Auto: Fahrzeit bei aktueller Verkehrslage und wann man losfahren sollte. */
 import React, { useEffect, useRef, useState } from "react";
-import { carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, DEFAULT_FEEDER, hhmm, mapsLink, matches, queryOffset, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
+import { CAMPUSES, carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, hhmm, mapsLink, matches, queryOffset, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
 import { fmtShort, iso } from "../lib/util.js";
 import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
 import { useGroupOpens } from "../ui/collapse.jsx";
@@ -105,6 +105,11 @@ function CarView({ db, c, session, ready, tick }) {
           </div>
         )}
       <Stand at={r && state.at} />
+      <label className="mt-3 block text-xs text-slate-400">Ziel
+        <Select className="field mt-1 w-full text-sm" value={c.car.campus} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, campus: e.target.value } } })}>
+          {CAMPUSES.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+        </Select>
+      </label>
       <label className="mt-3 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={fromHere} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, fromHere: e.target.checked } } })} /> Ab meinem Standort
       </label>
@@ -234,46 +239,14 @@ export function CommuteCard({ db, sessions }) {
   );
 }
 
-/* Haltestelle über die MVG suchen */
-function StationPicker({ db, label, value, onPick }) {
-  const [q, setQ] = useState(""), [hits, setHits] = useState(null), [err, setErr] = useState("");
-  const search = async () => {
-    setErr(""); setHits(null);
-    try { setHits(await db.cloud.mvg({ kind: "stations", query: q })); } catch (e) { setErr(e.message); }
-  };
-  return (
-    <div>
-      <p className="text-sm">{label}: {value.name ? <b>{value.name}</b> : <span className="text-slate-400">noch keine gewählt</span>}</p>
-      <div className="mt-1.5 flex gap-2">
-        <input aria-label={`${label} suchen`} className="field min-w-0 flex-1 text-sm" placeholder={value.name ? "Andere Haltestelle suchen" : "Haltestelle suchen"} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); search(); } }} />
-        <button type="button" className="btn btn-ghost" onClick={search} disabled={q.trim().length < 2 || db.cloud?.phase !== "ready"}>Suchen</button>
-      </div>
-      {err && <p role="alert" className="mt-1 text-xs text-rose-400">{err}</p>}
-      {hits && (
-        <ul className="mt-2 space-y-1">
-          {hits.length ? hits.map((h) => (
-            <li key={h.id}><button type="button" className="link-btn text-left" onClick={() => { onPick({ id: h.id, name: h.name }); setHits(null); setQ(""); }}>{h.name}{h.place && h.place !== h.name ? `, ${h.place}` : ""}</button></li>
-          )) : <li className="text-xs text-slate-400">Nichts gefunden.</li>}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/* Einstellungen: Zubringer (optional) und Hauptlinie */
+/* Einstellungen: der Weg ist fest (Öffis S6 und Bus 230 nach Garching, Auto ab Zorneding), wählbar sind Campus und Zeiten */
 export function CommuteSettings({ db }) {
   const c = commuteOf(db.data.settings);
   const set = (p) => db.patchSettings({ commute: { ...(c || DEFAULT_COMMUTE), ...p } });
-  const setF = (p) => set({ feeder: { ...(c.feeder || DEFAULT_FEEDER), ...p } });
   const setCar = (p) => set({ car: { ...c.car, ...p } });
   const num = (obj, setter, k, l, max) => (
     <label className="block text-xs text-slate-400">{l}
       <input type="number" min="0" max={max} className="field mt-1 w-full text-sm" value={obj[k]} onChange={(e) => setter({ [k]: Math.max(0, Math.min(max, Number(e.target.value) || 0)) })} />
-    </label>
-  );
-  const text = (obj, setter, k, l, ph) => (
-    <label className="block text-xs text-slate-400">{l}
-      <input className="field mt-1 w-full text-sm" value={obj[k] || ""} placeholder={ph} onChange={(e) => setter({ [k]: e.target.value })} />
     </label>
   );
   return (
@@ -283,37 +256,23 @@ export function CommuteSettings({ db }) {
       </label>
       {c && (
         <>
-          <label className="mt-4 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={!!c.feeder} onChange={(e) => set({ feeder: e.target.checked ? DEFAULT_FEEDER : null })} /> Erst mit Zubringer (z. B. S-Bahn) zur Umstiegshaltestelle
-          </label>
-          {c.feeder && (
-            <div className="commute-leg mt-3">
-              <p className="text-xs font-semibold text-slate-400">1. Zubringer</p>
-              <div className="mt-2"><StationPicker db={db} label="Einstieg" value={c.feeder.station} onPick={(station) => setF({ station })} /></div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                {text(c.feeder, setF, "line", "Linie", "z. B. S6")}
-                {text(c.feeder, setF, "avoid", "Richtung nicht", "z. B. Endhaltestelle der Gegenrichtung")}
-                {num(c.feeder, setF, "travel", `Fahrzeit bis ${c.station.name || "zum Umstieg"} (Min.)`, 120)}
-                {num(c.feeder, setF, "transfer", "Umsteigezeit (Min.)", 30)}
-              </div>
-            </div>
-          )}
           <div className="commute-leg mt-3">
-            <p className="text-xs font-semibold text-slate-400">{c.feeder ? "2. Hauptlinie" : "Linie"}</p>
-            <div className="mt-2"><StationPicker db={db} label={c.feeder ? "Umstieg" : "Haltestelle"} value={c.station} onPick={(station) => set({ station })} /></div>
+            <p className="text-xs font-semibold text-slate-400">Mit den Öffis</p>
+            <p className="mt-1 text-sm">S6 ab {c.feeder.station.name}, in {c.station.name} umsteigen in den Bus {c.line} zum Campus Garching</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
-              {text(c, set, "line", "Linie", "z. B. 230, U6")}
-              {text(c, set, "towards", "Richtung enthält", "z. B. Endhaltestelle")}
-              {num(c, set, "travel", "Fahrzeit (Min.)", 180)}
+              {num(c, set, "walk", `Fußweg zur Haltestelle ${c.feeder.station.name}`, 60)}
               {num(c, set, "buffer", "Ankunft vor Beginn (Min.)", 60)}
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-3">{num(c, set, "walk", `Fußweg zur Haltestelle ${(c.feeder ? c.feeder.station.name : c.station.name) || ""}`.trim(), 60)}</div>
           <div className="commute-leg mt-3">
             <p className="text-xs font-semibold text-slate-400">Mit dem Auto</p>
+            <p className="mt-1 text-sm">Ab {c.car.from}, auf „Heute“ auch ab deinem Standort</p>
             <div className="mt-2 grid grid-cols-2 gap-3">
-              {text(c.car, setCar, "from", "Start", "Adresse oder Ort")}
-              {text(c.car, setCar, "to", "Ziel", "Adresse an der Uni")}
+              <label className="block text-xs text-slate-400">Ziel
+                <Select className="field mt-1 w-full text-sm" value={c.car.campus} onChange={(e) => setCar({ campus: e.target.value })}>
+                  {CAMPUSES.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+                </Select>
+              </label>
               {num(c.car, setCar, "park", "Parken und Fußweg (Min.)", 60)}
             </div>
             <p className="mt-2 text-[11px] text-slate-500">Die Fahrzeit mit Verkehr kommt über deine Supabase-Funktion, dort muss GOOGLE_MAPS_KEY oder TOMTOM_KEY als Secret gesetzt sein (siehe Anleitung). Start und Ziel gehen dafür an Google bzw. TomTom.</p>
@@ -326,7 +285,7 @@ export function CommuteSettings({ db }) {
             <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushLeave} onChange={(e) => db.patchSettings({ pushLeave: e.target.checked })} />
             <span>Per Push „Jetzt losgehen“ vor dem ersten Termin vor Ort<span className="block text-[11px] text-slate-500">Kommt kurz bevor du los musst, nach Echtzeit-Abfahrt bzw. mit dem Auto nach aktueller Verkehrslage. Braucht eingeschaltete Erinnerungen; dafür liegen Haltestellen und Linien bzw. Start und Ziel sowie die Uhrzeit deines ersten Termins je Tag unverschlüsselt bei Supabase. Online-Termine (Raum „Online“, „Zoom“ oder ein Link) zählen nicht.</span></span>
           </label>
-          <p className="mt-2 text-[11px] text-slate-500">Echtzeitdaten der MVG (Großraum München mit Freising) über deine Supabase-Funktion. Fahrzeiten trägst du laut Fahrplan ein, bei Verspätung rechnet StudyOS mit der tatsächlichen Abfahrt.</p>
+          <p className="mt-2 text-[11px] text-slate-500">Echtzeitdaten der MVG über deine Supabase-Funktion. Bei Verspätung rechnet StudyOS mit der tatsächlichen Abfahrt.</p>
         </>
       )}
     </Card>

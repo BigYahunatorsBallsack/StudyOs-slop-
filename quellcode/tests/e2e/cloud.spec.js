@@ -351,7 +351,6 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   /* feste Startzeit (Montag 10 Uhr): Abfahrten, „morgen“ und die Empfehlung hängen sonst von der Tageszeit ab */
   const NOW = new Date('2026-10-19T10:00:00+02:00');
   backend.mvg = (body) => {
-    if (body.kind === 'stations') return [{ id: 'de:09184:2222', name: 'Haar, Gymnasium', place: 'Haar (b München)', types: ['BUS'] }];
     if (body.kind === 'messages') return [{ title: 'Weichenstörung bei Haar', text: 'Unregelmäßige Abstände.', incident: true, from: 0, to: null, lines: ['S6'] }];
     const base = new Date(NOW); base.setHours(0, 0, 0, 0);
     const t = (d, hm) => base.getTime() + d * 86400000 + (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60000;
@@ -374,19 +373,17 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
 
-  // Haltestelle ändern über die Suche
-  await A.page.getByLabel('Umstieg suchen').fill('Haar Gym');
-  await A.page.getByRole('button', { name: 'Suchen', exact: true }).nth(1).click();
-  await A.page.getByRole('button', { name: 'Haar, Gymnasium, Haar (b München)' }).click();
-  await expect(A.page.getByText('Umstieg: Haar, Gymnasium')).toBeVisible();
+  // Der Weg ist fest: keine Haltestellensuche mehr
+  await expect(A.page.getByText('S6 ab Zorneding, in Haar umsteigen in den Bus 230 zum Campus Garching')).toBeVisible();
+  await expect(A.page.getByLabel('Umstieg suchen')).toHaveCount(0);
 
   await nav(A.page, 'Heute').click();
   const card = A.page.getByRole('region', { name: 'Weg zur Uni' });
   // 9:15 − 10 Puffer − 50 Fahrt: Bus 8:13 (+2, real 8:15); S6 spätestens 8:03 (8 Fahrt + 4 Umstieg) → 7:52; los 7:47
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
   await expect(card.getByText('07:52 Abfahrt mit der S6 in Zorneding, Gleis 5')).toBeVisible();
-  await expect(card.getByText('08:00 Ankunft in Haar, Gymnasium, dort umsteigen')).toBeVisible();
-  await expect(card.getByText('08:15 Abfahrt mit dem Bus 230 in Haar, Gymnasium (2 Min. später)')).toBeVisible();
+  await expect(card.getByText('08:00 Ankunft in Haar, dort umsteigen')).toBeVisible();
+  await expect(card.getByText('08:15 Abfahrt mit dem Bus 230 in Haar (2 Min. später)')).toBeVisible();
   await expect(card.getByText('Grafing')).toHaveCount(0);
   await expect(card.getByText('241')).toHaveCount(0);
   await expect(card.getByRole('list', { name: 'Störungen und Baustellen' }).getByText('Weichenstörung bei Haar')).toBeVisible();
@@ -414,6 +411,11 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect.poll(() => asked.at(-1)).toEqual({ from: '48.1372,11.5761', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
   await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', 'https://www.google.com/maps/dir/?api=1&destination=Boltzmannstra%C3%9Fe%2015%2C%2085748%20Garching%20bei%20M%C3%BCnchen&travelmode=driving');
   await card.getByLabel('Ab meinem Standort').uncheck();
+  // Anderer Campus als Ziel
+  await choose(card.getByLabel('Ziel'), { label: 'Campus Weihenstephan (Freising)' });
+  await expect.poll(() => asked.at(-1)).toEqual({ from: 'Zorneding', to: 'Alte Akademie 8, 85354 Freising' });
+  await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', /origin=Zorneding&destination=Alte%20Akademie/);
+  await choose(card.getByLabel('Ziel'), { label: 'Campus Garching' });
   await card.getByRole('tab', { name: 'Öffis' }).click();
   await expect(card.locator('.px-ride.px-bus')).toHaveCount(1); // Pixel-Bus fährt einmal durch die Karte
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
