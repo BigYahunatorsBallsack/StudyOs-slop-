@@ -21,22 +21,22 @@ describe("„Jetzt losgehen“: was die App hochlädt", () => {
     ] };
   const leave = (settings) => deadlinesFromData({ ...base, settings: { ...base.settings, ...settings } }, DAY).filter((x) => x.kind === "leave");
 
-  it("ohne „Weg zur Uni“ nichts, eingerichtet automatisch an, abschaltbar", () => {
-    expect(leave({})).toEqual([]);
-    expect(leave({ commute: LEGACY_COMMUTE }).length).toBe(1);
-    expect(leave({ commute: LEGACY_COMMUTE, pushLeave: false })).toEqual([]);
+  it("ohne „Weg zur Uni“ nichts, sonst erst nach dem Einschalten", () => {
+    expect(leave({ pushLeave: true })).toEqual([]);
+    expect(leave({ commute: LEGACY_COMMUTE })).toEqual([]);
+    expect(leave({ commute: LEGACY_COMMUTE, pushLeave: true }).length).toBe(1);
   });
 
   it("nur Tage, deren erster Termin vor Ort ist", () => {
-    const l = leave({ commute: LEGACY_COMMUTE });
+    const l = leave({ commute: LEGACY_COMMUTE, pushLeave: true });
     expect(l.map((x) => [x.date, x.time, x.title])).toEqual([[DAY, "09:15", "Diskrete Strukturen"]]);
     expect(l[0].commute).toMatchObject({ mode: "transit", line: "230", buffer: 10, walk: 5, feeder: { line: "S6" } });
   });
 
   it("mit dem Auto gehen Start, Ziel und Parkzeit mit", () => {
-    const l = leave({ commute: { ...LEGACY_COMMUTE, mode: "car" } });
+    const l = leave({ commute: { ...LEGACY_COMMUTE, mode: "car" }, pushLeave: true });
     expect(l[0].commute).toEqual({ mode: "car", buffer: 10, car: { from: "Zorneding", to: "Boltzmannstraße 15, 85748 Garching bei München", park: 10 } });
-    expect(leave({ commute: { ...LEGACY_COMMUTE, mode: "car", car: { from: "", to: "Garching" } } })).toEqual([]);
+    expect(leave({ commute: { ...LEGACY_COMMUTE, mode: "car", car: { from: "", to: "Garching" } }, pushLeave: true })).toEqual([]);
   });
 
   it("erkennt Online-Termine", () => {

@@ -94,7 +94,7 @@ export function deadlinesFromData(all, today = iso()) {
   }
   /* „Jetzt losgehen“: an Tagen, deren erster Termin vor Ort ist, rechnet der Server kurz vorher mit Echtzeit bzw.
      Verkehrslage aus, wann man los muss (an, sobald „Weg zur Uni“ eingerichtet ist). Mit dem Auto gehen Start und Ziel mit. */
-  if (c && settings.pushLeave !== false && !commuteIncomplete(c)) {
+  if (c && settings.pushLeave && !commuteIncomplete(c)) {
     const how = c.mode === "car"
       ? { mode: "car", buffer: Number(c.buffer) || 0, car: { from: String(c.car.from).trim(), to: String(c.car.to).trim(), park: Number(c.car.park) || 0 } }
       : { mode: "transit", ...commute };
