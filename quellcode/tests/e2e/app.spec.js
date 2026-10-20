@@ -929,7 +929,12 @@ test('Aufzeichnung: „angeschaut bis“ eintragen, Stand erscheint bei Zu erled
   await expect(page.locator('.todo-row .watch-bar > span')).toHaveAttribute('style', /width: 50%/);
   await expect.poll(async () => (await stored(page)).sessions[0].watchedTo).toBe('45');
   // neu angeschaute Minuten zählen als Lernzeit fürs Modul
-  await expect.poll(async () => (await stored(page)).logs.map((l) => [l.moduleId, l.kind, l.minutes])).toEqual([['ds', 'Aufzeichnung', 45]]);
+  await expect.poll(async () => (await stored(page)).logs.map((l) => [l.moduleId, l.kind, l.minutes, l.date])).toEqual([['ds', 'Aufzeichnung', 45, new Date().toLocaleDateString('sv-SE')]]);
+  // wieder gelöscht: die Lernzeit verschwindet
+  await page.getByRole('button', { name: /Nachbereiten: Vorlesung/ }).click();
+  await dlg.getByLabel(/Aufzeichnung angeschaut bis/).fill('');
+  await dlg.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page)).logs.length).toBe(0);
 });
 
 test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, Tippen', async ({ page }) => {

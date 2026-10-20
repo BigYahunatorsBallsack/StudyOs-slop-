@@ -49,7 +49,7 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
-import { buildHomeworkSeries, toggleAttended, watchLog } from "./lib/study.js";
+import { buildHomeworkSeries, syncWatchLogs, toggleAttended } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
@@ -211,10 +211,11 @@ export default function App() {
     if (kind === "session" && !isNew) {
       const r = saveSessionEdit(d.sessions, item, !!extra.applySeries);
       if (r.count) setTimeout(() => toast(`Auch ${r.count} folgende ${r.count === 1 ? "Termin" : "Termine"} geändert.`), 0);
-      /* weiter angeschaute Aufzeichnung zählt als Lernzeit */
-      const watched = watchLog(d.logs, item);
-      if (watched) setTimeout(() => toast(`${fmtMin(watched.minutes)} Aufzeichnung als Lernzeit eingetragen.`), 0);
-      return { ...d, sessions: r.sessions, ...(watched ? { logs: [...d.logs, watched] } : {}) };
+      /* angeschaute Aufzeichnung zählt als Lernzeit: weiter vorgestellt kommt dazu, zurückgestellt oder gelöscht geht weg */
+      const w = syncWatchLogs(d.logs, item);
+      if (w.delta > 0) setTimeout(() => toast(`${fmtMin(w.delta)} Aufzeichnung als Lernzeit eingetragen.`), 0);
+      if (w.delta < 0) setTimeout(() => toast(`${fmtMin(-w.delta)} Aufzeichnung aus der Lernzeit entfernt.`), 0);
+      return { ...d, sessions: r.sessions, ...(w.delta ? { logs: w.logs } : {}) };
     }
     return { ...d, [coll]: isNew ? [...d[coll], item] : d[coll].map((x) => (x.id === item.id ? item : x)) };
   });
