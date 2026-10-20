@@ -413,6 +413,21 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .exam-chip { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; max-width: 12rem; padding: .65rem .9rem; border-radius: var(--r-row); background: color-mix(in srgb, var(--mod, var(--accent)) 22%, var(--surface)); text-align: left; }
 .exam-chip-days { font-family: var(--font-display); font-weight: 750; font-size: 1.15rem; }
 .exam-chip-name { font-size: .75rem; color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Großer Countdown, sobald die nächste Prüfung weniger als vier Wochen entfernt ist (Heute und Modulseite) */
+.exam-countdown { display: flex; flex-direction: column; align-items: flex-start; gap: .15rem; width: 100%; padding: 1rem 1.1rem; border-radius: var(--r-row); background: color-mix(in srgb, var(--mod, var(--accent)) 22%, var(--surface)); text-align: left; }
+.exam-countdown-what { font-size: .8rem; font-weight: 650; color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exam-countdown-days { font-family: var(--font-display); font-weight: 780; font-size: 2.5rem; line-height: 1.05; letter-spacing: -.02em; }
+.exam-countdown-meta { font-size: .8rem; color: var(--muted); }
+
+/* Raumwechsel aus dem Stundenplan-Abo: neuer Raum hervorgehoben, alter durchgestrichen */
+.room-new { font-weight: 700; padding: .05rem .35rem; border-radius: .35rem; background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn-text); }
+.hero .room-new { background: var(--on-module); color: var(--mod, var(--accent)); }
+.room-old { opacity: .75; }
+
+/* „Erledigt heute“: abgehakte Einträge mit gefülltem Haken */
+.done-list .todo-check[aria-checked="true"] { background: var(--mod, var(--accent)); color: var(--on-module); border-color: var(--mod, var(--accent)); font-size: .8rem; font-weight: 700; }
+@media (hover: hover) { .done-list .todo-check[aria-checked="true"]:hover::after { content: none; } }
+.done-list .row-title { color: var(--muted); }
 .block { display: block; }
 .popover { width: 19.5rem; }
 .popover .tri { display: flex; width: 100%; }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
 import { useCloudSync } from "./cloud/useCloudSync.js";
+import { blockDone } from "./lib/blocks.js";
 import { COLL, COLLS, DATA_VERSION, DONE_HW } from "./lib/constants.js";
 import { buildWeeklySeries } from "./lib/data.js";
 import { ENV } from "./lib/env.js";
@@ -343,7 +344,7 @@ export default function App() {
   const { timer, timerApi } = useTimer({
     sound: !!data.settings.sound,
     onFocusDone: (init, blockId) => {
-      if (blockId) patch("blocks", blockId, { done: true });
+      if (blockId) patch("blocks", blockId, blockDone(true));
       logFocus(init);
     },
     onBreakDone: () => toast("Pause vorbei. Weiter geht's!"),

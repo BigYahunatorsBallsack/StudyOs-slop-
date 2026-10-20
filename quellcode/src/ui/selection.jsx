@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { PostponeSheet } from "./actions.jsx";
 import { Modal } from "./primitives.jsx";
 import { Select } from "./select.jsx";
+import { blockDone } from "../lib/blocks.js";
 import { COLL, DONE_HW } from "../lib/constants.js";
 import { markAttended, setModule, shiftSessions } from "../lib/entries.js";
 import { modOpts } from "../lib/forms.js";
@@ -70,7 +71,7 @@ export function SelectBar({ db }) {
           <button className="btn btn-ghost" disabled={!items.some((s) => !s.reviewed && !s.cancelled)} onClick={() => db.bulk.reviewed(items)}>Nachbereitet</button>
           <button className="btn btn-ghost" disabled={none} onClick={() => setMoving(true)}>Verschieben</button>
         </>}
-        {sel.kind === "block" && <button className="btn btn-solid" disabled={!items.some((b) => !b.done)} onClick={() => run(`${countLabel("block", items.filter((b) => !b.done).length)} erledigt.`, (d) => ({ ...d, blocks: d.blocks.map((b) => (ids.includes(b.id) ? { ...b, done: true } : b)) }))}>Erledigt</button>}
+        {sel.kind === "block" && <button className="btn btn-solid" disabled={!items.some((b) => !b.done)} onClick={() => run(`${countLabel("block", items.filter((b) => !b.done).length)} erledigt.`, (d) => ({ ...d, blocks: d.blocks.map((b) => (ids.includes(b.id) && !b.done ? { ...b, ...blockDone(true) } : b)) }))}>Erledigt</button>}
         {/* Auswahlfeld als Aktion: zeigt immer „Modul ändern …“, die Wahl ordnet alle ausgewählten Einträge zu */}
         <Select value="" disabled={none} onChange={(e) => e.target.value !== "" && reModule(e.target.value === "-" ? "" : e.target.value)} className="field select-module" aria-label="Modul ändern">
           <option value="">Modul ändern …</option>

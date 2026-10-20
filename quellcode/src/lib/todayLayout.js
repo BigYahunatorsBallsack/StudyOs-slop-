@@ -10,6 +10,7 @@ export const TODAY_BLOCKS = [
   ["ziele", "Wochenziele"],
   ["plan", "Tagesplan"],
   ["todo", "Zu erledigen"],
+  ["erledigt", "Erledigt heute"],
   ["exams", "Prüfungen"],
   ["commute", "Weg zur Uni"],
   ["mensa", "Mensa"],

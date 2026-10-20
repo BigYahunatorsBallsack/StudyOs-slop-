@@ -22,10 +22,10 @@ export function duplicateEntry(kind, item, today, newId = uid) {
     delete x.missed;
     if (Array.isArray(item.subtasks)) x.subtasks = item.subtasks.map((s) => ({ ...s, id: newId(), done: false }));
   } else if (kind === "session") {
-    Object.assign(x, { cancelled: false, prepared: false, attended: false, reviewed: false, reviewedAt: null });
+    Object.assign(x, { cancelled: false, prepared: false, attended: false, reviewed: false, reviewedAt: null, attendedAt: null });
     ["offReason", "offChecked", "watchedTo"].forEach((k) => delete x[k]);
   } else if (kind === "block") {
-    x.done = false;
+    Object.assign(x, { done: false, doneAt: null });
   } else if (kind === "note") {
     Object.assign(x, { sessionId: "", title: `${item.title || "Notiz"} (Kopie)`, updated: today });
   }

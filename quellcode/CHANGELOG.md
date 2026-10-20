@@ -15,6 +15,10 @@
 - **Sync-Status oben:** Mit Cloud-Sync zeigt ein Punkt in der Kopfzeile, ob alles abgeglichen ist (grün), gerade abgeglichen wird (gelb) oder offline (grau) bzw. ein Fehler (rot) ist; der Hinweis nennt die Uhrzeit des letzten Abgleichs. Antippen gleicht sofort ab, bei einem Fehler öffnen sich die Einstellungen.
 - **Wochenraster passt die Uhrzeiten an:** Das Raster beginnt eine Stunde vor dem ersten Termin oder Lernblock der Woche und endet mit dem letzten, statt immer 8 bis 19 Uhr zu zeigen. Leere Wochen zeigen 8 bis 18 Uhr.
 - **Vibration beim Abhaken:** Am Handy vibriert es kurz, wenn du etwas abhakst (überall dort, wo auch die Münze klingt). Abschaltbar unter Daten & Einstellungen, gilt nur für dieses Gerät.
+- **Raumwechsel direkt im „Als Nächstes“:** Meldet der TUMonline-Kalender einen neuen Raum, steht er hervorgehoben bei „Als Nächstes“ auf „Heute“ und auf der Modulseite („Raum neu: Interims 1“), der alte Raum durchgestrichen daneben.
+- **Countdown bis zur Prüfung:** Ist die nächste Prüfung weniger als vier Wochen entfernt, zeigen „Heute“ und die Modulseite groß „noch 12 Tage“, „morgen“ oder „heute“.
+- **„Erledigt heute“:** Ein zugeklappter Bereich auf „Heute“ zeigt, was du heute abgegeben, besucht, nachbereitet und an Lernblöcken geschafft hast, dazu die Lernzeit. Der Haken dort öffnet einen Eintrag wieder; unter „Heute anpassen“ lässt sich der Bereich verschieben oder ausblenden.
+- **Lesbare Abgabefristen:** Abgaben zeigen „Abgabe morgen 23:59“, „Abgabe heute 14:00“, „Abgabe in 3 Tagen“ oder ab einer Woche „Abgabe Fr, 24.10.“. Bleiben weniger als 24 Stunden, ist die Frist rot.
 
 ## 2.11.0
 - **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.
