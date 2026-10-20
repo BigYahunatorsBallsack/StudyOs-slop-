@@ -17,7 +17,7 @@ export function nextUp(data, today = iso(), now = nowHM()) {
   const exam = data.exams.filter((e) => e.date >= today && diffDays(today, e.date) <= 1 && (e.date > today || toMin(e.time || "23:59") >= nowMin)).sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))[0];
   if (exam) return { type: "exam", item: exam, moduleId: exam.moduleId, when: exam.date === today ? `Prüfung heute um ${exam.time || "–"}` : `Prüfung morgen um ${exam.time || "–"}` };
 
-  const open = data.homework.filter((h) => h.due && !DONE_HW.has(h.status)).sort((a, b) => a.due.localeCompare(b.due));
+  const open = data.homework.filter((h) => h.due && !h.missed && !DONE_HW.has(h.status)).sort((a, b) => a.due.localeCompare(b.due));
   const urgent = open.find((h) => h.due <= today);
   if (urgent) return { type: "homework", item: urgent, moduleId: urgent.moduleId, when: urgent.due < today ? `Überfällig seit ${diffDays(urgent.due, today)} ${diffDays(urgent.due, today) === 1 ? "Tag" : "Tagen"}` : "Abgabe heute" };
 

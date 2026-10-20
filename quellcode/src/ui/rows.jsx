@@ -2,7 +2,7 @@ import React from "react";
 import { DONE_HW, HW_STATUS, TOPIC_STATES } from "../lib/constants.js";
 import { dueInfo } from "../lib/data.js";
 import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";
-import { Chip, Empty } from "./primitives.jsx";
+import { Chip, Empty, Icon } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
 import { isOcc, occLabel } from "../lib/occlusion.js";
 import { SwipeRow } from "./swipe.jsx";
@@ -18,7 +18,7 @@ export function SessionRow({ s, db, showDate }) {
     if (!s.reviewed) db.toast(`${m?.name || "Termin"} nachbereitet.`, { label: "Rückgängig", run: () => db.toggleSession(s.id, "reviewed") });
   };
   return (
-    <SwipeRow className={s.cancelled ? "row-muted" : ""} style={{ "--mod": m?.color }} onSwipeRight={s.cancelled ? null : toggleReview} rightLabel={s.reviewed ? "Nicht nachbereitet" : "Nachbereitet"}>
+    <SwipeRow className={s.cancelled ? "row-muted" : ""} style={{ "--mod": m?.color }} onSwipeRight={s.cancelled ? null : toggleReview} rightLabel={s.reviewed ? "Nicht nachbereitet" : "Nachbereitet"} onLongPress={() => db.menu("session", s)}>
       <button onClick={() => db.openForm("session", s)} className="row-main">
         <p className={`row-title truncate ${s.cancelled ? "line-through" : ""}`}>{m?.name || "Ohne Modul"}</p>
         <p className="row-meta">
@@ -44,16 +44,17 @@ export function BlockRow({ b, db, showDate }) {
   const m = db.mod(b.moduleId);
   const mins = Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
   return (
-    <li className={`row row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }}>
+    <SwipeRow className={`row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }} onSwipeRight={() => db.patch("blocks", b.id, { done: !b.done })} rightLabel={b.done ? "Nicht erledigt" : "Erledigt"}
+      onSwipeLeft={b.done ? null : () => db.postpone("block", b)} onLongPress={() => db.menu("block", b)}>
       <div className="flex items-start gap-3">
         <button className="todo-check mt-0.5" role="checkbox" aria-checked={!!b.done} aria-label={`${b.title} erledigt`} onClick={() => db.patch("blocks", b.id, { done: !b.done })}><span aria-hidden="true">{b.done ? "✓" : ""}</span></button>
         <button className="row-main min-w-0 flex-1" onClick={() => db.openForm("block", b)}>
           <p className={`row-title truncate ${b.done ? "line-through" : ""}`}>{b.title}</p>
           <p className="row-meta truncate">Lernblock{showDate ? `, ${fmtShort(b.date)}` : ""}, {b.start}–{b.end}{m ? `, ${m.name}` : ""}</p>
         </button>
-        {!b.done && <button className="btn btn-ghost shrink-0" onClick={() => db.focus({ moduleId: b.moduleId || "", minutes: Math.min(90, mins), kind: b.kind, blockId: b.id })}>Timer</button>}
+        {!b.done && <button className="btn btn-ghost shrink-0" onClick={() => db.focus({ moduleId: b.moduleId || "", minutes: Math.min(90, mins), kind: b.kind, blockId: b.id, note: b.title })}>Timer</button>}
       </div>
-    </li>
+    </SwipeRow>
   );
 }
 
@@ -65,13 +66,15 @@ export function HomeworkRow({ h, db }) {
     db.toast(done ? `„${h.title}“ wieder offen.` : `„${h.title}“ abgegeben.`, { label: "Rückgängig", run: () => db.setHwStatus(h.id, prev) });
   };
   return (
-    <SwipeRow className={done ? "row-muted" : ""} style={{ "--mod": m?.color }} onSwipeRight={toggleDone} rightLabel={done ? "Wieder offen" : "Abgegeben"}>
+    <SwipeRow className={done ? "row-muted" : ""} style={{ "--mod": m?.color }} onSwipeRight={toggleDone} rightLabel={done ? "Wieder offen" : "Abgegeben"}
+      onSwipeLeft={done ? null : () => db.postpone("homework", h)} onLongPress={() => db.menu("homework", h)}>
       <div className="flex items-start gap-3">
         <button onClick={() => db.openForm("homework", h)} className="row-main min-w-0 flex-1">
           <p className={`row-title truncate ${done ? "line-through" : ""}`}>{h.title}</p>
           <p className="row-meta truncate">{m?.name}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}</p>
-          <p className={`text-xs font-semibold ${dl.cls}`}>{dl.text}{h.dueTime && !done ? `, ${h.dueTime} Uhr` : ""}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
+          <p className={`text-xs font-semibold ${dl.cls}`}>{h.missed && !done ? "nicht abgegeben, " : ""}{dl.text}{h.dueTime && !done ? `, ${h.dueTime} Uhr` : ""}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
+        {!done && <button className="btn btn-ghost btn-icon shrink-0" onClick={() => db.focusOn("homework", h)} aria-label={`Timer starten: ${h.title}`} title="Timer starten"><Icon name="play" className="h-4 w-4" /></button>}
         <label className="sr-only" htmlFor={"hw-" + h.id}>Status von {h.title}</label>
         <Select id={"hw-" + h.id} value={h.status} onChange={(e) => db.setHwStatus(h.id, e.target.value)} className="field w-32 shrink-0 py-1.5 text-xs">
           {HW_STATUS.map((x) => <option key={x} value={x}>{x}</option>)}

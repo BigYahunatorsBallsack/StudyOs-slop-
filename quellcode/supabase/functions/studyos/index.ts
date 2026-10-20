@@ -29,7 +29,16 @@ var RULES = {
   /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
   /* Stundenplan geändert: sofort, höchstens 2 Stunden verspätet */
   change: [[0, (x) => x.time, "Stundenplan ge\xE4ndert", (x) => `${x.title}: ${x.body || "ge\xE4ndert"}`, 2 * 36e5]],
-  block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 6e4]]
+  block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 6e4]],
+  /* Tagesüberblick zur gewählten Uhrzeit, höchstens 2 Stunden verspätet */
+  morning: [[0, (x) => x.time || "07:00", "Dein Tag", (x) => x.body || x.title, 2 * 36e5]]
+};
+var act = (action, title, q) => ({ action, title, url: `./?aktion=push&${q}` });
+var ACTIONS = {
+  homework: (x) => [act("done", "Abgegeben", `tun=abgegeben&id=${encodeURIComponent(x.id)}`), act("later", "Verschieben", `tun=verschieben&id=${encodeURIComponent(x.id)}`)],
+  review: (x) => [act("reviewed", "Alles nachbereitet", `tun=nachbereitet&tag=${x.date}`)],
+  block: (x) => [act("timer", "Timer starten", `tun=timer&id=${encodeURIComponent(x.id)}`)],
+  register: (x) => [act("registered", "Angemeldet", `tun=angemeldet&id=${encodeURIComponent(x.id)}`)]
 };
 var minus = (hm2, n) => {
   const [h, m] = String(hm2 || "00:00").split(":").map(Number);
@@ -47,7 +56,14 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
       const at2 = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
       if (sent[key] || at2 > now2 || now2.getTime() - at2.getTime() > maxLate) return;
-      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" || x.kind === "change" ? "./?aktion=heute" : "./?aktion=pruefungen" });
+      out.push({
+        key,
+        title,
+        body: body(x),
+        tag: `${x.kind}-${x.id}`,
+        url: ["homework", "review", "weekly", "block", "change", "morning"].includes(x.kind) ? "./?aktion=heute" : "./?aktion=pruefungen",
+        ...ACTIONS[x.kind] && { actions: ACTIONS[x.kind](x) }
+      });
     });
   }
   return out;
@@ -468,7 +484,7 @@ async function runReminders({ q, cfg, now: now2 = /* @__PURE__ */ new Date(), fe
       for (const sub of subs) {
         if (gone.has(sub.endpoint)) continue;
         try {
-          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url }, vapid, { fetchImpl });
+          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...r.actions && { actions: r.actions } }, vapid, { fetchImpl });
           if (res.ok) {
             delivered = true;
             allGone = false;

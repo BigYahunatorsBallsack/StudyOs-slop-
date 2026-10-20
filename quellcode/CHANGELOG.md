@@ -1,6 +1,21 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Nach links wischen verschiebt:** Abgaben und Lernblöcke nach links wischen und auf morgen, eine Woche später oder einen anderen Tag legen. Nach rechts hakt weiter ab, jetzt auch in „Zu erledigen“ auf „Heute“.
+- **Lange drücken öffnet ein Schnellmenü** (am PC Rechtsklick): Abgegeben, Verschieben, Timer starten, Bearbeiten, Löschen; bei Terminen Nachbereitet, Besucht, Notiz und Aufzeichnung.
+- **Timer direkt am Eintrag:** Das ▶ an Abgaben und Nachbereitungen startet den Timer mit Modul und Art; die Lerneinheit bekommt den Titel als Notiz.
+- **Modulauswahl:** Die drei in den letzten 30 Tagen am meisten genutzten Module stehen oben, archivierte unten.
+- **Am Handy zwischen den Bereichen wischen:** Seitlich wischen wechselt Heute, Module, Woche, Lernen und Mehr (nicht auf Zeilen mit eigener Wischgeste).
+- **Strg + K kann Befehle:** „neue Abgabe“, „timer DS“, „Einstellungen“, „Karten lernen“ und Ähnliches stehen über den Suchtreffern; ohne Eingabe die häufigsten.
+- **Zahl am App-Symbol** der installierten App: fällige und überfällige Abgaben, Nachbereitungen und fällige Karten (abschaltbar unter Daten & Einstellungen).
+- **„Abgegeben?“ bei überfälligen Abgaben:** Ja hakt ab, Nein bietet eine neue Frist oder „Nicht abgegeben“ an; dann verschwindet die Abgabe aus „Zu erledigen“ und den Erinnerungen.
+- **Knöpfe in Benachrichtigungen:** „Abgegeben“ und „Verschieben“ bei Abgaben, „Alles nachbereitet“ abends, „Timer starten“ vor Lernblöcken, „Angemeldet“ beim Anmeldeschluss. Die App öffnet sich kurz und erledigt es. Braucht die neue Edge Function.
+- **Übungsblatt teilen legt die Abgabe an:** Ein an StudyOS geteiltes PDF, das nach Übungsblatt aussieht, wird eine Abgabe mit Anhang. Modul, Blattnummer, Frist und „Aufgabe 1, 2, 3“ liest StudyOS aus Dateiname und Text; ohne erkennbare Frist eine Woche nach dem letzten Blatt. Das Formular öffnet sich zum Prüfen.
+- **Serien erkennen:** Nach dem dritten Blatt im Wochentakt fragt StudyOS einmal, ob es die übrigen bis zu den Semesterferien anlegen soll.
+- **Karteikarten aus Notizen bleiben aktuell:** Beim Speichern einer Notiz werden Zeilen „Frage :: Antwort“ und Lückentexte gleich Karten; geänderte Zeilen ändern die Karte (Lernstand bleibt), gelöschte Zeilen löschen sie.
+- **Morgens der Tag im Überblick:** Push zur gewünschten Uhrzeit (Standard 07:00) mit Terminen, Abgaben, Prüfungen und fälligen Karten; nur an Tagen, an denen etwas ansteht. Braucht die neue Edge Function.
+- **Semesterwechsel:** Gegen Ende der Semesterferien bietet „Heute“ an, das laufende Semester zu archivieren und das nächste aus dem Studienplan zu übernehmen.
+- **Weniger Erklärtext:** Legenden unter Woche und Monat, Hinweise am Timer, bei Themen, in der Lernnotiz, in der Suche und in den Einstellungen sind weg, wo die Bedienung ohnehin klar ist.
 - **Behoben: Lernzeit aus Besuch und Aufzeichnung am falschen Tag.** „Besucht“ und „Aufzeichnung angeschaut bis“ zählen jetzt an dem Tag, an dem du sie abhakst bzw. einträgst, nicht mehr am Tag des Termins.
 - **Behoben: gelöschte Aufzeichnungszeit blieb in der Lernzeit.** Löschst oder verkürzt du „Aufzeichnung angeschaut bis“, verschwinden die Minuten wieder (bzw. werden von den jüngsten Einträgen abgezogen).
 - **Kalender-Karte bleibt auf dem Handy offen:** Tippst du im Wochenraster einen Termin an und hakst in der Karte „Vorbereitet“, „Besucht“ oder „Nachbereitet“ ab, schloss sich die Karte nach dem ersten Haken. Jetzt bleibt sie offen, bis du daneben tippst, und du kannst mehrere Haken nacheinander setzen.

@@ -7,11 +7,13 @@ import { Dot, Modal } from "../ui/primitives.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls } from "../ui/styles.js";
 import { Attachments } from "../ui/Attachments.jsx";
 import { cardsFromNote } from "../lib/cards.js";
+import { matchCommands } from "../lib/commands.js";
 
 export function SearchModal({ data, db, onPick, onClose }) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
-  const results = useMemo(() => searchAll(data, q), [data, q]);
+  /* Befehle zuerst („neue Abgabe“, „timer ds“), dann Treffer in den Daten */
+  const results = useMemo(() => [...matchCommands(q, data.modules).map((c) => ({ kind: "command", label: "Aktion", item: { id: c.id }, title: c.title, sub: c.sub, act: c.act })), ...searchAll(data, q)], [data, q]);
   useEffect(() => setSel(0), [q]);
   const onKey = (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(results.length - 1, s + 1)); }
@@ -21,10 +23,9 @@ export function SearchModal({ data, db, onPick, onClose }) {
   return (
     <Modal title="Suchen" onClose={onClose}>
       <label htmlFor="search-q" className="sr-only">Suchbegriff</label>
-      <input id="search-q" className={inputCls} placeholder="Module, Hausaufgaben, Themen, Notizen, Karten …" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} autoComplete="off" />
+      <input id="search-q" className={inputCls} placeholder="Suchen oder Befehl, z. B. „neue Abgabe“, „timer DS“" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} autoComplete="off" />
       <div className="mt-3">
-        {!q.trim() ? <p className="text-xs text-slate-500">Tipp: Mehrere Wörter grenzen die Suche ein. Am Computer öffnest du die Suche mit Strg + K oder „/“.</p>
-          : !results.length ? <p className="text-sm text-slate-400">Keine Treffer für „{q}“.</p>
+        {!results.length ? <p className="text-sm text-slate-400">Keine Treffer für „{q}“.</p>
           : (
             <ul className="space-y-1" role="listbox" aria-label="Suchergebnisse">
               {results.map((r, i) => { const m = db.mod(r.item.moduleId) || (r.kind === "module" ? r.item : null); return (
@@ -33,7 +34,7 @@ export function SearchModal({ data, db, onPick, onClose }) {
                     <Dot color={m?.color} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm">{r.title}</p>
-                      <p className="truncate text-xs text-slate-500">{r.label} · {r.sub}</p>
+                      <p className="truncate text-xs text-slate-500">{r.kind === "command" ? r.sub : `${r.label} · ${r.sub}`}</p>
                     </div>
                   </button>
                 </li>

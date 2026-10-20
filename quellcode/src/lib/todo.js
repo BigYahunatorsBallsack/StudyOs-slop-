@@ -9,7 +9,7 @@ export const REVIEW_WITHIN_DAYS = 2;
 export function todoItems(data, today = iso()) {
   const out = [];
   data.homework.forEach((h) => {
-    if (DONE_HW.has(h.status) || !h.due || h.due > addDays(today, 7)) return;
+    if (DONE_HW.has(h.status) || h.missed || !h.due || h.due > addDays(today, 7)) return;
     out.push({ kind: "homework", id: h.id, item: h, moduleId: h.moduleId, due: h.due, score: diffDays(today, h.due) });
   });
   data.sessions.forEach((s) => {
@@ -25,6 +25,14 @@ export function todoItems(data, today = iso()) {
   const rank = { register: 0, homework: 1, review: 2, cards: 3 };
   return out.sort((a, b) => a.score - b.score || rank[a.kind] - rank[b.kind] || String(a.due).localeCompare(String(b.due)));
 }
+
+/** Zahl am App-Symbol: was heute noch offen ist (fällige und überfällige Abgaben, Nachbereitungen, Anmeldeschluss heute, fällige Karten als eins) */
+export function openTodayCount(data, today = iso()) {
+  return todoItems(data, today).filter((x) => x.kind === "cards" || x.kind === "review" || x.due <= today).length;
+}
+
+/** Überfällige Abgaben, bei denen StudyOS „Abgegeben?“ fragt */
+export const isLate = (x, today = iso()) => x.kind === "homework" && x.due < today;
 
 /** Kurztext zur Frist: „überfällig“, „heute“, „morgen“, „Fr“, „in 5 Tagen“ */
 export function dueLabel(due, today = iso()) {

@@ -16,11 +16,11 @@ const KIND_WORDS = {
 };
 const SESSION_TYPE = (w) => (/^(zü|zentralübung)$/i.test(w) ? "Zentralübung" : /^(tut|tutorium|tutorübung)$/i.test(w) ? "Tutorium" : /^(übung|uebung|ü|ue)$/i.test(w) ? "Übung" : /^praktikum$/i.test(w) ? "Praktikum" : "Vorlesung");
 
-const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss");
+export const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss");
 const pad = (n) => String(n).padStart(2, "0");
 
 /* Modulsuche: Modulnummer, Wortanfang (ab 3 Zeichen) oder Initialen (z. B. „DS“, „EIDI“) */
-function matchModule(token, modules) {
+export function matchModule(token, modules) {
   const t = norm(token).replace(/[^a-z0-9]/g, "");
   if (t.length < 2) return null;
   let best = null, score = 0;

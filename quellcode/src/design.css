@@ -137,7 +137,8 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .swipe { position: relative; border-radius: var(--r-row); }
 .swipe-under { position: absolute; inset: 0; border-radius: var(--r-row); display: flex; align-items: center; padding: 0 1.1rem; font-weight: 700; font-size: .8125rem; background: var(--ok); color: var(--on-module); opacity: 0; transition: opacity .1s; }
 .swipe-under.swipe-left { justify-content: flex-end; background: var(--surface-3); color: var(--text); }
-.swipe > .row { transition: transform .22s cubic-bezier(.2, .9, .3, 1.2); touch-action: pan-y; will-change: transform; }
+.swipe > .row, .todo-row { transition: transform .22s cubic-bezier(.2, .9, .3, 1.2); touch-action: pan-y; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.swipe > .row { will-change: transform; }
 .swipe.dragging > .row { transition: none; }
 
 /* ---- „Als Nächstes“: die eine laute Stelle ---- */
@@ -365,7 +366,12 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 /* ---- Zu erledigen ---- */
 .todo { display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-group); overflow: hidden; }
 .todo-row { display: flex; align-items: center; gap: .75rem; padding: .55rem .85rem; }
-.todo-row + .todo-row { border-top: 1px solid var(--line); }
+.todo-item { position: relative; }
+.todo-item > .todo-row { position: relative; background: var(--surface); }
+.todo-item + .todo-item > .todo-row { border-top: 1px solid var(--line); }
+.todo-item.dragging > .todo-row { transition: none; }
+.todo-ask { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .35rem; font-size: .8125rem; }
+.todo-play { flex-shrink: 0; }
 .todo-check { flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 999px; border: 2px solid var(--mod, var(--line-strong)); display: grid; place-items: center; transition: background-color .15s, transform .12s; }
 @media (hover: hover) { .todo-check:hover { background: color-mix(in srgb, var(--mod, var(--accent)) 25%, transparent); } }
 @media (hover: hover) { .todo-check:hover::after { content: "✓"; font-size: .8rem; color: var(--text); } }
@@ -482,3 +488,12 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .customize-grip { cursor: grab; touch-action: none; padding: .35rem .3rem; color: var(--muted); font-size: 1.1rem; line-height: 1; }
 .customize-drag .customize-grip { cursor: grabbing; }
 .all-done { display: flex; flex-direction: column; align-items: flex-start; }
+
+/* ---- Schnellmenü (lange drücken) und Verschieben ---- */
+.menu-list { display: flex; flex-direction: column; gap: .35rem; }
+.menu-item { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem .95rem; border-radius: var(--r-row); background: var(--surface-2); color: var(--text); font-weight: 600; font-size: .9375rem; text-align: left; }
+@media (hover: hover) { .menu-item:hover { background: var(--surface-3); } }
+.menu-danger { color: var(--danger-text); }
+.menu-meta { font-weight: 500; font-size: .8125rem; color: var(--muted); }
+/* Seitliches Wischen wechselt den Bereich; der Browser soll dabei nicht zurückblättern */
+html { overscroll-behavior-x: none; }

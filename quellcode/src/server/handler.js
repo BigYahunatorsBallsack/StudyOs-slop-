@@ -115,7 +115,7 @@ export async function runReminders({ q, cfg, now = new Date(), fetchImpl, subjec
       for (const sub of subs) {
         if (gone.has(sub.endpoint)) continue;
         try {
-          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url }, vapid, { fetchImpl });
+          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...(r.actions && { actions: r.actions }) }, vapid, { fetchImpl });
           if (res.ok) { delivered = true; allGone = false; stats.sent++; }
           else if (res.gone) gone.add(sub.endpoint);
           else { allGone = false; stats.failed++; }

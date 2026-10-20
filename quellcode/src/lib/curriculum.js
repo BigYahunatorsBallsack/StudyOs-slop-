@@ -1,7 +1,8 @@
 /* Studienplan-Vorlagen: Pflichtmodule eines Studiengangs auf einen Klick anlegen, dazu die GOP-Regel des Studiengangs.
    gop.stages: bis Ende welchen Fachsemesters wie viele ECTS aus den GOP-Modulen bestanden sein müssen. */
 import { PALETTE } from "./constants.js";
-import { uid } from "./util.js";
+import { addDays, diffDays, iso, uid } from "./util.js";
+import { breaksOf } from "./holidays.js";
 import { baseName } from "./modules.js";
 
 export const CURRICULA = [
@@ -100,4 +101,21 @@ export function setupFromPlan(data, curriculum, current, withPast = false) {
     d = res.data; added += res.added;
   }
   return { data: { ...d, settings: { ...d.settings, curriculum: curriculum.id, program: d.settings?.program || curriculum.program || "" } }, added };
+}
+
+/**
+ * Semesterwechsel: In den letzten drei Wochen der Semesterferien und bis vier Wochen danach bietet „Heute“ an,
+ * das laufende Semester zu archivieren und das nächste aus dem Studienplan zu übernehmen. Einmal je Ferien.
+ * @returns {null | { key: string, from: number, to: number, count: number }}
+ */
+export function semesterSwitch(data, today = iso()) {
+  const plan = curriculumOf(data);
+  if (!plan) return null;
+  const live = data.modules.filter((m) => !m.archived);
+  const current = Math.max(0, ...live.filter((m) => m.status === "belegt").map((m) => Number(m.semester) || 0));
+  if (!current || current >= plan.semesters.length) return null;
+  if (live.some((m) => Number(m.semester) > current)) return null;
+  const brk = breaksOf(data.settings || {}).find((b) => diffDays(b.from, b.to) >= 28 && today >= addDays(b.to, -21) && today <= addDays(b.to, 28));
+  if (!brk || data.settings?.semesterAsked === brk.to) return null;
+  return { key: brk.to, from: current, to: current + 1, count: previewSemester(data, plan, current + 1).filter((x) => !x.existing).length };
 }

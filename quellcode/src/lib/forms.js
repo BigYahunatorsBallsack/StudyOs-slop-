@@ -1,12 +1,23 @@
 import { EXAM_RESULTS, HW_STATUS, LOG_KINDS, MODULE_STATUS, PALETTE, SESSION_TYPES, TOPIC_STATES } from "./constants.js";
-import { byOrder, byTime, fmtShort, iso } from "./util.js";
+import { addDays, byOrder, byTime, fmtShort, iso } from "./util.js";
 import { hasCloze } from "./cards.js";
 import { parseWatch } from "./tum.js";
 
 /* ---------------- Formulardefinitionen ---------------- */
 export const opt = (arr) => arr.map((x) => (typeof x === "string" ? { value: x, label: x } : x));
 
-export const modOpts = (d, empty) => [...(empty ? [{ value: "", label: "Allgemein (kein Modul)" }] : []), ...d.modules.map((m) => ({ value: m.id, label: m.name }))];
+export const modOpts = (d, empty) => [...(empty ? [{ value: "", label: "Allgemein (kein Modul)" }] : []), ...byUse(d).map((m) => ({ value: m.id, label: m.name }))];
+
+/** Module für Auswahlfelder: die drei zuletzt am meisten genutzten zuerst, archivierte zuletzt */
+export function byUse(d, today = iso()) {
+  const from = addDays(today, -30), n = {};
+  const count = (id) => { if (id) n[id] = (n[id] || 0) + 1; };
+  (d.logs || []).forEach((l) => l.date >= from && count(l.moduleId));
+  (d.homework || []).forEach((h) => (h.created || h.issued || "") >= from && count(h.moduleId));
+  (d.notes || []).forEach((x) => (x.updated || x.created || "").slice(0, 10) >= from && count(x.moduleId));
+  const live = d.modules.filter((m) => !m.archived), top = live.filter((m) => n[m.id]).sort((a, b) => n[b.id] - n[a.id]).slice(0, 3);
+  return [...top, ...live.filter((m) => !top.includes(m)), ...d.modules.filter((m) => m.archived)];
+}
 
 export const topicOpts = (d, v) => [{ value: "", label: "– kein Thema –" }, ...d.topics.filter((x) => x.moduleId === v.moduleId).sort(byOrder).map((x) => ({ value: x.id, label: x.title }))];
 
@@ -24,7 +35,7 @@ export function formDef(kind, d) {
       { k: "grade", l: "Note (optional)", t: "decimal", min: 1, max: 5, ph: "z. B. 1,7", half: true },
       { k: "bonusPct", l: "Bonusgrenze HA in % (optional)", t: "decimal", min: 0, max: 100, ph: "z. B. 50", half: true },
       { k: "expectedGrade", l: "Erwartete Note (für die Prognose)", t: "decimal", min: 1, max: 5, ph: "z. B. 2,3", half: true },
-      { k: "weeklyGoal", l: "Lernziel pro Woche in Stunden (optional)", t: "decimal", min: 0, max: 80, ph: "z. B. 4", half: true, hint: "Erscheint auf „Heute“ als Balken; zählt die eingetragene Lernzeit von Montag bis Sonntag." },
+      { k: "weeklyGoal", l: "Lernziel pro Woche in Stunden (optional)", t: "decimal", min: 0, max: 80, ph: "z. B. 4", half: true },
       { k: "liveUrl", l: "Aufzeichnungen (TUM-Live-Link)", t: "url", ph: "https://live.rbg.tum.de/…", half: true },
       { k: "gop", l: "Zählt zur Grundlagenprüfung (GOP)", t: "checkbox" },
       { k: "semesterStart", l: "Semesterbeginn (optional)", t: "date", half: true, hint: "Für die Workload-Ampel; sonst zählt der erste Termin." },
@@ -62,7 +73,7 @@ export function formDef(kind, d) {
       { k: "order", l: "Reihenfolge", t: "number", min: 0, half: true },
       { k: "state", l: "Stand", t: "select", opts: opt(TOPIC_STATES), def: "nicht begonnen", half: true },
       { k: "rating", l: "Selbsteinschätzung", t: "select", num: true, opts: STAR_OPTS, def: 0, half: true },
-      { k: "effort", l: "Aufwand", t: "select", num: true, opts: EFFORT_OPTS, def: 2, half: true, hint: "Große Themen bekommen im Lernplan mehr Zeit." },
+      { k: "effort", l: "Aufwand", t: "select", num: true, opts: EFFORT_OPTS, def: 2, half: true },
     ] };
     case "block": return { title: "Lernblock", fields: [
       { k: "title", l: "Was?", t: "text", req: true, ph: "z. B. Blatt 3 rechnen" },

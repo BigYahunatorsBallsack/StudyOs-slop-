@@ -22,7 +22,6 @@ export function FocusNote({ log, db, onClose, onDetails, onDiscard }) {
           <label htmlFor="fn-note" className="mb-1 block text-xs text-slate-400">Was hast du gemacht? (optional)</label>
           <input id="fn-note" className={inputCls} value={note} maxLength={200} autoComplete="off" enterKeyHint="done"
             placeholder="z. B. Blatt 4, Aufgabe 2 gerechnet" onChange={(e) => setNote(e.target.value)} />
-          <p className="mt-1 text-[11px] text-slate-500">Steht danach im Lerntagebuch des Moduls.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="submit" className={btnPrimary}>{note.trim() ? "Speichern" : "Ohne Notiz weiter"}</button>
