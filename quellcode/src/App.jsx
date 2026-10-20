@@ -56,7 +56,7 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
-import { buildHomeworkSeries, seriesSuggestion, reconcileAllSessionLogs, reconcileSessionLogs, toggleAttended, withoutArchived } from "./lib/study.js";
+import { buildHomeworkSeries, markAttended, seriesSuggestion, reconcileAllSessionLogs, reconcileSessionLogs, toggleAttended, withoutArchived } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, curriculumOf, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
@@ -168,6 +168,11 @@ export default function App() {
       const ids = d.sessions.filter((s) => s.date === day && !s.cancelled && !s.reviewed && (s.date < iso() || (s.end || s.start || "") <= new Date().toTimeString().slice(0, 5))).map((s) => s.id);
       if (!ids.length) return;
       withUndo(`${ids.length} ${ids.length === 1 ? "Termin" : "Termine"} nachbereitet.`, (x) => ({ ...x, sessions: x.sessions.map((s) => (ids.includes(s.id) ? { ...s, reviewed: true, reviewedAt: iso() } : s)) }));
+    } else if (what === "besucht") {
+      const day = params.get("tag") || iso();
+      const ids = d.sessions.filter((s) => s.date === day && !s.cancelled && !s.attended && (s.date < iso() || (s.start || "") <= new Date().toTimeString().slice(0, 5))).map((s) => s.id);
+      if (!ids.length) return;
+      withUndo(`${ids.length} ${ids.length === 1 ? "Termin" : "Termine"} als besucht abgehakt.`, (x) => markAttended(x, ids));
     } else if (what === "timer") {
       const b = (d.blocks || []).find((x) => x.id === id);
       if (b) db.focus({ moduleId: b.moduleId || "", kind: b.kind, blockId: b.id, note: b.title });

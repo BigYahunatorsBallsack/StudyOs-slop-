@@ -23,6 +23,8 @@ const RULES = {
   register: [[3, "18:00", "Anmeldeschluss in 3 Tagen", (x) => `Prüfung ${x.module || x.title}`], [0, "08:00", "Anmeldeschluss heute", (x) => `Prüfung ${x.module || x.title}`]],
   retake: [[7, "18:00", "Wiederholungsprüfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Wiederholungsprüfung morgen", (x) => x.module || x.title]],
   review: [[0, "20:00", "Noch nachzubereiten", (x) => x.body || x.title]],
+  /* Abends: noch nicht als besucht abgehakte Termine des Tages, höchstens 3 Stunden verspätet */
+  attend: [[0, (x) => x.time || "19:00", "Heute besucht?", (x) => x.body || x.title, 3 * 3600000]],
   weekly: [[0, "18:00", "Deine nächste Woche", (x) => x.body || x.title]],
   /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
   /* Stundenplan geändert: sofort, höchstens 2 Stunden verspätet */
@@ -37,6 +39,7 @@ const act = (action, title, q) => ({ action, title, url: `./?aktion=push&${q}` }
 const ACTIONS = {
   homework: (x) => [act("done", "Abgegeben", `tun=abgegeben&id=${encodeURIComponent(x.id)}`), act("later", "Verschieben", `tun=verschieben&id=${encodeURIComponent(x.id)}`)],
   review: (x) => [act("reviewed", "Alles nachbereitet", `tun=nachbereitet&tag=${x.date}`)],
+  attend: (x) => [act("attended", "Alle besucht", `tun=besucht&tag=${x.date}`)],
   block: (x) => [act("timer", "Timer starten", `tun=timer&id=${encodeURIComponent(x.id)}`)],
   register: (x) => [act("registered", "Angemeldet", `tun=angemeldet&id=${encodeURIComponent(x.id)}`)],
 };
@@ -48,7 +51,7 @@ export const MAX_LATE_MS = 12 * 3600 * 1000; /* verpasste Erinnerungen höchsten
  * @param {Record<string, string>} [sent] bereits verschickt: Schlüssel → ISO-Zeit
  * @param {Date} [now]
  * @param {string} [tz]
- * @returns {Array<{ key: string, title: string, body: string, tag: string, url: string, actions?: Array<{ action: string, title: string, url: string }> }>}
+ * @returns {Array<{ key: string, title: string, body: string, tag: string, url: string, ttl?: number, actions?: Array<{ action: string, title: string, url: string }> }>}
  */
 export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europe/Berlin") {
   const out = [];
@@ -60,7 +63,7 @@ export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europ
       const at = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
       if (sent[key] || at > now || now.getTime() - at.getTime() > maxLate) return;
-      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: ["homework", "review", "weekly", "block", "change", "morning"].includes(x.kind) ? "./?aktion=heute" : "./?aktion=pruefungen",
+      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: ["homework", "review", "attend", "weekly", "block", "change", "morning"].includes(x.kind) ? "./?aktion=heute" : "./?aktion=pruefungen",
         ...(ACTIONS[x.kind] && { actions: ACTIONS[x.kind](x) }) });
     });
   }

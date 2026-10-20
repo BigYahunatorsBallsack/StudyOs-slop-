@@ -10,7 +10,7 @@ import { dueReminders, pruneSent } from "./reminders.js";
 import { buildDeadlineIcs } from "./calendar.js";
 import { mvg } from "./mvg.js";
 import { drive } from "./drive.js";
-import { commuteAlert } from "./commute.js";
+import { commuteAlert, leaveAlert } from "./commute.js";
 import { generateVapidKeys, sendPush } from "./webpush.js";
 
 const CORS = {
@@ -95,7 +95,7 @@ export async function authUser(req, env, fetchImpl, now = Date.now()) {
   return user;
 }
 
-export async function runReminders({ q, cfg, now = new Date(), fetchImpl, subject }) {
+export async function runReminders({ q, cfg, now = new Date(), fetchImpl, subject, env = {} }) {
   const vapid = { publicKey: cfg.vapid_public, privateJwk: cfg.vapid_private, subject };
   const rows = (await q("studyos_push?select=user_id,subscriptions,deadlines,sent,tz")) || [];
   const stats = { users: rows.length, sent: 0, failed: 0, removed: 0 };
@@ -109,13 +109,19 @@ export async function runReminders({ q, cfg, now = new Date(), fetchImpl, subjec
       const alert = await commuteAlert(x, now, tz, fetchImpl).catch(() => null);
       if (alert && !sent[alert.key]) due.push(alert);
     }
+    /* „Jetzt losgehen“ vor dem ersten Termin vor Ort (Öffis mit Echtzeit, Auto mit Verkehrslage) */
+    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "leave")) {
+      if (sent[`leave:${x.id}:${x.date}`]) continue;
+      const alert = await leaveAlert(x, now, tz, fetchImpl, env).catch(() => null);
+      if (alert) due.push(alert);
+    }
     const gone = new Set();
     for (const r of due) {
       let delivered = false, allGone = true;
       for (const sub of subs) {
         if (gone.has(sub.endpoint)) continue;
         try {
-          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...(r.actions && { actions: r.actions }) }, vapid, { fetchImpl });
+          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...(r.actions && { actions: r.actions }) }, vapid, { fetchImpl, ...(r.ttl && { ttl: r.ttl }) });
           if (res.ok) { delivered = true; allGone = false; stats.sent++; }
           else if (res.gone) gone.add(sub.endpoint);
           else { allGone = false; stats.failed++; }
@@ -159,7 +165,7 @@ export function createHandler({ env, fetchImpl = fetch, now = () => new Date() }
       if (action === "remind" && req.method === "POST") {
         const cfg = await ensureVapid(q);
         if (!safeEqual(req.headers.get("x-cron-secret"), cfg.cron_secret)) return fail("Nicht berechtigt.", 401);
-        const stats = await runReminders({ q, cfg, now: now(), fetchImpl, subject: env.VAPID_SUBJECT || env.SUPABASE_URL });
+        const stats = await runReminders({ q, cfg, now: now(), fetchImpl, subject: env.VAPID_SUBJECT || env.SUPABASE_URL, env });
         return json(stats);
       }
       if (action === "ics" && req.method === "POST") {
