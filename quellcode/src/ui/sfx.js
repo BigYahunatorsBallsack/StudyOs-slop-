@@ -7,8 +7,20 @@ let enabled = false, ctx = null;
 /** Von der App gesetzt, sobald sich die Einstellung ändert. */
 export function setSfxEnabled(on) { enabled = !!on; }
 
-/** Spielt einen Klang; `force` für die Vorschau beim Einschalten. */
+/* Kurzes Vibrieren beim Abhaken am Handy: nur auf diesem Gerät gemerkt, Voreinstellung an */
+const HAPTIC_KEY = "studyos-vibration";
+export const canVibrate = () => typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+export const hapticsOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== "aus"; } catch { return true; } };
+export const setHapticsOn = (on) => { try { localStorage.setItem(HAPTIC_KEY, on ? "an" : "aus"); } catch { /* egal */ } };
+/** Vibriert kurz, wenn eingeschaltet und vom Browser unterstützt. */
+export function buzz(ms = 15) {
+  if (!canVibrate() || !hapticsOn()) return;
+  try { navigator.vibrate(ms); } catch { /* ohne Vibration weiter */ }
+}
+
+/** Spielt einen Klang; `force` für die Vorschau beim Einschalten. Die Münze (Abhaken) vibriert dazu kurz. */
 export function playSfx(kind, force = false) {
+  if (kind === "coin" && !force) buzz();
   if ((!enabled && !force) || typeof window === "undefined") return;
   const notes = SFX[kind];
   const AC = window.AudioContext || window.webkitAudioContext;

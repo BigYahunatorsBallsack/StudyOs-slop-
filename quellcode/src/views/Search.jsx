@@ -8,12 +8,14 @@ import { btnGhost, btnPrimary, focusRing, inputCls } from "../ui/styles.js";
 import { Attachments } from "../ui/Attachments.jsx";
 import { cardsFromNote } from "../lib/cards.js";
 import { matchCommands } from "../lib/commands.js";
+import { readRecent, recentResults, rememberOpened } from "../lib/recent.js";
 
 export function SearchModal({ data, db, onPick, onClose }) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
-  /* Befehle zuerst („neue Abgabe“, „timer ds“), dann Treffer in den Daten */
-  const results = useMemo(() => [...matchCommands(q, data.modules).map((c) => ({ kind: "command", label: "Aktion", item: { id: c.id }, title: c.title, sub: c.sub, act: c.act })), ...searchAll(data, q)], [data, q]);
+  const [recent] = useState(readRecent);
+  /* Ohne Eingabe zuerst zuletzt Geöffnetes, dann Befehle („neue Abgabe“, „timer ds“), dann Treffer in den Daten */
+  const results = useMemo(() => [...(q.trim() ? [] : recentResults(data, recent)), ...matchCommands(q, data.modules).map((c) => ({ kind: "command", label: "Aktion", item: { id: c.id }, title: c.title, sub: c.sub, act: c.act })), ...searchAll(data, q)], [data, q, recent]);
   useEffect(() => setSel(0), [q]);
   const onKey = (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(results.length - 1, s + 1)); }
@@ -48,6 +50,7 @@ export function SearchModal({ data, db, onPick, onClose }) {
 
 export function NoteViewer({ note, db, onClose, onEdit }) {
   const m = db.mod(note.moduleId), ses = db.data.sessions.find((x) => x.id === note.sessionId);
+  useEffect(() => rememberOpened("note", note.id), [note.id]);
   const notes = db.data.notes;
   const wiki = { resolve: (name) => findNote(notes, name, note.moduleId), open: (id) => db.openNote(id) };
   const back = backlinks(notes, note);

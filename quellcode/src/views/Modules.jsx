@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { DONE_HW, MODULE_STATUS, RING_COLORS } from "../lib/constants.js";
 import { isActive, moduleStats } from "../lib/data.js";
 import { byOrder, byTime, diffDays, fmt, fmtDec, fmtH, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
@@ -10,6 +10,7 @@ import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
 import { bonusForecast, studyDiary, workload } from "../lib/study.js";
+import { rememberOpened } from "../lib/recent.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
 
@@ -96,6 +97,7 @@ export function ModuleDetail({ db, id, onBack }) {
   const { data } = db, m = db.mod(id), s = moduleStats(data, id), t = iso(), gop = gopCodes(curriculumOf(data));
   const [sub, setSub] = useState("uebersicht");
   const [merge, setMerge] = useState(false);
+  useEffect(() => rememberOpened("module", id), [id]);
   const [sesFilter, setSesFilter] = useState("anstehend");
   const sessions = data.sessions.filter((x) => x.moduleId === id).sort(byTime);
   const hw = data.homework.filter((x) => x.moduleId === id).sort((a, b) => (a.due || "").localeCompare(b.due || ""));

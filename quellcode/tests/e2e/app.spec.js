@@ -1354,7 +1354,11 @@ test.describe('am PC mit Maus', () => {
     await page.getByRole('tab', { name: 'Raster' }).click();
     const cols = page.locator('.grid-col');
     const mon = await cols.nth(0).boundingBox(), tue = await cols.nth(1).boundingBox();
-    const hourPx = 46, startH = 8;
+    /* Das Raster beginnt eine Stunde vor dem frühesten Termin (10:00) und zeigt mindestens 8 Stunden */
+    const hours = page.locator('.grid-hour');
+    await expect(hours.first()).toHaveText('9');
+    await expect(hours.last()).toHaveText('17');
+    const hourPx = 46, startH = 9;
     /* Dienstag 14:20 antippen: Beginn 14:15 */
     await page.mouse.click(tue.x + tue.width / 2, tue.y + (14 + 20 / 60 - startH) * hourPx);
     const slot = page.getByRole('dialog', { name: /Neu am .* um 14:15/ });
@@ -1558,4 +1562,44 @@ test('Mehrfachauswahl für Notizen: Modul ändern und löschen, Notiz dupliziere
   await bar.getByRole('button', { name: 'Löschen' }).click();
   await expect(page.getByText('2 Notizen gelöscht.')).toBeVisible();
   await expect.poll(async () => (await stored(page)).notes.map((n) => n.title).sort()).toEqual(['Bäume', 'Graphen']);
+});
+
+test('Strg + K zeigt zuletzt Geöffnetes; Vibration beim Abhaken abschaltbar', async ({ page }) => {
+  await page.addInitScript(() => { window.__buzz = []; navigator.vibrate = (ms) => { window.__buzz.push(ms); return true; }; });
+  await page.goto('./');
+  await seed(page, () => ({ notes: [{ id: 'n1', moduleId: 'ds', title: 'Skript', text: 'x' }, { id: 'n2', moduleId: 'ds', title: 'Weg damit', text: 'y' }] }));
+  await page.reload();
+  const search = () => page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  /* Notizen öffnen, dann das Modul */
+  for (const q of ['weg damit', 'skript']) {
+    await search();
+    await page.getByLabel('Suchbegriff').fill(q);
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Schließen' }).last().click();
+  }
+  await search();
+  await page.getByLabel('Suchbegriff').fill('diskrete');
+  await page.getByRole('option', { name: /Modul/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Diskrete Strukturen' })).toBeVisible();
+  /* gelöschte Notiz fällt weg */
+  await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); await window.STUDYOS_ENV.save({ ...d, notes: d.notes.filter((n) => n.id !== 'n2') }); });
+  await page.reload();
+  await search();
+  const opts = page.getByRole('option');
+  await expect(opts.nth(0)).toContainText('Diskrete Strukturen');
+  await expect(opts.nth(0)).toContainText('Zuletzt geöffnet');
+  await expect(opts.nth(1)).toContainText('Skript');
+  await expect(opts.nth(2)).toContainText('Aktion');
+  await expect(page.getByRole('option', { name: /Weg damit/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  /* Vibration: Voreinstellung an, nur auf diesem Gerät */
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  const vib = page.getByLabel('Kurz vibrieren beim Abhaken (nur dieses Gerät)');
+  await expect(vib).toBeChecked();
+  await vib.uncheck();
+  expect(await page.evaluate(() => localStorage.getItem('studyos-vibration'))).toBe('aus');
+  await vib.check();
+  expect(await page.evaluate(() => window.__buzz)).toEqual([15]);
 });
