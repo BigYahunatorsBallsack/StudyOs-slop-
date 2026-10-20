@@ -4,7 +4,8 @@ import { COLL, DONE_HW } from "../lib/constants.js";
 import { duplicateEntry, sessionNoteDraft, sessionNoteOf } from "../lib/entries.js";
 import { postponeTargets } from "../lib/postpone.js";
 import { blockDone } from "../lib/blocks.js";
-import { addDays, fmtShort, iso } from "../lib/util.js";
+import { addDays, fmtShort, isHeld, iso } from "../lib/util.js";
+import { setFocus } from "../lib/dayview.js";
 import { Modal } from "./primitives.jsx";
 
 const minutesOf = (b) => Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
@@ -23,6 +24,18 @@ export function openSessionNote(db, s) {
   else db.openForm("note", sessionNoteDraft(s, db.mod(s.moduleId)), true);
 }
 
+/** Timer für einen Eintrag starten (Abgabe, Nachbereitung, Lernblock) */
+export function focusTimer(db, kind, item) {
+  if (kind === "block") db.focus({ moduleId: item.moduleId || "", minutes: Math.min(90, minutesOf(item)), kind: item.kind, blockId: item.id, note: item.title });
+  else db.focusOn(kind, item);
+}
+
+/** „Fokus“: „Heute“ zeigt nur noch diesen Eintrag (pro Gerät) */
+export function focusItem(db, kind, item) {
+  setFocus({ kind, id: item.id });
+  db.goTab("heute");
+}
+
 /** Aktionen je Art; jede Aktion ist { label, run, danger? } */
 export function itemActions(db, kind, item) {
   const m = db.mod(item.moduleId);
@@ -32,6 +45,7 @@ export function itemActions(db, kind, item) {
       { label: done ? "Wieder offen" : "Abgegeben", run: () => db.hwDone(item, !done) },
       !done && { label: "Verschieben …", run: () => db.postpone("homework", item) },
       !done && { label: "Timer starten", run: () => db.focusOn("homework", item) },
+      !done && { label: "Fokus", run: () => focusItem(db, "homework", item) },
       { label: "Bearbeiten", run: () => db.openForm("homework", item) },
       { label: "Duplizieren", run: () => duplicate(db, "homework", item) },
       db.select && { label: "Mehrere auswählen", run: () => db.select("homework", item.id) },
@@ -42,7 +56,8 @@ export function itemActions(db, kind, item) {
     return [
       { label: item.done ? "Nicht erledigt" : "Erledigt", run: () => db.patch("blocks", item.id, blockDone(!item.done)) },
       !item.done && { label: "Verschieben …", run: () => db.postpone("block", item) },
-      !item.done && { label: "Timer starten", run: () => db.focus({ moduleId: item.moduleId || "", minutes: Math.min(90, minutesOf(item)), kind: item.kind, blockId: item.id, note: item.title }) },
+      !item.done && { label: "Timer starten", run: () => focusTimer(db, "block", item) },
+      !item.done && { label: "Fokus", run: () => focusItem(db, "block", item) },
       { label: "Bearbeiten", run: () => db.openForm("block", item) },
       { label: "Duplizieren", run: () => duplicate(db, "block", item) },
       db.select && { label: "Mehrere auswählen", run: () => db.select("block", item.id) },
@@ -54,6 +69,7 @@ export function itemActions(db, kind, item) {
       !item.cancelled && { label: item.reviewed ? "Nicht nachbereitet" : "Nachbereitet", run: () => db.toggleSession(item.id, "reviewed") },
       !item.cancelled && { label: item.attended ? "Nicht besucht" : "Besucht", run: () => db.toggleSession(item.id, "attended") },
       !item.cancelled && !item.reviewed && { label: "Timer zum Nachbereiten", run: () => db.focusOn("session", item) },
+      !item.cancelled && !item.reviewed && isHeld(item) && { label: "Fokus aufs Nachbereiten", run: () => focusItem(db, "session", item) },
       { label: "Notiz", run: () => openSessionNote(db, item) },
       /^https:\/\//i.test(m?.liveUrl || "") && { label: "Aufzeichnung öffnen", run: () => window.open(m.liveUrl, "_blank", "noopener") },
       { label: "Bearbeiten", run: () => db.openForm("session", item) },

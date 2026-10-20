@@ -2,8 +2,10 @@
    (todayOrder: Liste der Bereiche, todayHidden: ausgeblendete), damit es auf allen Geräten gleich aussieht. */
 
 export const TODAY_BLOCKS = [
+  ["timeline", "Zeitstrahl"],
   ["next", "Als Nächstes"],
   ["changes", "Stundenplan-Änderungen"],
+  ["morgen", "Morgen (ab 18 Uhr)"],
   ["quick", "Schnelleingabe und „Was jetzt?“"],
   ["minis", "Lernzeit und Serie"],
   ["week", "Wochenkarte (Sonntag und Montag)"],
