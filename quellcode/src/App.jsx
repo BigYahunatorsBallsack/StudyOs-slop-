@@ -628,7 +628,7 @@ export default function App() {
         <div className={`mx-auto flex items-center gap-2 px-4 py-3 ${split && tab === "heute" ? "main-wide" : "max-w-3xl"}`}>
           <h1 className="brand">StudyOS</h1>
           <span className="hidden text-xs text-slate-500 sm:inline">{[data.settings.program, data.settings.university].filter(Boolean).join(", ")}</span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-2">
             <LiveLeft data={data} />
             <TimerBadge timer={timer} onClick={() => db.goLearn("timer")} />
             <SyncDot cloud={cloud} onOpenSettings={() => db.goMore("daten")} />

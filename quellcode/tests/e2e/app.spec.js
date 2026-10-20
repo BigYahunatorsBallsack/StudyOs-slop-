@@ -7,6 +7,11 @@ import { join } from 'node:path';
 /* Fehler aus Konsole und Seite sammeln: jeder Test muss ohne laufen */
 const pageErrors = new WeakMap();
 const MENSA = { days: [0, 1, 2, 3, 4, 5, 6].map((n) => { const d = new Date(); d.setDate(d.getDate() + n); return { date: d.toLocaleDateString('sv-SE'), dishes: [{ name: 'Testpasta mit Tomaten', dish_type: 'Pasta', labels: ['VEGAN'], prices: { students: { base_price: 0, price_per_unit: 0.9, unit: '100g' } } }] }; }) };
+/* Am Wochenende blendet „Heute“ Tagesplan, Als Nächstes und Mensa aus: diese Tests laufen dann am nächsten Montag */
+const onWeekday = async (page) => {
+  const d = new Date();
+  if (d.getDay() % 6 === 0) { d.setDate(d.getDate() + (d.getDay() === 6 ? 2 : 1)); d.setHours(10, 0, 0, 0); await page.clock.setSystemTime(d); }
+};
 test.beforeEach(async ({ page }) => {
   await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: MENSA }));
   await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] })); /* Wetter: nie ins Netz */
@@ -247,6 +252,7 @@ test('Schnelleingabe: Modul vervollständigen, Lernzeit nachtragen, letzte Einga
   await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
   await page.getByRole('list', { name: 'Letzte Eingaben' }).getByRole('button', { name: '1h Diskrete Strukturen gestern' }).click();
   await expect(input).toHaveValue('1h Diskrete Strukturen gestern');
+  await expect.poll(() => input.evaluate((el) => document.activeElement === el && el.value.slice(el.selectionStart, el.selectionEnd))).toBe('gestern');
   await page.keyboard.type('heute');
   await expect(input).toHaveValue('1h Diskrete Strukturen heute');
 });
@@ -517,6 +523,7 @@ const seed = (page, extraFn) => page.evaluate(async (src) => {
 }, extraFn.toString());
 
 test('Blatt-Serie anlegen, Bonus-Prognose und Workload im Modul', async ({ page }) => {
+  await onWeekday(page);
   await page.goto('./');
   await page.evaluate(async () => {
     const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
@@ -603,6 +610,9 @@ test('Studienplan übernehmen und Semester archivieren', async ({ page }) => {
 });
 
 test('Mensa, GOP-Karte, Raum-Link und FSRS-Vorschau', async ({ page }) => {
+  /* fester Werktag mittags: nachts und am Wochenende blendet „Heute“ die Mensa anders ein */
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') });
+  await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [{ ...MENSA.days[0], date: '2026-10-20' }] } }));
   await page.goto('./');
   await seed(page, (day) => ({ settings: { university: 'TUM' },
     modules: [{ id: 'ds', name: 'Diskrete Strukturen', code: 'IN0015', ects: 8, semester: 1, status: 'bestanden', grade: 2.0, color: '#34d399', liveUrl: 'https://live.rbg.tum.de/old/course/2026/W/ds' },
@@ -856,6 +866,7 @@ test('Knopf auf „Als Nächstes“ bleibt nach dem Antippen in der Modulfarbe (
 });
 
 test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; Retro-Animationen umschalten', async ({ page }) => {
+  await onWeekday(page);
   await loadDemo(page);
   await expect.poll(async () => (await stored(page))?.modules?.length ?? 0).toBeGreaterThan(0);
   await page.evaluate(async () => {
@@ -1311,6 +1322,7 @@ test('Monatsansicht: Punkte für Abgaben und Prüfungen, ein Tag öffnet seine W
 });
 
 test('Breiter Bildschirm: Heute und Woche nebeneinander, abschaltbar', async ({ page }) => {
+  await onWeekday(page);
   await page.setViewportSize({ width: 1400, height: 900 });
   await loadDemo(page);
   await nav(page, 'Heute').click();
@@ -1348,6 +1360,7 @@ test('Feiertage: Termin an Allerheiligen fällt aus, Rückgängig holt ihn zurü
 });
 
 test('Stundenplan-Änderung erscheint auf Heute, „Verstanden“ blendet sie aus', async ({ page }) => {
+  await onWeekday(page);
   await page.goto('./');
   await page.evaluate(async () => {
     const t = new Date(); t.setDate(t.getDate() + 2);

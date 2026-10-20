@@ -3,6 +3,8 @@ import { test, expect } from '@playwright/test';
 /* Notizen: Checklisten, Anheften, Karte aus markiertem Text; schwere Karten */
 const pageErrors = new WeakMap();
 test.beforeEach(async ({ page }) => {
+  await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
+  await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] })); /* Wetter: nie ins Netz */
   const list = [];
   pageErrors.set(page, list);
   page.on('pageerror', (e) => list.push(String(e)));
