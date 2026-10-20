@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.
 - **Nach links wischen verschiebt:** Abgaben und Lernblöcke nach links wischen und auf morgen, eine Woche später oder einen anderen Tag legen. Nach rechts hakt weiter ab, jetzt auch in „Zu erledigen“ auf „Heute“.
 - **Lange drücken öffnet ein Schnellmenü** (am PC Rechtsklick): Abgegeben, Verschieben, Timer starten, Bearbeiten, Löschen; bei Terminen Nachbereitet, Besucht, Notiz und Aufzeichnung.
 - **Timer direkt am Eintrag:** Das ▶ an Abgaben und Nachbereitungen startet den Timer mit Modul und Art; die Lerneinheit bekommt den Titel als Notiz.

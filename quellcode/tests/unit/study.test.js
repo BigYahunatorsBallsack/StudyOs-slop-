@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextTitle, buildHomeworkSeries, bonusForecast, workload, workloadOverview, studyDiary, syncWatchLogs, toggleAttended, sessionCoverage, withoutArchived } from "../../src/lib/study.js";
+import { nextTitle, buildHomeworkSeries, bonusForecast, workload, workloadOverview, studyDiary, reconcileSessionLogs, reconcileAllSessionLogs, toggleAttended, sessionCoverage, withoutArchived } from "../../src/lib/study.js";
 import { cardsFromNote } from "../../src/lib/cards.js";
 import { emptyData } from "../../src/lib/data.js";
 
@@ -84,28 +84,63 @@ describe("Aufzeichnung als Lernzeit", () => {
   const s = { id: "s", moduleId: "m", type: "Vorlesung", date: "2026-10-13", watchedTo: "47:12" };
   const mins = (logs) => logs.filter((l) => l.kind === "Aufzeichnung").map((l) => [l.date, l.minutes]);
   it("zählt neu angeschaute Minuten am Tag des Eintragens, nie doppelt", () => {
-    const a = syncWatchLogs([], s, "2026-10-14");
+    const a = reconcileSessionLogs([], s, "2026-10-14");
     expect(a.delta).toBe(47);
     expect(a.logs[0]).toMatchObject({ moduleId: "m", sessionId: "s", kind: "Aufzeichnung", date: "2026-10-14" });
     expect(a.logs[0].note).toContain("bis 47:12");
-    expect(syncWatchLogs(a.logs, s).delta).toBe(0);
-    const b = syncWatchLogs(a.logs, { ...s, watchedTo: "1:20:00" }, "2026-10-16");
+    expect(reconcileSessionLogs(a.logs, s).delta).toBe(0);
+    const b = reconcileSessionLogs(a.logs, { ...s, watchedTo: "1:20:00" }, "2026-10-16");
     expect(mins(b.logs)).toEqual([["2026-10-14", 47], ["2026-10-16", 33]]);
   });
   it("zurückgestellt zieht von der jüngsten Einheit ab, gelöscht entfernt alles", () => {
-    const a = syncWatchLogs([], s, "2026-10-14").logs;
-    const b = syncWatchLogs(a, { ...s, watchedTo: "1:20:00" }, "2026-10-16").logs;
-    const c = syncWatchLogs(b, { ...s, watchedTo: "40" });
+    const a = reconcileSessionLogs([], s, "2026-10-14").logs;
+    const b = reconcileSessionLogs(a, { ...s, watchedTo: "1:20:00" }, "2026-10-16").logs;
+    const c = reconcileSessionLogs(b, { ...s, watchedTo: "40" });
     expect(c.delta).toBe(-40);
     expect(mins(c.logs)).toEqual([["2026-10-14", 40]]);
-    const d = syncWatchLogs([...c.logs, { id: "x", kind: "Nacharbeiten", minutes: 30 }], { ...s, watchedTo: "" });
+    const d = reconcileSessionLogs([...c.logs, { id: "x", kind: "Nacharbeiten", minutes: 30 }], { ...s, watchedTo: "" });
     expect(d.delta).toBe(-40);
     expect(d.logs.map((l) => l.id)).toEqual(["x"]);
   });
   it("ungültige Eingabe ändert nichts", () => {
-    const a = syncWatchLogs([], s).logs;
-    expect(syncWatchLogs(a, { ...s, watchedTo: "abc" })).toEqual({ logs: a, delta: 0 });
-    expect(syncWatchLogs([], { ...s, moduleId: "" }).delta).toBe(0);
+    const a = reconcileSessionLogs([], s).logs;
+    expect(reconcileSessionLogs(a, { ...s, watchedTo: "abc" })).toEqual({ logs: a, delta: 0 });
+    expect(reconcileSessionLogs([], { ...s, moduleId: "" }).delta).toBe(0);
+  });
+});
+
+describe("Ein Termin zählt höchstens seine Länge", () => {
+  const s = { id: "s", moduleId: "m", type: "Vorlesung", date: "2026-10-13", start: "10:15", end: "11:45", watchedTo: "60" };
+  const data = (logs = []) => ({ ...emptyData(), modules: [{ id: "m", ects: 5, status: "belegt" }], sessions: [s], logs });
+  const total = (d) => d.logs.filter((l) => l.sessionId === "s").reduce((n, l) => n + l.minutes, 0);
+  it("Aufzeichnung löschen, dann Besucht: genau die Länge", () => {
+    let d = data(reconcileSessionLogs([], s, "2026-10-14").logs);
+    expect(total(d)).toBe(60);
+    d = { ...d, sessions: [{ ...s, watchedTo: "" }], logs: reconcileSessionLogs(d.logs, { ...s, watchedTo: "" }).logs };
+    expect(total(d)).toBe(0);
+    d = toggleAttended(d, "s", "2026-10-15");
+    expect(d.logs.map((l) => [l.kind, l.minutes])).toEqual([["Besucht", 90]]);
+  });
+  it("Besucht ersetzt angeschaute Minuten, Zurücknehmen bringt sie wieder", () => {
+    const d = toggleAttended(data(reconcileSessionLogs([], s, "2026-10-14").logs), "s", "2026-10-15");
+    expect(d.logs.map((l) => [l.kind, l.minutes])).toEqual([["Besucht", 90]]);
+    const off = toggleAttended(d, "s", "2026-10-16");
+    expect(off.logs.map((l) => [l.kind, l.minutes, l.date])).toEqual([["Aufzeichnung", 60, "2026-10-16"]]);
+  });
+  it("angeschaut bis über die Länge hinaus zählt nur die Länge", () => {
+    expect(reconcileSessionLogs([], { ...s, watchedTo: "2:00:00" }).delta).toBe(90);
+  });
+  it("räumt alte Daten auf: Aufzeichnung trotz gelöschter Zeit oder neben Besucht", () => {
+    const old = [{ id: "a", sessionId: "s", kind: "Aufzeichnung", minutes: 60, date: "2026-10-13" }, { id: "b", sessionId: "s", kind: "Besucht", minutes: 90, date: "2026-10-13" }, { id: "c", kind: "Nacharbeiten", minutes: 30 }];
+    const d = { ...data(old), sessions: [{ ...s, watchedTo: "", attended: true }] };
+    expect(reconcileAllSessionLogs(d).logs.map((l) => l.id)).toEqual(["b", "c"]);
+    const gone = { ...data(old.slice(0, 1)), sessions: [{ ...s, watchedTo: "" }] };
+    expect(reconcileAllSessionLogs(gone).logs).toEqual([]);
+    const fine = data(reconcileSessionLogs([], s).logs);
+    expect(reconcileAllSessionLogs(fine)).toBe(fine);
+    // früher abgehakt ohne Einheit: Aufräumen legt nichts an
+    const plain = { ...data([{ id: "x", sessionId: "s", kind: "Aufzeichnung", minutes: 10 }]), sessions: [{ ...s, attended: true }] };
+    expect(reconcileAllSessionLogs(plain).logs).toEqual([]);
   });
 });
 
