@@ -9,6 +9,7 @@ const STILL = `*, *::before, *::after { animation: none !important; transition: 
 async function setup(page, theme) {
   await page.clock.setFixedTime(NOW);
   await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
+  await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
   await page.goto('./');
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();

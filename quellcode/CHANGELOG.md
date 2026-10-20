@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Wetter auf „Weg zur Uni“:** Unter der Verbindung steht in einer Zeile mit Pixel-Symbol, wie das Wetter beim Losgehen in Zorneding (bzw. an deinem Standort) und bei der Rückfahrt nach dem letzten Termin am Campus ist, z. B. „Regen ab 8 Uhr, Schirm mitnehmen · 9 °C“ oder „trocken · 14 °C“. Die Vorhersage kommt von Open-Meteo, ohne Anmeldung; der Standort geht dafür nur auf etwa einen Kilometer gerundet hin. Offline fehlt die Zeile einfach.
 - **Fester Weg zur Uni:** Mit den Öffis geht es immer mit der S6 ab Zorneding und in Haar weiter mit dem Bus 230 zum Campus Garching, Haltestellen und Linien stellt man nicht mehr ein. Mit dem Auto geht es ab Zorneding oder dem aktuellen Standort, als Ziel wählst du auf „Heute“ oder in den Einstellungen Campus Garching oder Campus Weihenstephan (Freising). Wer Pharmazeutische Bioprozesstechnik studiert, startet mit Weihenstephan.
 - **Karteikarten zählen als Lernzeit:** Die Zeit beim Abfragen landet automatisch als Lerneinheit „Karteikarten“ beim Modul, eine pro Modul und Tag, und zählt für Serie, Wochenziel und ECTS-Soll. Längere Pausen zählen nicht mit, und läuft gleichzeitig der Fokus-Timer, zählt nur der.
 - **Karteikarten per Wischen bewerten:** Nach dem Aufdecken am Handy nach rechts wischen heißt „gewusst“ (Gut), nach links „nicht gewusst“ (Nochmal). Knöpfe und die Tasten 1 bis 4 gehen weiter; die Tasten wechseln jetzt nicht mehr nebenbei den Bereich.

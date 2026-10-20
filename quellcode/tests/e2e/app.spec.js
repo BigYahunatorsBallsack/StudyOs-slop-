@@ -9,6 +9,7 @@ const pageErrors = new WeakMap();
 const MENSA = { days: [0, 1, 2, 3, 4, 5, 6].map((n) => { const d = new Date(); d.setDate(d.getDate() + n); return { date: d.toLocaleDateString('sv-SE'), dishes: [{ name: 'Testpasta mit Tomaten', dish_type: 'Pasta', labels: ['VEGAN'], prices: { students: { base_price: 0, price_per_unit: 0.9, unit: '100g' } } }] }; }) };
 test.beforeEach(async ({ page }) => {
   await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: MENSA }));
+  await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] })); /* Wetter: nie ins Netz */
   const list = [];
   pageErrors.set(page, list);
   page.on('pageerror', (e) => list.push(String(e)));
@@ -71,6 +72,7 @@ test('verschlüsselte Sicherung: Export, falsche und richtige Passphrase, Zusamm
 
   // Zweites Gerät (eigener Browser-Kontext): eigene Notiz, dann Sicherung einspielen
   const ctx = await browser.newContext({ locale: 'de-DE', acceptDownloads: true });
+  await ctx.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
   const b = await ctx.newPage();
   const errs = [];
   b.on('pageerror', (e) => errs.push(String(e)));
@@ -336,6 +338,7 @@ const session = (page, id) => page.evaluate(async (id) => (await window.STUDYOS_
 
 test('Wochenraster: Maus kurz über Termin zeigt Karte, dort abhaken; Klick öffnet weiter das Formular', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, locale: 'de-DE' });
+  await ctx.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
   const page = await ctx.newPage();
   await loadDemo(page);
   await sessionToday(page, '00:05', '00:06');

@@ -12,11 +12,12 @@ export const LEGACY_COMMUTE = {
 };
 
 /* Fester Weg: mit den Öffis immer S6 ab Zorneding, in Haar in den Bus 230 zum Campus Garching. Mit dem Auto ab Zorneding
-   (oder dem aktuellen Standort) zu einem der Campus. */
+   (oder dem aktuellen Standort) zu einem der Campus. Koordinaten (gerundet) fürs Wetter. */
 export const CAMPUSES = [
-  { id: "garching", name: "Campus Garching", to: LEGACY_COMMUTE.car.to },
-  { id: "weihenstephan", name: "Campus Weihenstephan (Freising)", to: "Alte Akademie 8, 85354 Freising" },
+  { id: "garching", name: "Campus Garching", short: "Garching", to: LEGACY_COMMUTE.car.to, lat: 48.26, lon: 11.67 },
+  { id: "weihenstephan", name: "Campus Weihenstephan (Freising)", short: "Weihenstephan", to: "Alte Akademie 8, 85354 Freising", lat: 48.4, lon: 11.72 },
 ];
+export const HOME = { name: "Zorneding", lat: 48.08, lon: 11.83 };
 const FIXED_TRANSIT = { station: LEGACY_COMMUTE.station, line: "230", towards: "Forschungszentrum", avoid: "", travel: 50, feeder: LEGACY_COMMUTE.feeder };
 export const CAR_FROM = "Zorneding";
 

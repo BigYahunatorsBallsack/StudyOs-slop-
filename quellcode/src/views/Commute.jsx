@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CAMPUSES, carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, hhmm, mapsLink, matches, queryOffset, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
 import { fmtShort, iso } from "../lib/util.js";
+import { estimateLeave, forecastUrl, parseForecast, returnAt, summarize, weatherLine, weatherPlaces } from "../lib/weather.js";
 import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
 import { useGroupOpens } from "../ui/collapse.jsx";
 import { Select } from "../ui/select.jsx";
@@ -54,8 +55,44 @@ function transitState(raw, c, session) {
   };
 }
 
+/* Wetter für Start (zur Losgeh-Zeit) und Ziel (zur Rückfahrt nach dem letzten Termin), direkt von Open-Meteo.
+   Letzter Stand bis 60 Minuten sofort, erneuert ab 15 Minuten Alter und alle 30 Minuten; offline einfach nichts. */
+const WX = "studyos-wetter";
+const readWx = (url) => { try { const v = JSON.parse(localStorage.getItem(WX) || "null"); return v && v.url === url && Date.now() - v.at < 60 * 60000 ? v : null; } catch { return null; } };
+function Weather({ c, session, sessions, leaveAt, pos, tick }) {
+  const places = weatherPlaces(c, pos);
+  const url = forecastUrl([places.start, places.goal]);
+  const [wx, setWx] = useState(() => readWx(url));
+  const slot = Math.floor(tick / 30);
+  useEffect(() => {
+    const hit = readWx(url);
+    if (hit) setWx(hit);
+    if (hit && Date.now() - hit.at < 15 * 60000) return;
+    let live = true;
+    fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then((json) => {
+      const v = { url, at: Date.now(), days: parseForecast(json) };
+      try { localStorage.setItem(WX, JSON.stringify(v)); } catch { /* egal */ }
+      if (live) setWx(v);
+    }).catch(() => { /* offline oder Dienst weg: keine Wetterzeile */ });
+    return () => { live = false; };
+  }, [url, slot]);
+  const days = wx?.url === url ? wx.days : null;
+  if (!days || !session) return null;
+  const leave = leaveAt || estimateLeave(session, c), back = returnAt(sessions, session.date);
+  const rows = [
+    [leave, places.start.name, summarize(days[0], leave)],
+    [back, `zurück ab ${places.goal.name}`, back && summarize(days[1], back)],
+  ].filter((r) => r[2]);
+  if (!rows.length) return null;
+  return (
+    <ol className="commute-steps mt-2" aria-label="Wetter">
+      {rows.map(([t, where, w]) => <li key={where}><PxIcon name={`wx-${w.icon}`} /><span><b className="font-num">{hhmm(t)}</b> {where}: {weatherLine(w)}</span></li>)}
+    </ol>
+  );
+}
+
 /* Mit dem Auto: Fahrzeit mit Verkehr alle 5 Minuten neu, solange die Seite offen ist */
-function CarView({ db, c, session, ready, tick }) {
+function CarView({ db, c, session, sessions, ready, tick }) {
   const fromHere = !!c.car.fromHere;
   /* zuletzt bekannter Standort und letzte Route sofort zeigen */
   const [here, setHere] = useState(() => ({ pos: (fromHere && readCache("pos")?.pos) || "", err: "" })); /* aktueller Standort als „Breite,Länge“ (auf ca. 10 m gerundet) */
@@ -105,6 +142,7 @@ function CarView({ db, c, session, ready, tick }) {
           </div>
         )}
       <Stand at={r && state.at} />
+      <Weather c={c} session={session} sessions={sessions} leaveAt={p?.leaveAt} pos={useHere ? here.pos : ""} tick={tick} />
       <label className="mt-3 block text-xs text-slate-400">Ziel
         <Select className="field mt-1 w-full text-sm" value={c.car.campus} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, campus: e.target.value } } })}>
           {CAMPUSES.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
@@ -188,6 +226,7 @@ export function CommuteCard({ db, sessions }) {
   if (!c) return null;
   const m = session ? db.mod(session.moduleId) : null;
   const f = c.feeder, p = state.plan;
+  const shown = !(!ready && (db.cloud?.phase !== "loading" || !state.main)) && !state.err && !!state.main; /* Abfahrten da */
   return (
     <section className="surface commute-card" aria-label="Weg zur Uni">
       <h3 className="section-title">Weg zur Uni</h3>
@@ -200,13 +239,13 @@ export function CommuteCard({ db, sessions }) {
         </label>
       )}
       {incomplete ? <p className="mt-2 text-sm text-slate-400">{car ? "Start und Ziel" : "Haltestelle"} unter „Daten & Einstellungen“ → „Weg zur Uni“ eintragen.</p>
-        : car ? <CarView db={db} c={c} session={session} ready={ready} tick={tick} />
-        : !ready && (db.cloud?.phase !== "loading" || !state.main) ? <p className="mt-2 text-sm text-slate-400">{db.cloud?.phase === "loading" ? "Lädt …" : "Für Abfahrten unter „Daten“ beim Cloud-Sync anmelden."}</p>
-        : state.err ? <p className="mt-2 text-sm text-slate-400">{state.err}</p>
-        : !state.main ? <p className="mt-2 text-sm text-slate-400" role="status">Lädt …</p>
+        : car ? <CarView db={db} c={c} session={session} sessions={sessions} ready={ready} tick={tick} />
         : (
           <>
-            {session && (p ? (
+            {!ready && (db.cloud?.phase !== "loading" || !state.main) ? <p className="mt-2 text-sm text-slate-400">{db.cloud?.phase === "loading" ? "Lädt …" : "Für Abfahrten unter „Daten“ beim Cloud-Sync anmelden."}</p>
+              : state.err ? <p className="mt-2 text-sm text-slate-400">{state.err}</p>
+              : !state.main ? <p className="mt-2 text-sm text-slate-400" role="status">Lädt …</p>
+              : session && (p ? (
               <div className="commute-plan mt-2" style={{ "--mod": m?.color }}>
                 <p>Für <b>{m?.name || "deine Vorlesung"}</b> {dayWord(session.date)} um {session.start}: <b>um {hhmm(p.leaveAt)} losgehen</b>{c.walk ? `, ${c.walk} Min. zu Fuß zur Haltestelle` : ""}</p>
                 <ol className="commute-steps mt-1.5">
@@ -217,8 +256,9 @@ export function CommuteCard({ db, sessions }) {
                 </ol>
               </div>
             ) : <p className="mt-2 text-sm text-slate-400">Für {m?.name || "die erste Vorlesung"} {dayWord(session.date)} um {session.start} keine passende Verbindung gefunden.</p>)}
-            <Stand at={state.at} />
-            {notes.length > 0 && (
+            {shown && <Stand at={state.at} />}
+            <Weather c={c} session={session} sessions={sessions} leaveAt={shown ? p?.leaveAt : null} tick={tick} />
+            {shown && notes.length > 0 && (
               <ul className="mt-3 space-y-2" aria-label="Störungen und Baustellen">
                 {notes.map((n, i) => (
                   <li key={i} className={`notice ${n.incident ? "notice-warn" : "notice-plain"} text-sm`}>
@@ -230,8 +270,8 @@ export function CommuteCard({ db, sessions }) {
                 ))}
               </ul>
             )}
-            {f && <DepList icon={vehicle({ line: f.line, type: state.feeder?.[0]?.type }).icon} title={`Nächste Abfahrten: ${f.line || "Bahn"} in ${f.station.name}`} deps={state.feeder || []} />}
-            <DepList icon={vehicle({ line: c.line, type: state.main?.[0]?.type }).icon} title={`Nächste Abfahrten: ${lineName(c.line)} in ${c.station.name}${c.towards ? ` Richtung ${c.towards}` : ""}`} deps={state.main} />
+            {shown && f && <DepList icon={vehicle({ line: f.line, type: state.feeder?.[0]?.type }).icon} title={`Nächste Abfahrten: ${f.line || "Bahn"} in ${f.station.name}`} deps={state.feeder || []} />}
+            {shown && <DepList icon={vehicle({ line: c.line, type: state.main?.[0]?.type }).icon} title={`Nächste Abfahrten: ${lineName(c.line)} in ${c.station.name}${c.towards ? ` Richtung ${c.towards}` : ""}`} deps={state.main} />}
           </>
         )}
       {ride > 0 && <span key={ride} className={`px-ride px-${car ? "car" : vehicle({ line: c.line }).icon}`} aria-hidden="true" />}
