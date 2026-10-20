@@ -8,8 +8,9 @@ import { SessionPopover, useHoverCard } from "../ui/session.jsx";
 import { suggestBlocks } from "../lib/blocks.js";
 import { sessionCoverage } from "../lib/study.js";
 import { offDay } from "../lib/holidays.js";
-import { dragTo, movePatch, slotAt } from "../lib/gridmove.js";
+import { dragTo, hourRange, movePatch, slotAt } from "../lib/gridmove.js";
 import { toHM } from "../lib/blocks.js";
+import { PullRefresh } from "../ui/pull.jsx";
 
 const HOUR_PX = 46;
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
@@ -53,6 +54,7 @@ export function WeekView({ db, compact = false }) {
 
   return (
     <div className="space-y-4">
+      {!compact && <PullRefresh db={db} />}
       <div className="flex items-end justify-between gap-2">
         <div>
           <H className={compact ? "section-title" : "page-title"}>{isMonth ? monthName(month) : `Woche ${isoWeek(ws)}`}</H>
@@ -180,12 +182,13 @@ function WeekGrid({ db, days, weekSes }) {
   const weekend = days.slice(5).filter((d) => d === t || weekSes.some((s) => s.date === d) || data.exams.some((e) => e.date === d) || data.homework.some((h) => h.due === d) || (data.blocks || []).some((b) => b.date === d));
   const shown = [...days.slice(0, 5), ...weekend];
   const preview = (x) => (drag && x.id === drag.id ? { ...x, date: drag.date, start: drag.start, end: drag.end } : x);
-  const active = weekSes.map(preview).filter((s) => shown.includes(s.date));
-  const exams = data.exams.filter((e) => shown.includes(e.date) && e.time);
-  const blocks = (data.blocks || []).map(preview).filter((b) => shown.includes(b.date)).map((b) => ({ ...b, isBlock: true }));
-  const timed = [...active, ...blocks, ...exams.map((e) => ({ ...e, isExam: true, start: e.time, end: `${String(Math.min(23, toMin(e.time) / 60 + 2 | 0)).padStart(2, "0")}:${String(toMin(e.time) % 60).padStart(2, "0")}` }))];
-  const startH = Math.min(8, ...timed.map((s) => Math.floor(toMin(s.start) / 60)));
-  const endH = Math.max(19, ...timed.map((s) => Math.ceil(toMin(s.end || s.start) / 60)));
+  const exams = data.exams.filter((e) => shown.includes(e.date) && e.time).map((e) => ({ ...e, isExam: true, start: e.time, end: `${String(Math.min(23, toMin(e.time) / 60 + 2 | 0)).padStart(2, "0")}:${String(toMin(e.time) % 60).padStart(2, "0")}` }));
+  const allBlocks = (data.blocks || []).map((b) => ({ ...b, isBlock: true }));
+  const timed = [...weekSes, ...allBlocks].map(preview).filter((x) => shown.includes(x.date)).concat(exams);
+  /* Uhrzeiten nach dem, was in der Woche liegt; beim Ziehen nur wachsen (nicht schrumpfen), damit das Raster nicht springt */
+  const base = hourRange([...weekSes, ...allBlocks].filter((x) => shown.includes(x.date)).concat(exams));
+  const moved = drag ? { startH: Math.floor(toMin(drag.start) / 60), endH: Math.ceil(toMin(drag.end) / 60) } : base;
+  const startH = Math.min(base.startH, moved.startH), endH = Math.max(base.endH, moved.endH);
   const height = (endH - startH) * HOUR_PX;
   const y = (min) => ((min - startH * 60) / 60) * HOUR_PX;
   const hours = Array.from({ length: endH - startH + 1 }, (_, i) => startH + i);

@@ -23,6 +23,7 @@ import { useAmbient } from "./ui/ambient.js";
 import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 import { playSfx, setSfxEnabled } from "./ui/sfx.js";
+import { SyncDot } from "./ui/syncdot.jsx";
 import { ItemMenu, PostponeSheet } from "./ui/actions.jsx";
 import { SelectBar } from "./ui/selection.jsx";
 import { postponeHomework } from "./lib/postpone.js";
@@ -592,6 +593,7 @@ export default function App() {
           <span className="hidden text-xs text-slate-500 sm:inline">{[data.settings.program, data.settings.university].filter(Boolean).join(", ")}</span>
           <div className="ml-auto flex items-center gap-2">
             <TimerBadge timer={timer} onClick={() => db.goLearn("timer")} />
+            <SyncDot cloud={cloud} onOpenSettings={() => db.goMore("daten")} />
             {saveState === "memory" && dirty && (
               <button onClick={() => db.goMore("daten")} className="pill-status bg-amber-500/15 text-amber-200">Nicht gesichert</button>
             )}

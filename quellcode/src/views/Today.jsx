@@ -23,6 +23,7 @@ import { CustomizeToday } from "../ui/CustomizeToday.jsx";
 import { Setup } from "../ui/Setup.jsx";
 import { SubtaskProgress } from "../ui/subtasks.jsx";
 import { subProgress } from "../lib/subtasks.js";
+import { PullRefresh } from "../ui/pull.jsx";
 import { offDay } from "../lib/holidays.js";
 import { describeChange, feedChanges } from "../lib/feed.js";
 import { semesterSwitch } from "../lib/curriculum.js";
@@ -159,6 +160,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
 
   return (
     <div>
+      <PullRefresh db={db} />
       <div className="mb-4">
         <h2 className="page-title">{WD_LONG[wdIdx(t)]}</h2>
         <p className="page-sub">{longDate}, Woche {isoWeek(t)}{off ? `, ${off.label}` : ""}</p>

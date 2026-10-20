@@ -204,6 +204,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .stats, :root[data-theme="retro"] .exam-chips { padding-top: 3px; padding-bottom: 7px; }
 :root[data-theme="retro"] .stat-label { font-size: .65rem; }
 :root[data-theme="retro"] .pill-status { font-size: .65rem; }
+:root[data-theme="retro"] .sync-dot-mark { border-radius: 0; width: 6px; height: 6px; box-shadow: 0 0 0 2px var(--bg); }
 :root[data-theme="retro"] kbd, :root[data-theme="retro"] .kbd { font-family: var(--font-body); box-shadow: 0 2px 0 0 var(--pxc); }
 
 /* ---- „Als Nächstes“: Neon-Rahmen in der Modulfarbe und Synthwave-Sonne aus Streifen ---- */

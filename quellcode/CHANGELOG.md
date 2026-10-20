@@ -1,6 +1,11 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Strg + K zeigt zuletzt Geöffnetes:** Ohne Eingabe stehen oben die zuletzt geöffneten Notizen und Module, darunter die häufigsten Befehle. Gemerkt wird pro Gerät, gelöschte fallen weg.
+- **Am Handy zum Aktualisieren nach unten ziehen:** Ganz oben auf „Heute“ oder „Woche“ nach unten ziehen holt Stundenplan-Abo, Moodle und Artemis neu und gleicht die Cloud ab. Danach steht kurz „Aktualisiert, Stand HH:MM“.
+- **Sync-Status oben:** Mit Cloud-Sync zeigt ein Punkt in der Kopfzeile, ob alles abgeglichen ist (grün), gerade abgeglichen wird (gelb) oder offline (grau) bzw. ein Fehler (rot) ist; der Hinweis nennt die Uhrzeit des letzten Abgleichs. Antippen gleicht sofort ab, bei einem Fehler öffnen sich die Einstellungen.
+- **Wochenraster passt die Uhrzeiten an:** Das Raster beginnt eine Stunde vor dem ersten Termin oder Lernblock der Woche und endet mit dem letzten, statt immer 8 bis 19 Uhr zu zeigen. Leere Wochen zeigen 8 bis 18 Uhr.
+- **Vibration beim Abhaken:** Am Handy vibriert es kurz, wenn du etwas abhakst (überall dort, wo auch die Münze klingt). Abschaltbar unter Daten & Einstellungen, gilt nur für dieses Gerät.
 
 ## 2.11.0
 - **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.

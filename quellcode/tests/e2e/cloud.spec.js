@@ -39,8 +39,8 @@ function createBackend() {
   };
 }
 
-async function newDevice(browser, backend, { time } = {}) {
-  const context = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'de-DE', permissions: ['notifications'] });
+async function newDevice(browser, backend, { time, touch } = {}) {
+  const context = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'de-DE', permissions: ['notifications'], ...(touch && { hasTouch: true, isMobile: true }) });
   /* Push-Dienst des Browsers durch eine Attrappe ersetzen (Headless-Chromium erreicht keinen echten Push-Dienst) */
   await context.addInitScript(() => {
     let sub = null;
@@ -599,4 +599,60 @@ test('Bild-Karte: Bild verschlüsselt in der Cloud, das zweite Gerät lädt es u
   await expect(B.page.locator('.occ-box.is-target')).toHaveText('?');
   expect(A.errors).toEqual([]); expect(B.errors).toEqual([]);
   await A.context.close(); await B.context.close();
+});
+
+test('Sync-Punkt oben und am Handy nach unten ziehen zum Aktualisieren', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const ops = [];
+  const handle = backend.handle.bind(backend);
+  backend.handle = (...a) => { ops.push(a[0]); return handle(...a); };
+  const urls = [];
+  backend.ics = (url) => { urls.push(url); return { text: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n' }; };
+  const A = await newDevice(browser, backend, { touch: true });
+  /* ein Modul (sonst zeigt „Heute“ die Einrichtung) und ein Stundenplan-Abo, das gerade erst abgerufen wurde */
+  await A.page.evaluate(async () => {
+    await window.STUDYOS_ENV.save({ version: 3, settings: { icsFeed: { url: 'https://campus.tum.de/tumonline/ical?pToken=abc', map: {}, v: 99, lastSync: new Date().toISOString() } }, meta: {},
+      modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }], sessions: [], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await A.page.reload();
+  /* ohne Cloud-Sync kein Punkt */
+  await expect(A.page.getByRole('button', { name: /abgeglichen/ })).toHaveCount(0);
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  const dot = A.page.getByRole('button', { name: /^Abgeglichen\. Zuletzt abgeglichen \d\d:\d\d$/ });
+  await expect(dot).toBeVisible({ timeout: 15000 });
+  await expect(dot).toHaveAttribute('data-tone', 'ok');
+  /* Antippen gleicht ab */
+  const gets = () => ops.filter((o) => o === 'get').length;
+  const before = gets();
+  await dot.click();
+  await expect.poll(gets).toBeGreaterThan(before);
+
+  /* auf „Heute“ ganz oben nach unten ziehen */
+  await nav(A.page, 'Heute').click();
+  const cdp = await A.context.newCDPSession(A.page);
+  const drag = async (x1, y1, x2, y2) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x1, y: y1 }] });
+    for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x1 + (x2 - x1) * i / 8, y: y1 + (y2 - y1) * i / 8 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  /* zu kurz: nichts */
+  await drag(200, 200, 200, 260);
+  await expect(A.page.getByText(/Aktualisiert, Stand/)).toHaveCount(0);
+  expect(urls.length).toBe(0);
+  /* weit genug: Abo und Sync neu, danach steht der Stand */
+  const syncs = gets();
+  await drag(200, 200, 205, 420);
+  await expect(A.page.getByText(/^Aktualisiert, Stand \d\d:\d\d$/)).toBeVisible();
+  expect(urls.length).toBe(1);
+  expect(gets()).toBeGreaterThan(syncs);
+  /* seitlich wischen wechselt weiter den Bereich, ohne zu aktualisieren */
+  await drag(300, 300, 80, 320);
+  await expect(nav(A.page, 'Module')).toHaveAttribute('aria-current', 'page');
+  expect(urls.length).toBe(1);
+  expect(A.errors).toEqual([]);
+  await A.context.close();
 });
