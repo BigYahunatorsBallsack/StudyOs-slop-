@@ -75,18 +75,22 @@ describe("Weg zur Uni mit dem Auto: App", () => {
     expect(c.mode).toBe("transit");
     expect(c.car.from).toBe("Zorneding");
     expect(c.car.to).toMatch(/Garching/);
-    expect(commuteOf({ commute: { mode: "car", car: { from: "Haar" } } }).car).toMatchObject({ from: "Haar", to: "", park: 10 });
+    expect(commuteOf({ commute: { mode: "car", car: { from: "Haar" } } }).car).toMatchObject({ from: "Zorneding", campus: "garching", park: 10 });
   });
 
-  it("neue Nutzer: aus, beim Einschalten leer bis Haltestelle bzw. Start und Ziel eingetragen sind", () => {
+  it("fester Weg: Öffis S6 und Bus 230 nach Garching, Auto ab Zorneding zum gewählten Campus", () => {
     expect(commuteOf({})).toBe(null);
     const c = commuteOf({ commute: DEFAULT_COMMUTE });
-    expect(c.feeder).toBe(null);
-    expect(commuteIncomplete(c)).toBe(true);
-    expect(commuteIncomplete({ ...c, station: { id: "de:09178:2800", name: "Freising" } })).toBe(false);
-    expect(commuteIncomplete({ ...c, station: { id: "x", name: "X" }, feeder: { station: { id: "", name: "" } } })).toBe(true);
-    expect(commuteIncomplete({ ...c, mode: "car", car: { from: "Moosburg", to: "" } })).toBe(true);
-    expect(commuteIncomplete({ ...c, mode: "car", car: { from: "Moosburg", to: "Weihenstephaner Steig 22, Freising" } })).toBe(false);
+    expect(c).toMatchObject({ line: "230", station: { name: "Haar" }, feeder: { line: "S6", station: { name: "Zorneding" } }, car: { from: "Zorneding", campus: "garching" } });
+    expect(commuteIncomplete(c)).toBe(false);
+    expect(commuteIncomplete({ ...c, mode: "car" })).toBe(false);
+    /* eigene Haltestellen von früher gelten nicht mehr */
+    expect(commuteOf({ commute: { station: { id: "x", name: "Freising" }, line: "U6", feeder: null } })).toMatchObject({ line: "230", feeder: { line: "S6" } });
+    /* Campus wählbar; ohne Wahl nach Studiengang bzw. alter Zieladresse */
+    expect(commuteOf({ commute: { car: { campus: "weihenstephan" } } }).car).toMatchObject({ campus: "weihenstephan", to: "Alte Akademie 8, 85354 Freising" });
+    expect(commuteOf({ curriculum: "tum-bsc-pbt-2022", commute: DEFAULT_COMMUTE }).car.campus).toBe("weihenstephan");
+    expect(commuteOf({ commute: { car: { to: "Weihenstephaner Steig 22, Freising" } } }).car.campus).toBe("weihenstephan");
+    expect(commuteOf({ commute: { car: { campus: "weihenstephan", fromHere: true } } }).car.fromHere).toBe(true);
   });
 
   it("Losfahren = Beginn − Puffer − Parken − Fahrzeit mit Verkehr", () => {
@@ -111,6 +115,6 @@ describe("Weg zur Uni mit dem Auto: App", () => {
     const commute = (settings) => deadlinesFromData({ ...d, settings: { ...d.settings, ...settings } }, DAY).filter((x) => x.kind === "commute").length;
     expect(commute({ pushCommute: true, commute: LEGACY_COMMUTE })).toBe(1);
     expect(commute({ pushCommute: true, commute: { ...LEGACY_COMMUTE, mode: "car" } })).toBe(0);
-    expect(commute({ pushCommute: true, commute: DEFAULT_COMMUTE })).toBe(0); /* noch keine Haltestelle */
+    expect(commute({ pushCommute: true, commute: DEFAULT_COMMUTE })).toBe(1); /* fester Weg, sofort bereit */
   });
 });

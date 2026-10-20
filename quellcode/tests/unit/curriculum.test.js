@@ -58,10 +58,10 @@ describe("Voreinstellungen", () => {
     const old = { modules: [], settings: { university: "TUM", program: "Informatik", theme: "retro" } };
     const s = migrate(old).settings;
     expect(s).toMatchObject({ mensa: "mensa-garching", curriculum: "tum-bsc-informatik-2026", defaultsRev: 2, theme: "retro" });
-    expect(commuteOf(s)).toEqual(LEGACY_COMMUTE);
+    expect(commuteOf(s)).toMatchObject({ ...LEGACY_COMMUTE, car: { ...LEGACY_COMMUTE.car, campus: "garching" } });
     const own = migrate({ modules: [], settings: { mensa: "", commute: { line: "U6", feeder: null } } }).settings;
     expect(own.mensa).toBe("");
-    expect(commuteOf(own)).toMatchObject({ line: "U6", feeder: null, station: { name: "Haar" }, car: { from: "Zorneding" } });
+    expect(commuteOf(own)).toMatchObject({ line: "230", feeder: { line: "S6" }, station: { name: "Haar" }, car: { from: "Zorneding" } }); /* der Weg ist fest */
     expect(migrate({ modules: [], settings: { commute: null } }).settings.commute).toBe(null);
     expect(migrate(migrate(old)).settings).toEqual(s);
   });

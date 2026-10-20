@@ -240,6 +240,24 @@ async function drive(body, env2, fetchImpl) {
 }
 
 // src/lib/transit.js
+var LEGACY_COMMUTE = {
+  station: { id: "de:09184:2140", name: "Haar" },
+  line: "230",
+  towards: "Forschungszentrum",
+  avoid: "",
+  travel: 50,
+  walk: 5,
+  buffer: 10,
+  feeder: { station: { id: "de:09175:4020", name: "Zorneding" }, line: "S6", towards: "", avoid: "Grafing, Ebersberg", travel: 8, transfer: 4 },
+  mode: "transit",
+  car: { from: "Zorneding", to: "Boltzmannstra\xDFe 15, 85748 Garching bei M\xFCnchen", park: 10 }
+};
+var CAMPUSES = [
+  { id: "garching", name: "Campus Garching", to: LEGACY_COMMUTE.car.to },
+  { id: "weihenstephan", name: "Campus Weihenstephan (Freising)", to: "Alte Akademie 8, 85354 Freising" }
+];
+var FIXED_TRANSIT = { station: LEGACY_COMMUTE.station, line: "230", towards: "Forschungszentrum", avoid: "", travel: 50, feeder: LEGACY_COMMUTE.feeder };
+var DEFAULT_COMMUTE = { ...LEGACY_COMMUTE, car: { park: 10 } };
 var words = (s) => String(s || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
 function matches(d, leg) {
   const dest = d.destination.toLowerCase();

@@ -2,15 +2,6 @@
    Optional mit Zubringer, z. B. erst mit der S-Bahn zur Umstiegshaltestelle, dort in den Bus. */
 import { addDays, iso } from "./util.js";
 
-/* Vorlage beim Einschalten: Haltestellen und Adressen trägt jede*r selbst ein */
-export const DEFAULT_COMMUTE = {
-  station: { id: "", name: "" }, line: "", towards: "", avoid: "", travel: 30, walk: 5, buffer: 10,
-  feeder: null,
-  mode: "transit", /* oder "car" */
-  car: { from: "", to: "", park: 10 },
-};
-export const DEFAULT_FEEDER = { station: { id: "", name: "" }, line: "", towards: "", avoid: "", travel: 10, transfer: 4 };
-
 /* Bis StudyOS 2.7 die Vorgabe für alle: S6 Zorneding → Haar → Bus 230 nach Garching. Bestehende Daten ohne eigene
    Einstellung behalten sie (siehe upgradeSettings in data.js). */
 export const LEGACY_COMMUTE = {
@@ -20,17 +11,40 @@ export const LEGACY_COMMUTE = {
   car: { from: "Zorneding", to: "Boltzmannstraße 15, 85748 Garching bei München", park: 10 },
 };
 
-/** Pendel-Einstellungen; null, solange „Weg zur Uni“ nicht eingeschaltet ist */
-export function commuteOf(settings = {}) {
-  if (!settings.commute) return null;
-  const c = { ...DEFAULT_COMMUTE, ...(settings.commute || {}) };
-  if (c.feeder) c.feeder = { ...DEFAULT_FEEDER, ...c.feeder };
-  c.car = { ...DEFAULT_COMMUTE.car, ...(c.car || {}) };
-  if (c.mode !== "car") c.mode = "transit";
-  return c;
+/* Fester Weg: mit den Öffis immer S6 ab Zorneding, in Haar in den Bus 230 zum Campus Garching. Mit dem Auto ab Zorneding
+   (oder dem aktuellen Standort) zu einem der Campus. */
+export const CAMPUSES = [
+  { id: "garching", name: "Campus Garching", to: LEGACY_COMMUTE.car.to },
+  { id: "weihenstephan", name: "Campus Weihenstephan (Freising)", to: "Alte Akademie 8, 85354 Freising" },
+];
+const FIXED_TRANSIT = { station: LEGACY_COMMUTE.station, line: "230", towards: "Forschungszentrum", avoid: "", travel: 50, feeder: LEGACY_COMMUTE.feeder };
+export const CAR_FROM = "Zorneding";
+
+/* Vorlage beim Einschalten */
+export const DEFAULT_COMMUTE = { ...LEGACY_COMMUTE, car: { park: 10 } };
+
+/* Gewählter Campus fürs Auto; ohne Wahl der aus einer alten Zieladresse, sonst der zum Studiengang */
+function campusOf(car, settings) {
+  return CAMPUSES.find((k) => k.id === car.campus)
+    || CAMPUSES.find((k) => k.to === car.to || (car.to && new RegExp(k.id, "i").test(car.to)))
+    || (/pbt|weihenstephan|freising/i.test(`${settings.curriculum || ""} ${settings.program || ""}`) ? CAMPUSES[1] : CAMPUSES[0]);
 }
 
-/** Fehlt noch eine Haltestelle (Öffis) bzw. Start oder Ziel (Auto)? */
+/** Pendel-Einstellungen; null, solange „Weg zur Uni“ nicht eingeschaltet ist */
+export function commuteOf(settings = {}) {
+  const s = settings.commute;
+  if (!s) return null;
+  const car = s.car || {};
+  const campus = campusOf(car, settings);
+  return {
+    ...FIXED_TRANSIT,
+    walk: s.walk ?? LEGACY_COMMUTE.walk, buffer: s.buffer ?? LEGACY_COMMUTE.buffer,
+    mode: s.mode === "car" ? "car" : "transit",
+    car: { from: CAR_FROM, to: campus.to, campus: campus.id, park: car.park ?? 10, fromHere: !!car.fromHere },
+  };
+}
+
+/** Fehlt noch etwas? Der Weg ist fest, deshalb nur bei kaputten Daten */
 export const commuteIncomplete = (c) => (c.mode === "car" ? !String(c.car.from || "").trim() || !String(c.car.to || "").trim() : !c.station?.id || (!!c.feeder && !c.feeder.station?.id));
 
 /* Online-Termine (Raum ist ein Link oder heißt „Online“, „Zoom“ …): dafür muss niemand los */
