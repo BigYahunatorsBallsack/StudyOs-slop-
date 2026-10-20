@@ -31,7 +31,7 @@ import { postponeHomework } from "./lib/postpone.js";
 import { openTodayCount } from "./lib/todo.js";
 import { syncNoteCards } from "./lib/cards.js";
 import { pdfText, sheetFromShare } from "./lib/sheet.js";
-import { getLocal as getFile } from "./lib/files.js";
+import { getLocal as getFile, setRemoteFiles } from "./lib/files.js";
 
 /* Seltener genutzte Bereiche als eigene Dateien (offline über den Service Worker).
    Nach dem Start werden sie im Leerlauf vorgeladen, damit der erste Wechsel nicht auf „Lädt …“ wartet: React zeigt einen
@@ -379,6 +379,10 @@ export default function App() {
     toast(`Von einem anderen Gerät ${what}: ${names}.`, { label: "Meine behalten", run: () => { change((d) => restoreConflicts(d, list)); toast("Deine Fassung ist wiederhergestellt."); } }, 20000);
   };
   const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict });
+  /* Bilder in Notizen/Karten von anderen Geräten nachladen */
+  const cloudRef = useRef(cloud);
+  cloudRef.current = cloud;
+  useEffect(() => { setRemoteFiles((id) => (cloudRef.current.canFiles?.() ? cloudRef.current.downloadFile(id) : null)); }, []);
 
   const feeds = useFeeds({ ready, loadError, cloud, data, dataRef, change });
 

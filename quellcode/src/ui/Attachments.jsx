@@ -1,7 +1,6 @@
 /* Anhänge an Hausaufgaben und Notizen (PDF, Fotos …), lokal und verschlüsselt in der Cloud */
 import React, { useEffect, useRef, useState } from "react";
-import { ACCEPT, MAX_FILE_BYTES, fmtSize, getLocal, putLocal, removeLocal } from "../lib/files.js";
-import { iso, uid } from "../lib/util.js";
+import { ACCEPT, MAX_FILE_BYTES, fmtSize, getLocal, pastedName, putLocal, removeLocal, storeFile } from "../lib/files.js";
 
 export function Attachments({ db, coll, itemId }) {
   const item = db.data[coll].find((x) => x.id === itemId);
@@ -33,17 +32,11 @@ export function Attachments({ db, coll, itemId }) {
     setErr("");
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) { setErr(`Höchstens ${fmtSize(MAX_FILE_BYTES)} pro Datei.`); return; }
-    const id = uid() + uid();
-    const meta = { id, name: file.name.slice(0, 120), type: file.type || "application/octet-stream", size: file.size, added: iso() };
     setBusy(file.name);
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      await putLocal(id, new Blob([bytes], { type: meta.type }));
-      let cloudOk = false;
-      if (cloud?.canFiles?.()) {
-        try { await cloud.uploadFile(id, bytes); cloudOk = true; } catch (e) { setErr(`Lokal gespeichert, Cloud: ${e.message}`); }
-      }
-      db.patch(coll, itemId, (x) => ({ files: [...(x.files || []), { ...meta, cloud: cloudOk }] }));
+      const { meta, cloudErr } = await storeFile(file, cloud, pastedName(file));
+      if (cloudErr) setErr(`Lokal gespeichert, Cloud: ${cloudErr}`);
+      db.patch(coll, itemId, (x) => ({ files: [...(x.files || []), meta] }));
     } catch (e) { setErr(e.message || "Konnte die Datei nicht speichern."); }
     setBusy("");
   };
