@@ -25,6 +25,7 @@ const BASE = [
   ["Alle Hausaufgaben", "hausaufgaben abgaben liste alle", { type: "more", sub: "hausaufgaben" }],
   ["Studienfortschritt", "studium fortschritt ects noten gop", { type: "more", sub: "studium" }],
   ["Einstellungen", "einstellungen daten sicherung sync export", { type: "more", sub: "daten" }],
+  ["Papierkorb", "papierkorb gelöscht wiederherstellen löschen", { type: "more", sub: "daten" }],
   ["Tastenkürzel", "tastenkürzel hilfe shortcuts", { type: "help" }],
 ];
 

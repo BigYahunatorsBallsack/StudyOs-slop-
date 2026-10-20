@@ -29,7 +29,7 @@ export function SearchModal({ data, db, onPick, onClose }) {
           : (
             <ul className="space-y-1" role="listbox" aria-label="Suchergebnisse">
               {results.map((r, i) => { const m = db.mod(r.item.moduleId) || (r.kind === "module" ? r.item : null); return (
-                <li key={r.kind + r.item.id} role="option" aria-selected={i === sel}>
+                <li key={r.key || r.kind + r.item.id} role="option" aria-selected={i === sel}>
                   <button onClick={() => onPick(r)} onMouseEnter={() => setSel(i)} className={`flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left ${focusRing} ${i === sel ? "bg-slate-800" : "hover:bg-slate-800/60"}`}>
                     <Dot color={m?.color} />
                     <div className="min-w-0 flex-1">

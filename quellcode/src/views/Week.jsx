@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { DONE_HW, WD, WD_LONG } from "../lib/constants.js";
-import { addDays, byTime, fmt, fmtMin, isHeld, iso, isoWeek, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
+import { addDays, byTime, fmt, fmtMin, fmtShort, isHeld, iso, isoWeek, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
 import { BlockRow, HomeworkRow, SessionRow } from "../ui/rows.jsx";
 import { Tabs } from "../ui/primitives.jsx";
 import { isActive } from "../lib/data.js";
@@ -8,6 +8,8 @@ import { SessionPopover, useHoverCard } from "../ui/session.jsx";
 import { suggestBlocks } from "../lib/blocks.js";
 import { sessionCoverage } from "../lib/study.js";
 import { offDay } from "../lib/holidays.js";
+import { dragTo, movePatch, slotAt } from "../lib/gridmove.js";
+import { toHM } from "../lib/blocks.js";
 
 const HOUR_PX = 46;
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
@@ -117,14 +119,70 @@ function WeekGrid({ db, days, weekSes }) {
   const { data } = db, t = iso();
   const hover = useHoverCard();
   const cardSession = hover.card && data.sessions.find((x) => x.id === hover.card.id);
+  /* Freie Stelle angetippt: kleine Auswahl „Termin“ / „Lernblock“ mit dieser Uhrzeit */
+  const [slot, setSlot] = useState(null);
+  const slotRef = useRef(null);
+  useEffect(() => {
+    if (!slot) return undefined;
+    const away = (e) => { if (!slotRef.current?.contains(e.target)) setSlot(null); };
+    const esc = (e) => { if (e.key === "Escape") setSlot(null); };
+    document.addEventListener("pointerdown", away, true); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", esc); };
+  }, [slot]);
+  useEffect(() => setSlot(null), [days[0]]);
+  const addAt = (kind) => {
+    const { date, min } = slot;
+    setSlot(null);
+    db.openForm(kind, { date, start: toHM(min), end: toHM(Math.min(23 * 60 + 59, min + (kind === "block" ? 60 : 90))) }, true);
+  };
+  /* Am PC: Termine und Lernblöcke ziehen (verschieben) oder am unteren Rand ziehen (verlängern) */
+  const [drag, setDrag] = useState(null); /* Vorschau { id, date, start, end } */
+  const dragRef = useRef(null), gridRef = useRef(null), swallowClick = useRef(false);
+  const startDrag = (e, ev) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const coll = ev.isBlock ? "blocks" : "sessions";
+    const item = data[coll].find((x) => x.id === ev.id);
+    if (!item) return;
+    dragRef.current = { item, coll, mode: e.target.closest(".ev-resize") ? "resize" : "move", x0: e.clientX, y0: e.clientY, active: false, next: null };
+  };
+  useEffect(() => {
+    const move = (e) => {
+      const g = dragRef.current;
+      if (!g) return;
+      if (!g.active && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 5) return;
+      if (!g.active) { g.active = true; hover.close(); document.body.classList.add("grid-dragging"); }
+      const col = g.mode === "move" && [...(gridRef.current?.querySelectorAll("[data-day]") || [])].find((c) => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; });
+      g.next = { date: col ? col.dataset.day : g.item.date, ...dragTo(g.item, g.mode, ((e.clientY - g.y0) / HOUR_PX) * 60) };
+      setDrag({ id: g.item.id, ...g.next });
+    };
+    const up = () => {
+      const g = dragRef.current;
+      dragRef.current = null;
+      if (!g || !g.active) return;
+      document.body.classList.remove("grid-dragging");
+      swallowClick.current = true;
+      setTimeout(() => { swallowClick.current = false; }, 0);
+      setDrag(null);
+      const p = g.next && movePatch(g.item, g.next);
+      if (!p || !Object.keys(p).length) return;
+      const prev = Object.fromEntries(Object.keys(p).map((k) => [k, g.item[k] ?? (k === "locked" ? [] : "")]));
+      db.patch(g.coll, g.item.id, p);
+      const name = g.coll === "blocks" ? g.item.title : `${db.mod(g.item.moduleId)?.name || "Termin"} (${g.item.type || "Termin"})`;
+      const when = `${fmtShort(g.next.date)} ${g.next.start}–${g.next.end}`;
+      db.toast(`„${name}“ ${g.mode === "resize" ? "geht jetzt bis" : "liegt jetzt"} ${g.mode === "resize" ? g.next.end : when}.`, { label: "Rückgängig", run: () => db.patch(g.coll, g.item.id, prev) });
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); document.body.classList.remove("grid-dragging"); };
+  }, [data]);
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(id); }, []);
   /* Wochenende nur, wenn dort etwas ist: Termine, Prüfungen, Abgaben, Lernblöcke (oder heute) */
   const weekend = days.slice(5).filter((d) => d === t || weekSes.some((s) => s.date === d) || data.exams.some((e) => e.date === d) || data.homework.some((h) => h.due === d) || (data.blocks || []).some((b) => b.date === d));
   const shown = [...days.slice(0, 5), ...weekend];
-  const active = weekSes.filter((s) => shown.includes(s.date));
+  const preview = (x) => (drag && x.id === drag.id ? { ...x, date: drag.date, start: drag.start, end: drag.end } : x);
+  const active = weekSes.map(preview).filter((s) => shown.includes(s.date));
   const exams = data.exams.filter((e) => shown.includes(e.date) && e.time);
-  const blocks = (data.blocks || []).filter((b) => shown.includes(b.date)).map((b) => ({ ...b, isBlock: true }));
+  const blocks = (data.blocks || []).map(preview).filter((b) => shown.includes(b.date)).map((b) => ({ ...b, isBlock: true }));
   const timed = [...active, ...blocks, ...exams.map((e) => ({ ...e, isExam: true, start: e.time, end: `${String(Math.min(23, toMin(e.time) / 60 + 2 | 0)).padStart(2, "0")}:${String(toMin(e.time) % 60).padStart(2, "0")}` }))];
   const startH = Math.min(8, ...timed.map((s) => Math.floor(toMin(s.start) / 60)));
   const endH = Math.max(19, ...timed.map((s) => Math.ceil(toMin(s.end || s.start) / 60)));
@@ -157,15 +215,23 @@ function WeekGrid({ db, days, weekSes }) {
           ))}
         </div>
       )}
-      <div className="grid-week" style={{ "--days": shown.length }}>
+      <div className="grid-week" style={{ "--days": shown.length }} ref={gridRef} onClickCapture={(e) => { if (swallowClick.current) { e.stopPropagation(); e.preventDefault(); } }}>
         <div className="grid-hours" style={{ height }}>
           {hours.map((h) => <span key={h} className="grid-hour" style={{ top: y(h * 60) }}>{h}</span>)}
         </div>
         {shown.map((d) => {
           const items = layoutDay(timed.filter((s) => s.date === d));
           return (
-            <div key={d} className={`grid-col ${d === t ? "today" : ""}`} style={{ height }} aria-label={`${WD_LONG[wdIdx(d)]} ${fmt(d)}`} role="group">
+            <div key={d} data-day={d} className={`grid-col ${d === t ? "today" : ""}`} style={{ height }} aria-label={`${WD_LONG[wdIdx(d)]} ${fmt(d)}`} role="group"
+              onClick={(e) => { if (e.target !== e.currentTarget && !e.target.classList.contains("grid-line")) return; const r = e.currentTarget.getBoundingClientRect(); setSlot({ date: d, min: slotAt(startH * 60 + ((e.clientY - r.top) / HOUR_PX) * 60) }); }}>
               {hours.slice(1, -1).map((h) => <span key={h} className="grid-line" style={{ top: y(h * 60) }} />)}
+              {slot?.date === d && (
+                <div ref={slotRef} className="grid-slot" style={{ top: y(slot.min) }} role="dialog" aria-label={`Neu am ${fmt(d)} um ${toHM(slot.min)}`}>
+                  <span className="grid-slot-time">{toHM(slot.min)}</span>
+                  <button className="btn btn-primary" onClick={() => addAt("session")} autoFocus>Termin</button>
+                  <button className="btn btn-ghost" onClick={() => addAt("block")}>Lernblock</button>
+                </div>
+              )}
               {d === t && nowMin >= startH * 60 && nowMin <= endH * 60 && <span className="grid-now" style={{ top: y(nowMin) }} aria-hidden="true" />}
               {items.map(({ ev, s, e, lane, lanes }) => {
                 const m = db.mod(ev.moduleId);
@@ -173,22 +239,24 @@ function WeekGrid({ db, days, weekSes }) {
                 /* Der Name beginnt mit dem sichtbaren Text (für Sprachsteuerung), danach die Einzelheiten */
                 const shown = (a, b) => (tall && b ? `${a} ${b}: ` : `${a}: `);
                 if (ev.isBlock) return (
-                  <button key={ev.id} className={`ev ev-block ${ev.done ? "ev-done" : ""}`} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
+                  <button key={ev.id} className={`ev ev-block ev-move ${ev.done ? "ev-done" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""}`} onPointerDown={(e) => startDrag(e, ev)} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
                     onClick={() => db.openForm("block", ev)}
                     style={{ "--mod": m?.color || "var(--accent)", top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto" }}>
                     <b>{shortName(ev.title)}</b>
                     {tall && " "}{tall && <span>{m ? shortName(m.name) : "Lernen"}</span>}
+                    <span className="ev-resize" aria-hidden="true" />
                   </button>
                 );
                 const cov = ev.isExam || ev.cancelled ? null : sessionCoverage(ev);
                 const cls = ev.isExam ? "" : ev.cancelled ? "ev-cancelled" : ev.reviewed ? "ev-done" : isHeld(ev) ? "ev-review" : "";
                 const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}${cov ? `, ${cov.label}` : ""}`);
                 return (
-                  <button key={ev.id} className={`ev ${cls} ${hover.card?.id === ev.id ? "ev-active" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
-                    {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") } : hover.trigger(ev.id, () => db.openForm("session", ev)))}
+                  <button key={ev.id} className={`ev ${cls} ${ev.isExam ? "" : "ev-move"} ${hover.card?.id === ev.id ? "ev-active" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
+                    {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") } : withDrag(hover.trigger(ev.id, () => db.openForm("session", data.sessions.find((x) => x.id === ev.id) || ev)), (e) => startDrag(e, ev)))}
                     style={{ "--mod": ev.isExam ? "var(--danger)" : m?.color, top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto", color: ev.isExam ? "#fff" : undefined }}>
                     <b>{ev.isExam ? "Prüfung" : shortName(m?.name)}</b>
                     {tall && " "}{tall && <span>{ev.isExam ? shortName(m?.name) : ev.type}</span>}
+                    {!ev.isExam && <span className="ev-resize" aria-hidden="true" />}
                     {cov && <span className="ev-cov" data-tier={cov.ratio >= 0.9 ? "ok" : cov.ratio >= 0.34 ? "warn" : "low"} aria-hidden="true"><span style={{ width: `${Math.round(cov.ratio * 100)}%` }} /></span>}
                   </button>
                 );
@@ -201,6 +269,9 @@ function WeekGrid({ db, days, weekSes }) {
     </div>
   );
 }
+
+/* Eigener pointerdown zusätzlich zu dem der Hover-Karte */
+const withDrag = (props, onDown) => ({ ...props, onPointerDown: (e) => { props.onPointerDown?.(e); onDown(e); } });
 
 /* Kurzname für schmale Spalten: Klammerzusätze weg, lange Namen als Initialen */
 function shortName(name = "") {

@@ -5,6 +5,7 @@ import { addDays, fmt, fmtH, fmtMin, isHeld, iso, parseDec, sum, wdIdx } from ".
 import { workloadOverview } from "../lib/study.js";
 import { Bar, Card, Dot, Empty, Stat, Tabs } from "../ui/primitives.jsx";
 import { HomeworkRow } from "../ui/rows.jsx";
+import { SelectToggle } from "../ui/selection.jsx";
 import { btnPrimary, focusRing, inputBase, inputFlex } from "../ui/styles.js";
 import { DataView } from "./Data.jsx";
 import { gopStatus, gradeForecast } from "../lib/tum.js";
@@ -71,6 +72,7 @@ export function HomeworkAll({ db }) {
           {data.modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </Select>
         <button className={btnPrimary} onClick={() => db.openForm("homework", mod === "all" ? null : { moduleId: mod }, true)}>+ Hausaufgabe</button>
+        <SelectToggle db={db} kind="homework" ids={list.map((h) => h.id)} />
       </div>
       {list.length ? <ul className="rows">{list.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}</ul> : <Empty art="bowl">Keine Hausaufgaben in dieser Ansicht. Zeit für die Mensa.</Empty>}
     </div>

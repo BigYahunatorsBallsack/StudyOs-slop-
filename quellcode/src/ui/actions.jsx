@@ -17,6 +17,7 @@ export function itemActions(db, kind, item) {
       !done && { label: "Verschieben …", run: () => db.postpone("homework", item) },
       !done && { label: "Timer starten", run: () => db.focusOn("homework", item) },
       { label: "Bearbeiten", run: () => db.openForm("homework", item) },
+      db.select && { label: "Mehrere auswählen", run: () => db.select("homework", item.id) },
       { label: "Löschen", danger: true, run: () => db.remove("homework", item.id) },
     ].filter(Boolean);
   }
@@ -37,6 +38,7 @@ export function itemActions(db, kind, item) {
       { label: "Notiz", run: () => db.openForm("note", { moduleId: item.moduleId, sessionId: item.id }, true) },
       /^https:\/\//i.test(m?.liveUrl || "") && { label: "Aufzeichnung öffnen", run: () => window.open(m.liveUrl, "_blank", "noopener") },
       { label: "Bearbeiten", run: () => db.openForm("session", item) },
+      db.select && { label: "Mehrere auswählen", run: () => db.select("session", item.id) },
       { label: "Löschen", danger: true, run: () => db.remove("session", item.id) },
     ].filter(Boolean);
   }
@@ -66,10 +68,10 @@ export function ItemMenu({ db, kind, item, onClose }) {
 }
 
 /** Neue Frist bzw. neuer Tag; bei überfälligen Abgaben zusätzlich „Nicht abgegeben“ */
-export function PostponeSheet({ db, kind, item, onClose }) {
+export function PostponeSheet({ db, kind, item, onClose, onPick }) {
   const t = iso(), current = kind === "homework" ? item.due : item.date;
   const [date, setDate] = useState(current && current > t ? addDays(current, 1) : addDays(t, 1));
-  const go = (d) => { onClose(); db.moveTo(kind, item, d); };
+  const go = (d) => { onClose(); if (onPick) onPick(d); else db.moveTo(kind, item, d); };
   return (
     <Modal title={`${item.title || "Eintrag"} verschieben`} onClose={onClose}>
       <ul className="menu-list">
@@ -83,7 +85,7 @@ export function PostponeSheet({ db, kind, item, onClose }) {
         </label>
         <button className="btn btn-solid" type="submit">Verschieben</button>
       </form>
-      {kind === "homework" && current && current < t && (
+      {kind === "homework" && !onPick && current && current < t && (
         <button className="link-btn mt-4" onClick={() => { onClose(); db.hwMissed(item); }}>Nicht abgegeben, aus der Liste nehmen</button>
       )}
     </Modal>

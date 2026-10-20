@@ -438,6 +438,18 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 /* Lernblöcke */
 .ev.ev-block { background: color-mix(in srgb, var(--mod) 14%, transparent); border: 1.5px dashed var(--mod); color: var(--text); }
 .ev.ev-block.ev-done { opacity: .5; }
+/* Wochenraster: freie Stelle antippen, am PC ziehen und verlängern */
+.grid-col { cursor: cell; }
+.grid-slot { position: absolute; left: 2px; right: 2px; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; padding: .3rem; border-radius: 8px; background: var(--surface-2); border: 1.5px dashed var(--accent); box-shadow: 0 6px 18px rgb(0 0 0 / .35); cursor: default; }
+.grid-slot .btn { padding: .2rem .45rem; font-size: .7rem; min-height: 0; }
+.grid-slot-time { width: 100%; font-size: .65rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ev-resize { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .ev.ev-move { cursor: grab; user-select: none; }
+  .ev-move .ev-resize { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; z-index: 1; }
+}
+.ev.ev-dragging { z-index: 5; opacity: .85; outline: 2px dashed var(--text); outline-offset: 1px; }
+body.grid-dragging, body.grid-dragging * { cursor: grabbing !important; user-select: none; }
 .row-block .todo-check[aria-checked="true"] { background: var(--mod); color: var(--on-module); border-color: var(--mod); font-size: .8rem; font-weight: 700; }
 @media (hover: hover) { .row-block .todo-check[aria-checked="true"]:hover::after { content: none; } }
 .tl-block .tl-time b { font-weight: 600; }
@@ -497,3 +509,10 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .menu-meta { font-weight: 500; font-size: .8125rem; color: var(--muted); }
 /* Seitliches Wischen wechselt den Bereich; der Browser soll dabei nicht zurückblättern */
 html { overscroll-behavior-x: none; }
+
+/* Mehrfachauswahl */
+.row.row-select { padding-top: .55rem; padding-bottom: .55rem; }
+.row.row-selected { background: color-mix(in srgb, var(--mod, var(--accent)) 16%, var(--surface)); }
+.row-selected .todo-check { background: var(--mod, var(--accent)); color: var(--on-module); }
+.select-bar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(.5rem + env(safe-area-inset-top)); z-index: 45; width: min(44rem, calc(100% - 1.5rem)); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem .75rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: 0 10px 30px rgb(0 0 0 / .45); }
+.select-count { font-size: .85rem; font-weight: 600; }

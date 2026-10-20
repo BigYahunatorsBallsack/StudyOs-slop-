@@ -8,6 +8,9 @@ export const uid = () => {
 
 export const iso = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
+/** Lokales Datum (JJJJ-MM-TT) eines Zeitstempels wie „2026-10-19T23:30:00.000Z“; reine Daten bleiben, wie sie sind */
+export const dayOf = (s) => { const v = String(s || ""); if (v.length <= 10) return v; const t = new Date(v); return Number.isNaN(t.getTime()) ? v.slice(0, 10) : iso(t); };
+
 export const addDays = (s, n) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); };
 
 export const diffDays = (a, b) => Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000);
@@ -15,7 +18,7 @@ export const diffDays = (a, b) => Math.round((new Date(b + "T00:00:00").getTime(
 export const wdIdx = (s) => (new Date(s + "T00:00:00").getDay() + 6) % 7;
 
 /* Datum TT.MM.JJJJ; volle Zeitstempel (z. B. „updated“) werden in lokales Datum umgerechnet */
-export const fmt = (s) => { if (!s) return ""; let d = String(s); if (d.length > 10) { const t = new Date(d); d = Number.isNaN(t.getTime()) ? d.slice(0, 10) : iso(t); } return d.split("-").reverse().join("."); };
+export const fmt = (s) => { if (!s) return ""; return dayOf(s).split("-").reverse().join("."); };
 
 export const fmtShort = (s) => (s ? `${WD[wdIdx(s)]}, ${s.slice(8)}.${s.slice(5, 7)}.` : "");
 
