@@ -211,6 +211,11 @@ export function toggleAttended(data, id, today = iso()) {
   return { ...data, sessions: data.sessions.map((x) => (x.id === id ? next : x)), logs: reconcileSessionLogs(data.logs, next, today).logs };
 }
 
+/** Mehrere Termine als besucht abhaken (z. B. „Alle besucht“ aus der Push-Nachricht); schon besuchte bleiben, wie sie sind. */
+export function markAttended(data, ids, today = iso()) {
+  return ids.reduce((d, id) => (d.sessions.some((s) => s.id === id && !s.attended) ? toggleAttended(d, id, today) : d), data);
+}
+
 /**
  * Alte oder per Sync gekommene Einheiten aufräumen: bei jedem Termin mit verknüpfter Lernzeit zu viel Gezähltes
  * entfernen (z. B. Aufzeichnung trotz gelöschtem „angeschaut bis“ oder zusätzlich zu „Besucht“). Legt nichts an.

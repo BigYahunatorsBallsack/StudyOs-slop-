@@ -25,6 +25,8 @@ var RULES = {
   register: [[3, "18:00", "Anmeldeschluss in 3 Tagen", (x) => `Pr\xFCfung ${x.module || x.title}`], [0, "08:00", "Anmeldeschluss heute", (x) => `Pr\xFCfung ${x.module || x.title}`]],
   retake: [[7, "18:00", "Wiederholungspr\xFCfung in einer Woche", (x) => x.module || x.title], [1, "18:00", "Wiederholungspr\xFCfung morgen", (x) => x.module || x.title]],
   review: [[0, "20:00", "Noch nachzubereiten", (x) => x.body || x.title]],
+  /* Abends: noch nicht als besucht abgehakte Termine des Tages, höchstens 3 Stunden verspätet */
+  attend: [[0, (x) => x.time || "19:00", "Heute besucht?", (x) => x.body || x.title, 3 * 36e5]],
   weekly: [[0, "18:00", "Deine n\xE4chste Woche", (x) => x.body || x.title]],
   /* Lernblock: 10 Minuten vor Beginn, höchstens 20 Minuten verspätet */
   /* Stundenplan geändert: sofort, höchstens 2 Stunden verspätet */
@@ -37,6 +39,7 @@ var act = (action, title, q) => ({ action, title, url: `./?aktion=push&${q}` });
 var ACTIONS = {
   homework: (x) => [act("done", "Abgegeben", `tun=abgegeben&id=${encodeURIComponent(x.id)}`), act("later", "Verschieben", `tun=verschieben&id=${encodeURIComponent(x.id)}`)],
   review: (x) => [act("reviewed", "Alles nachbereitet", `tun=nachbereitet&tag=${x.date}`)],
+  attend: (x) => [act("attended", "Alle besucht", `tun=besucht&tag=${x.date}`)],
   block: (x) => [act("timer", "Timer starten", `tun=timer&id=${encodeURIComponent(x.id)}`)],
   register: (x) => [act("registered", "Angemeldet", `tun=angemeldet&id=${encodeURIComponent(x.id)}`)]
 };
@@ -61,7 +64,7 @@ function dueReminders(deadlines, sent = {}, now2 = /* @__PURE__ */ new Date(), t
         title,
         body: body(x),
         tag: `${x.kind}-${x.id}`,
-        url: ["homework", "review", "weekly", "block", "change", "morning"].includes(x.kind) ? "./?aktion=heute" : "./?aktion=pruefungen",
+        url: ["homework", "review", "attend", "weekly", "block", "change", "morning"].includes(x.kind) ? "./?aktion=heute" : "./?aktion=pruefungen",
         ...ACTIONS[x.kind] && { actions: ACTIONS[x.kind](x) }
       });
     });
@@ -250,10 +253,10 @@ var at = (date, hm2) => {
   const [h, mi] = hm2.split(":").map(Number);
   return new Date(y, m - 1, d, h, mi).getTime();
 };
-function recommend(departures, session, c, feederDeps = null, startMs = null) {
+function recommend(departures2, session, c, feederDeps = null, startMs = null) {
   if (!session) return null;
   const deadline = (startMs ?? at(session.date, session.start)) - c.buffer * 6e4;
-  const buses = departures.filter((d) => matches(d, c) && !d.cancelled && d.time + c.travel * 6e4 <= deadline).sort((a, b) => b.time - a.time);
+  const buses = departures2.filter((d) => matches(d, c) && !d.cancelled && d.time + c.travel * 6e4 <= deadline).sort((a, b) => b.time - a.time);
   for (const dep of buses) {
     if (!c.feeder || !feederDeps) return { dep, feederDep: null, session, leaveAt: dep.time - c.walk * 6e4, arriveAt: dep.time + c.travel * 6e4 };
     const f = c.feeder;
@@ -261,6 +264,13 @@ function recommend(departures, session, c, feederDeps = null, startMs = null) {
     if (fd) return { dep, feederDep: fd, session, leaveAt: fd.time - c.walk * 6e4, changeAt: fd.time + f.travel * 6e4, arriveAt: dep.time + c.travel * 6e4 };
   }
   return null;
+}
+function vehicle(d) {
+  const line = String(d?.line || "");
+  const type = String(d?.type || "");
+  if (/BUS/.test(type) || /^\d/.test(line)) return { icon: "bus", with: `mit dem Bus ${line}` };
+  if (type === "TRAM") return { icon: "tram", with: `mit der Tram ${line}` };
+  return { icon: "train", with: line ? `mit der ${line}` : "mit der Bahn" };
 }
 
 // src/server/commute.js
@@ -286,13 +296,9 @@ function reason(plan, main, feeder, tz) {
   }
   return out.join(", ");
 }
-async function commuteAlert(x, now2, tz, fetchImpl) {
-  const c = x.commute;
-  if (!c || !c.station || !c.station.id || !/^\d{2}:\d{2}$/.test(x.time || "")) return null;
-  const w = commuteWindow(x, tz), t = now2.getTime();
-  if (t < w.from || t > w.to) return null;
+async function departures(c, startMs, t, fetchImpl) {
   const offset = (ms) => Math.max(0, Math.round((ms - t) / MIN) - 45);
-  const mainLatest = w.start - (c.buffer + c.travel) * MIN;
+  const mainLatest = startMs - (c.buffer + c.travel) * MIN;
   const main = await mvg({ kind: "departures", station: c.station.id, types: TYPES2, offset: offset(mainLatest), limit: 60 }, fetchImpl);
   if (main.error) return null;
   let feeder = null;
@@ -301,13 +307,23 @@ async function commuteAlert(x, now2, tz, fetchImpl) {
     if (r.error) return null;
     feeder = r.data;
   }
+  return { main: main.data, feeder };
+}
+async function commuteAlert(x, now2, tz, fetchImpl) {
+  const c = x.commute;
+  if (!c || !c.station || !c.station.id || !/^\d{2}:\d{2}$/.test(x.time || "")) return null;
+  const w = commuteWindow(x, tz), t = now2.getTime();
+  if (t < w.from || t > w.to) return null;
+  const deps = await departures(c, w.start, t, fetchImpl);
+  if (!deps) return null;
+  const { main, feeder } = deps;
   const session = { date: x.date, start: x.time };
   const byPlan = (list) => list && list.map((d) => ({ ...d, time: d.planned || d.time, cancelled: false }));
-  const plan = recommend(byPlan(main.data), session, c, byPlan(feeder), w.start);
+  const plan = recommend(byPlan(main), session, c, byPlan(feeder), w.start);
   if (!plan) return null;
-  const real = recommend(main.data, session, c, feeder, w.start);
+  const real = recommend(main, session, c, feeder, w.start);
   if (real && plan.leaveAt - real.leaveAt < EARLIER_MS) return null;
-  const why = reason(plan, main.data, feeder, tz);
+  const why = reason(plan, main, feeder, tz);
   const what = `${x.title || "deine Vorlesung"} um ${x.time}`;
   return {
     key: `commute:${x.id}:${x.date}:${real ? hm(real.leaveAt, tz) : "keine"}`,
@@ -315,6 +331,45 @@ async function commuteAlert(x, now2, tz, fetchImpl) {
     body: real ? `F\xFCr ${what} um ${hm(real.leaveAt, tz)} statt ${hm(plan.leaveAt, tz)} losgehen${why ? ` (${why})` : ""}.` : `F\xFCr ${what} passt laut Echtzeit keine Verbindung mehr${why ? ` (${why})` : ""}.`,
     tag: `commute-${x.date}`,
     url: "./?aktion=heute"
+  };
+}
+var LEAVE_AHEAD = 15 * MIN;
+var LEAVE_LATE = 5 * MIN;
+var CAR_FROM = 3 * 60 * MIN;
+async function leaveAlert(x, now2, tz, fetchImpl, env2 = {}) {
+  const c = x.commute;
+  if (!c || !/^\d{2}:\d{2}$/.test(x.time || "")) return null;
+  const start = zonedInstant(x.date, x.time, tz).getTime(), t = now2.getTime();
+  if (t >= start) return null;
+  let leaveAt, how;
+  if (c.mode === "car") {
+    if (!c.car || !c.car.from || !c.car.to || t < start - CAR_FROM || !driveProvider(env2)) return null;
+    const r = await drive({ from: c.car.from, to: c.car.to }, env2, fetchImpl);
+    if (r.error || !r.data) return null;
+    const { minutes: minutes2, normal } = r.data;
+    leaveAt = start - ((Number(c.buffer) || 0) + (Number(c.car.park) || 0) + minutes2) * MIN;
+    how = `mit dem Auto ${minutes2} Min.${minutes2 > normal + 2 ? ` wegen Verkehr (sonst ${normal})` : ""}`;
+  } else {
+    if (!c.station || !c.station.id) return null;
+    const w = commuteWindow(x, tz), latest = w.to + 5 * MIN;
+    if (t < latest - 90 * MIN || t > latest) return null;
+    const deps = await departures(c, start, t, fetchImpl);
+    if (!deps) return null;
+    const real = recommend(deps.main, { date: x.date, start: x.time }, c, deps.feeder, start);
+    if (!real) return null;
+    const first = real.feederDep || real.dep;
+    leaveAt = real.leaveAt;
+    how = `${vehicle(first).with} um ${hm(first.time, tz)}${first.delay > 0 ? ` (+${first.delay})` : ""}`;
+  }
+  const left = leaveAt - t;
+  if (left > LEAVE_AHEAD || left < -LEAVE_LATE) return null;
+  return {
+    key: `leave:${x.id}:${x.date}`,
+    title: left <= 2 * MIN ? "Jetzt losgehen" : `Um ${hm(leaveAt, tz)} losgehen`,
+    body: `F\xFCr ${x.title || "deine Vorlesung"} um ${x.time}: ${how}.`,
+    tag: `leave-${x.date}`,
+    url: "./?aktion=heute",
+    ttl: 30 * 60
   };
 }
 
@@ -465,7 +520,7 @@ async function authUser(req, env2, fetchImpl, now2 = Date.now()) {
   }
   return user;
 }
-async function runReminders({ q, cfg, now: now2 = /* @__PURE__ */ new Date(), fetchImpl, subject }) {
+async function runReminders({ q, cfg, now: now2 = /* @__PURE__ */ new Date(), fetchImpl, subject, env: env2 = {} }) {
   const vapid = { publicKey: cfg.vapid_public, privateJwk: cfg.vapid_private, subject };
   const rows = await q("studyos_push?select=user_id,subscriptions,deadlines,sent,tz") || [];
   const stats = { users: rows.length, sent: 0, failed: 0, removed: 0 };
@@ -478,13 +533,18 @@ async function runReminders({ q, cfg, now: now2 = /* @__PURE__ */ new Date(), fe
       const alert = await commuteAlert(x, now2, tz, fetchImpl).catch(() => null);
       if (alert && !sent[alert.key]) due.push(alert);
     }
+    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "leave")) {
+      if (sent[`leave:${x.id}:${x.date}`]) continue;
+      const alert = await leaveAlert(x, now2, tz, fetchImpl, env2).catch(() => null);
+      if (alert) due.push(alert);
+    }
     const gone = /* @__PURE__ */ new Set();
     for (const r of due) {
       let delivered = false, allGone = true;
       for (const sub of subs) {
         if (gone.has(sub.endpoint)) continue;
         try {
-          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...r.actions && { actions: r.actions } }, vapid, { fetchImpl });
+          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...r.actions && { actions: r.actions } }, vapid, { fetchImpl, ...r.ttl && { ttl: r.ttl } });
           if (res.ok) {
             delivered = true;
             allGone = false;
@@ -545,7 +605,7 @@ function createHandler({ env: env2, fetchImpl = fetch, now: now2 = () => /* @__P
       if (action === "remind" && req.method === "POST") {
         const cfg = await ensureVapid(q);
         if (!safeEqual(req.headers.get("x-cron-secret"), cfg.cron_secret)) return fail("Nicht berechtigt.", 401);
-        const stats = await runReminders({ q, cfg, now: now2(), fetchImpl, subject: env2.VAPID_SUBJECT || env2.SUPABASE_URL });
+        const stats = await runReminders({ q, cfg, now: now2(), fetchImpl, subject: env2.VAPID_SUBJECT || env2.SUPABASE_URL, env: env2 });
         return json(stats);
       }
       if (action === "ics" && req.method === "POST") {

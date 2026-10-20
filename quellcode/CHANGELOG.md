@@ -1,6 +1,8 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **„Jetzt losgehen“ per Push:** Ist „Weg zur Uni“ eingerichtet, meldet sich StudyOS kurz bevor du zum ersten Termin des Tages los musst, mit der passenden Abfahrt laut Echtzeit bzw. mit dem Auto nach aktueller Verkehrslage. Nur an Tagen, deren erster Termin vor Ort ist; abschaltbar unter Daten & Einstellungen → Weg zur Uni. Braucht die neue Edge Function.
+- **Abends „Heute besucht?“:** Um 19 Uhr eine Push-Nachricht mit den heutigen Terminen, die noch nicht als besucht abgehakt sind; der Knopf „Alle besucht“ hakt sie ab und zählt die Lernzeit wie in der App. Abschaltbar unter Cloud-Sync → Erinnerungen. Braucht die neue Edge Function.
 
 ## 2.11.0
 - **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.
