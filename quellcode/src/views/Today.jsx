@@ -31,6 +31,10 @@ import { semesterSwitch } from "../lib/curriculum.js";
 import { blockDone } from "../lib/blocks.js";
 import { DueCrowding, ExamCountdown, RoomLabel } from "../ui/rows.jsx";
 
+import { QUIET_HIDE, dayStrip, quietDay, tomorrowPreview } from "../lib/dayview.js";
+import { FocusView, TimeStrip, TomorrowCard, useFocusedItem } from "../ui/dayview.jsx";
+import { focusItem } from "../ui/actions.jsx";
+
 /* ---------------- Heute ---------------- */
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
   const data = withoutArchived(db.data), t = iso();
@@ -40,6 +44,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const [cleared, setCleared] = useState(0);
   const [customize, setCustomize] = useState(false);
   const [manual, setManual] = useState(false);
+  const focused = useFocusedItem(data);
   useEffect(() => { if (prevOpen.current > 0 && openCount === 0) setCleared((n) => n + 1); prevOpen.current = openCount; }, [openCount]);
 
   if (!data.modules.length) {
@@ -94,9 +99,17 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   /* Die nächste Prüfung steht groß da, sobald sie weniger als vier Wochen entfernt ist; die übrigen als Kärtchen */
   const bigExam = exams[0] && examCountdown(exams[0].date, t) ? exams[0] : null;
   const longDate = new Date(t + "T00:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long" });
+  const now = nowHM();
+  const strip = dayStrip(data, t, now);
+  const tomorrow = tomorrowPreview(data, t, now);
+  /* Wochenende, Feiertag, vorlesungsfrei ohne Termin: leere Termin-Bereiche weg, Abgaben, Karten und Lernzeit bleiben */
+  const quiet = quietDay(t, data.settings, data.sessions);
+  const quietHide = new Set(quiet ? [...QUIET_HIDE.filter((id) => !(id === "plan" && blocksToday.length)), ...(["calm", "session"].includes(nextUp(data, t, now).type) ? ["next"] : [])] : []);
 
   /* Bereiche der Seite; Reihenfolge und Sichtbarkeit wählt man unter „Heute anpassen“ */
   const blocks = {
+    timeline: strip && <TimeStrip db={db} strip={strip} data={data} />,
+    morgen: tomorrow && <TomorrowCard db={db} p={tomorrow} />,
     next: <NextUp db={db} openReviews={openReviews} cardsDue={cardsDue} />,
     changes: changes.length > 0 && <FeedChanges db={db} list={changes} />,
     quick: (
@@ -189,11 +202,12 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
           </div>
         </div>
       )}
-      {todayLayout(data.settings).filter((b) => !b.hidden).map((b) => <React.Fragment key={b.id}>{blocks[b.id]}</React.Fragment>)}
+      {focused ? <FocusView db={db} kind={focused.kind} item={focused.item} />
+        : todayLayout(data.settings).filter((b) => !b.hidden && !quietHide.has(b.id)).map((b) => <React.Fragment key={b.id}>{blocks[b.id]}</React.Fragment>)}
 
-      <div className="mt-6 text-center">
+      {!focused && <div className="mt-6 text-center">
         <button className="link-btn" onClick={() => setCustomize(true)}>Heute anpassen</button>
-      </div>
+      </div>}
       {customize && <CustomizeToday db={db} onClose={() => setCustomize(false)} />}
       {nowOpen && <WhatNowDialog db={db} onClose={() => setNowOpen(false)} />}
     </div>
@@ -259,6 +273,7 @@ function TimelineBlock({ b, db }) {
         <div className="mt-2 flex flex-wrap gap-2">
           <button className="btn btn-ghost" onClick={(e) => { if (!b.done) burst(e.currentTarget); db.patch("blocks", b.id, blockDone(!b.done)); }} aria-pressed={!!b.done}>{b.done ? "Erledigt ✓" : "Erledigt"}</button>
           {!b.done && <button className="btn btn-ghost" onClick={() => db.focus({ moduleId: b.moduleId || "", minutes: Math.min(90, mins), kind: b.kind, blockId: b.id })}>Timer starten</button>}
+          {!b.done && <button className="btn btn-ghost" onClick={() => focusItem(db, "block", b)}>Fokus</button>}
         </div>
       </div>
     </li>
@@ -426,6 +441,7 @@ function NextUp({ db, openReviews, cardsDue }) {
     meta = [m?.name, p.total ? `${p.done} von ${p.total} Teilaufgaben` : ""].filter(Boolean).join(", ");
     actions = (<>
       <button className="btn btn-solid" onClick={(e) => { burst(e.currentTarget); const prev = x.status; db.setHwStatus(x.id, "abgegeben"); db.toast(`„${x.title}“ abgegeben.`, { label: "Rückgängig", run: () => db.setHwStatus(x.id, prev) }); }}>Abgegeben</button>
+      <button className="btn" onClick={() => focusItem(db, "homework", x)}>Fokus</button>
       <button className="btn" onClick={() => db.openForm("homework", x)}>Details</button>
     </>);
   }

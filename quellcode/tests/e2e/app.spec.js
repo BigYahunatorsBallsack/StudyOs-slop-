@@ -1219,6 +1219,7 @@ test('Timer: „Nicht eintragen“ verwirft die Fokusphase', async ({ page }) =>
 });
 
 test('Heute anpassen: Bereich ausblenden, verschieben (Pfeil und Ziehen), Standard wiederherstellen', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') }); /* Werktag: am Wochenende wäre der Tagesplan ausgeblendet */
   await loadDemo(page);
   await nav(page, 'Heute').click();
   await expect(page.locator('.group-plan')).toBeVisible();
@@ -1246,7 +1247,8 @@ test('Heute anpassen: Bereich ausblenden, verschieben (Pfeil und Ziehen), Standa
   expect(order[0]).toBe('exams');
   await page.getByRole('button', { name: 'Heute anpassen' }).click();
   await dlg.getByRole('button', { name: 'Standard wiederherstellen' }).click();
-  await expect(dlg.locator('.customize-row').first()).toContainText('Als Nächstes');
+  await expect(dlg.locator('.customize-row').first()).toContainText('Zeitstrahl');
+  await expect(dlg.locator('.customize-row').nth(1)).toContainText('Als Nächstes');
   await expect(page.locator('.group-plan')).toBeVisible();
 });
 
@@ -1754,4 +1756,72 @@ test('Heute: lesbare Fristen, Prüfungs-Countdown und „Erledigt heute“', asy
   await page.getByRole('button', { name: /Diskrete Strukturen/ }).first().click();
   await expect(page.locator('.exam-countdown')).toContainText('noch 12 Tage');
   await expect(page.getByText('Blatt 3 · morgen 23:59')).toBeVisible();
+});
+
+test('Zeitstrahl mit freier Lücke, Restzeit in der Kopfzeile, ab 18 Uhr die Vorschau auf morgen', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:25:00') }); /* Dienstag */
+  await page.goto('./');
+  await seed(page, (day) => ({
+    sessions: [
+      { id: 'a', moduleId: 'ds', type: 'Vorlesung', date: day(0), start: '10:00', end: '11:00' },
+      { id: 'b', moduleId: 'ds', type: 'Übung', date: day(0), start: '14:00', end: '16:00' },
+      { id: 'c', moduleId: 'ds', type: 'Vorlesung', date: day(1), start: '08:15', end: '10:00', room: 'MI HS 1' },
+    ],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 4', due: day(1), status: 'offen' }],
+  }));
+  await page.reload();
+  const strip = page.getByRole('region', { name: 'Zeitstrahl' });
+  await expect(strip).toContainText('Ab 11:00 3 h frei bis 14:00');
+  await expect(strip.locator('.daystrip-item')).toHaveCount(2);
+  await expect(strip.locator('.daystrip-now')).toHaveCount(1);
+  await expect(page.locator('header .live-left')).toHaveText('DS · noch 35 min');
+  await expect(page.getByRole('region', { name: 'Morgen' })).toHaveCount(0);
+  await page.clock.fastForward('07:40:00');
+  await expect(page.locator('header .live-left')).toHaveCount(0);
+  const morgen = page.getByRole('region', { name: 'Morgen' });
+  await expect(morgen).toContainText('08:15 Diskrete Strukturen, MI HS 1');
+  await expect(morgen).toContainText('Blatt 4');
+});
+
+test('Wochenende ohne Termin: Als Nächstes und Tagesplan ausgeblendet, Zu erledigen bleibt', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-24T10:00:00') }); /* Samstag */
+  await page.goto('./');
+  await seed(page, (day) => ({
+    sessions: [{ id: 'm', moduleId: 'ds', type: 'Vorlesung', date: day(2), start: '10:00', end: '12:00' }],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 7', due: day(4), status: 'offen' }],
+  }));
+  await page.reload();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 7' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Als Nächstes' })).toHaveCount(0);
+  await expect(page.locator('.group-plan')).toHaveCount(0);
+  /* mit Termin am Samstag ist es ein normaler Tag */
+  await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); d.sessions.push({ id: 's', moduleId: 'ds', type: 'Tutorium', date: '2026-10-24', start: '13:00', end: '14:00' }); await window.STUDYOS_ENV.save(d); });
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Als Nächstes' })).toBeVisible();
+  await expect(page.locator('.group-plan')).toBeVisible();
+});
+
+test('Fokus auf eine Abgabe: nur sie auf Heute, Abhaken beendet den Fokus', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T10:00:00') });
+  await page.goto('./');
+  await seed(page, (day) => ({
+    homework: [{ id: 'a', moduleId: 'ds', title: 'Blatt 5', due: day(3), status: 'offen' }, { id: 'b', moduleId: 'ds', title: 'Blatt 6', due: day(5), status: 'offen' }],
+  }));
+  await page.reload();
+  await page.locator('.todo-item', { hasText: 'Blatt 5' }).locator('.todo-row').click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Blatt 5' }).getByRole('button', { name: 'Fokus' }).click();
+  const focus = page.getByRole('region', { name: 'Fokus' });
+  await expect(focus).toContainText('Blatt 5');
+  await expect(page.locator('.todo-item')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Heute anpassen' })).toHaveCount(0);
+  /* bleibt nach dem Neuladen (pro Gerät gemerkt) */
+  await page.reload();
+  await focus.getByRole('button', { name: 'Fokus beenden' }).click();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 6' })).toBeVisible();
+  await page.locator('.todo-item', { hasText: 'Blatt 5' }).locator('.todo-row').click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Blatt 5' }).getByRole('button', { name: 'Fokus' }).click();
+  await focus.getByRole('button', { name: 'Abgegeben' }).click();
+  await expect(focus).toHaveCount(0);
+  await expect.poll(async () => (await stored(page)).homework.find((h) => h.id === 'a').status).toBe('abgegeben');
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 6' })).toBeVisible();
 });

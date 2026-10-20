@@ -66,6 +66,7 @@ import { cancelOffDays } from "./lib/holidays.js";
 import { addTrash, purgeTrash, restoreTrash, trashEntry } from "./lib/trash.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
+import { LiveLeft } from "./ui/dayview.jsx";
 
 /* Trifft eine Media-Query zu? Folgt Änderungen (Fenster breiter oder schmaler ziehen). */
 function useMedia(q) {
@@ -614,6 +615,7 @@ export default function App() {
           <h1 className="brand">StudyOS</h1>
           <span className="hidden text-xs text-slate-500 sm:inline">{[data.settings.program, data.settings.university].filter(Boolean).join(", ")}</span>
           <div className="ml-auto flex items-center gap-2">
+            <LiveLeft data={data} />
             <TimerBadge timer={timer} onClick={() => db.goLearn("timer")} />
             <SyncDot cloud={cloud} onOpenSettings={() => db.goMore("daten")} />
             {saveState === "memory" && dirty && (

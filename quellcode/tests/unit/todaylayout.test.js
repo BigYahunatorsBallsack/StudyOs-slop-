@@ -12,7 +12,7 @@ describe("Heute anpassen", () => {
   });
   it("gespeicherte Reihenfolge, Ausgeblendete markiert", () => {
     const l = todayLayout({ todayOrder: ["mensa", "next"], todayHidden: ["week"] });
-    expect(ids(l).slice(0, 2)).toEqual(["mensa", "next"]);
+    expect(ids(l).slice(0, 3)).toEqual(["timeline", "mensa", "next"]); // neuer Bereich ohne Vorgänger kommt nach oben
     expect(l.find((b) => b.id === "week").hidden).toBe(true);
     expect(isDefaultLayout({ todayHidden: ["week"] })).toBe(false);
   });
@@ -26,8 +26,8 @@ describe("Heute anpassen", () => {
   });
   it("verschieben", () => {
     const l = todayLayout({});
-    expect(moveBlock(l, l.length - 1, 0).slice(0, 2)).toEqual(["mensa", "next"]);
-    expect(moveBlock(l, 0, 1).slice(0, 2)).toEqual(["changes", "next"]);
+    expect(moveBlock(l, l.length - 1, 0).slice(0, 2)).toEqual(["mensa", "timeline"]);
+    expect(moveBlock(l, 0, 1).slice(0, 2)).toEqual(["next", "timeline"]);
     expect(moveBlock(l, 0, 99)).toEqual(ids(l));
   });
 });
