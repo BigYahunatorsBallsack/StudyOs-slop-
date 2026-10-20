@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Heimweg nach Zorneding:** Ab kurz vor dem Ende deines letzten Termins vor Ort zeigt „Weg zur Uni“ den Heimweg: die nächsten Busse 230 ab Garching-Forschungszentrum Richtung Haar, dazu den passenden Anschluss mit der S6 (oder S4) in Haar und wann du in Zorneding bist. Mit dem Auto steht die Fahrzeit vom Campus oder deinem Standort nach Zorneding. Mit „Hinweg“ und „Heimweg“ oben auf der Karte wechselst du jederzeit von Hand.
 - **Schnelleingabe vervollständigt Module:** Beim Tippen schlägt die Schnelleingabe passende Module vor; antippen oder Tab übernimmt den vollen Namen. Die Vorschau zeigt weiter Art, Modul, Datum, Uhrzeit und Teilaufgaben, bei Lernzeit auch die Art der Lerneinheit.
 - **Letzte Eingaben als Vorlage:** Unter dem leeren Feld stehen deine letzten 5 Schnelleingaben (auf diesem Gerät). Antippen füllt das Feld und markiert das Datum, sodass du nur das neue tippst.
 - **Lernzeit nachtragen per Schnelleingabe:** „1h DS gestern“, „45 min Karten Analysis“ oder „90min Lernen LinAlg Mo“ legt eine Lerneinheit beim Modul an. Ein Wochentag meint dabei den letzten, „Karten“ wird zur Art „Karteikarten“, und Abkürzungen wie „LinAlg“ werden erkannt.
