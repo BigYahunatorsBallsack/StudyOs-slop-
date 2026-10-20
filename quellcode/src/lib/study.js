@@ -111,36 +111,57 @@ export function workloadOverview(data, today = iso()) {
 
 /* ---------------- Aufzeichnungen als Lernzeit ---------------- */
 
+const nowHM = () => new Date().toTimeString().slice(0, 5);
+
 /**
- * Neu angeschaute Minuten einer Aufzeichnung („angeschaut bis“) als Lerneinheit, oder null.
- * Gezählt wird nur, was über die schon eingetragenen Aufzeichnungs-Minuten dieses Termins hinausgeht,
- * so zählt dieselbe Stelle nie doppelt, auch nicht nach Zurück- und wieder Vorstellen.
+ * Aufzeichnungs-Lernzeit eines Termins an „angeschaut bis“ angleichen.
+ * Weiter vorgestellt: die neuen Minuten kommen als Lerneinheit am heutigen Tag dazu.
+ * Zurückgestellt oder gelöscht: die zu viel gezählten Minuten werden von den jüngsten Einheiten abgezogen
+ * (leere Einheiten fallen weg). So zählt dieselbe Stelle nie doppelt.
+ * @returns {{ logs: any[], delta: number }} delta in Minuten (positiv eingetragen, negativ abgezogen, 0 unverändert)
  */
-export function watchLog(logs, s, today = iso()) {
+export function syncWatchLogs(logs, s, today = iso()) {
   const sec = parseWatch(s?.watchedTo);
-  if (!s?.moduleId || sec === null || !Number.isFinite(sec)) return null;
-  const logged = logs.filter((l) => l.sessionId === s.id && l.kind === "Aufzeichnung").reduce((n, l) => n + (Number(l.minutes) || 0), 0);
-  const minutes = Math.floor(sec / 60) - logged;
-  if (minutes < 1) return null;
-  return { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Aufzeichnung", date: today, minutes, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} angeschaut bis ${fmtWatch(sec)}`, created: today };
+  if (!s?.id || (sec !== null && !Number.isFinite(sec))) return { logs, delta: 0 };
+  const mine = (l) => l.sessionId === s.id && l.kind === "Aufzeichnung";
+  const logged = logs.filter(mine).reduce((n, l) => n + (Number(l.minutes) || 0), 0);
+  const target = s.moduleId && sec ? Math.floor(sec / 60) : 0;
+  const delta = target - logged;
+  if (delta >= 1) {
+    const log = { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Aufzeichnung", date: today, at: nowHM(), minutes: delta, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} angeschaut bis ${fmtWatch(sec)}`, created: today };
+    return { logs: [...logs, log], delta };
+  }
+  if (delta >= 0) return { logs, delta: 0 };
+  /* zu viel gezählt: von der jüngsten Einheit an abziehen */
+  let over = -delta;
+  const newest = logs.filter(mine).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.at || "").localeCompare(a.at || ""));
+  const cut = new Map();
+  for (const l of newest) {
+    if (over <= 0) break;
+    const take = Math.min(over, Number(l.minutes) || 0);
+    cut.set(l.id, (Number(l.minutes) || 0) - take);
+    over -= take;
+  }
+  const out = logs.flatMap((l) => (!cut.has(l.id) ? [l] : cut.get(l.id) >= 1 ? [{ ...l, minutes: cut.get(l.id) }] : []));
+  return { logs: out, delta };
 }
 
-/** Besuchter Termin als Lerneinheit am Tag des Termins (Dauer aus Beginn und Ende, sonst 90 Minuten). */
-export function presenceLog(s) {
-  if (!s?.moduleId || !s.date) return null;
-  return { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Besucht", date: s.date, at: s.start || "", minutes: minutesOf(s) || 90, note: `${s.type || "Termin"} besucht`, created: iso() };
+/** Besuchter Termin als Lerneinheit am Tag des Abhakens (Dauer aus Beginn und Ende, sonst 90 Minuten). */
+export function presenceLog(s, today = iso()) {
+  if (!s?.moduleId) return null;
+  return { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Besucht", date: today, at: nowHM(), minutes: minutesOf(s) || 90, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} besucht`, created: today };
 }
 
 /**
  * Besucht an- oder abhaken, samt Lerneinheit: An legt sie an (höchstens eine je Termin), Ab entfernt sie wieder.
  * @returns neuer Datenstand (ohne Zeitstempel; die setzt stampChanges)
  */
-export function toggleAttended(data, id) {
+export function toggleAttended(data, id, today = iso()) {
   const s = data.sessions.find((x) => x.id === id);
   if (!s) return data;
   const on = !s.attended, mine = (l) => l.sessionId === id && l.kind === "Besucht";
   const sessions = data.sessions.map((x) => (x.id === id ? { ...x, attended: on } : x));
-  const log = on && !data.logs.some(mine) ? presenceLog({ ...s, attended: on }) : null;
+  const log = on && !data.logs.some(mine) ? presenceLog({ ...s, attended: on }, today) : null;
   const logs = on ? (log ? [...data.logs, log] : data.logs) : data.logs.filter((l) => !mine(l));
   return { ...data, sessions, logs };
 }
