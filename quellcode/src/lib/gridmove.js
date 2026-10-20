@@ -42,3 +42,24 @@ export function movePatch(item, next) {
   if (item.feedKey && Object.keys(p).length) p.locked = [...new Set([...(item.locked || []), ...Object.keys(p)])];
   return p;
 }
+
+/**
+ * Überschneidungen an einem Tag: für jeden Eintrag die anderen, die zeitlich mit ihm überlappen (bloßes Aneinanderstoßen zählt nicht).
+ * Ausgefallene Termine zählen nicht mit und werden selbst nicht markiert.
+ * @param {Array<{ id: string, start: string, end?: string, cancelled?: boolean }>} items
+ * @returns {Map<string, any[]>}
+ */
+export function clashesOf(items) {
+  const live = (items || []).filter((x) => x && x.start && !x.cancelled).map((x) => ({ x, s: toMin(x.start), e: Math.max(toMin(x.start), toMin(x.end || x.start)) }));
+  const out = new Map();
+  live.forEach((a, i) => live.forEach((b, j) => {
+    if (i === j || !(a.s < b.e && b.s < a.e)) return;
+    if (!out.has(a.x.id)) out.set(a.x.id, []);
+    out.get(a.x.id).push(b.x);
+  }));
+  return out;
+}
+
+/* Stundenhöhe im Raster beim Zoomen (Pinch, Strg+Mausrad), in Pixeln */
+export const HOUR_MIN = 24, HOUR_MAX = 140;
+export const clampHour = (px) => Math.round(Math.max(HOUR_MIN, Math.min(HOUR_MAX, Number(px) || 0)));

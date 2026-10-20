@@ -1,6 +1,11 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Überschneidungen im Wochenraster:** Termine und Lernblöcke, die sich zeitlich überlappen, bekommen eine rote Kante. Beim Antippen oder Vorlesen steht dabei, womit sie sich überschneiden. Ausgefallene Termine zählen nicht mit.
+- **Kalenderwoche und Vorlesungswoche:** Oben in der Woche steht jetzt zum Beispiel „KW 45 · VL-Woche 3 von 15“, in den Ferien und in der Weihnachtspause „vorlesungsfrei“. An der TUM kennt StudyOS die Vorlesungszeit selbst, sonst nimmt es die eigenen Ferien oder den Semesterbeginn der Module.
+- **Tagesansicht:** Neben Raster, Liste und Monat gibt es „Tag“: ein einzelner Tag groß als Stundenraster mit Uhrzeit und Raum. Mit den Pfeilen oder seitlichem Wischen geht es zum nächsten oder vorherigen Tag. Die gewählte Ansicht merkt sich jedes Gerät.
+- **Abgaben im Raster:** Abgaben mit Uhrzeit erscheinen als kleiner Marker in Modulfarbe genau zur Frist, Fristen um 23:59 am unteren Rand des Tages. Antippen öffnet die Abgabe.
+- **Raster zoomen:** Am Handy mit zwei Fingern auseinander- oder zusammenziehen macht die Stunden höher oder niedriger, am PC geht das mit Strg und Mausrad. Die Höhe merkt sich jedes Gerät, für Woche und Tag getrennt.
 - **Fester Weg zur Uni:** Mit den Öffis geht es immer mit der S6 ab Zorneding und in Haar weiter mit dem Bus 230 zum Campus Garching, Haltestellen und Linien stellt man nicht mehr ein. Mit dem Auto geht es ab Zorneding oder dem aktuellen Standort, als Ziel wählst du auf „Heute“ oder in den Einstellungen Campus Garching oder Campus Weihenstephan (Freising). Wer Pharmazeutische Bioprozesstechnik studiert, startet mit Weihenstephan.
 - **Karteikarten zählen als Lernzeit:** Die Zeit beim Abfragen landet automatisch als Lerneinheit „Karteikarten“ beim Modul, eine pro Modul und Tag, und zählt für Serie, Wochenziel und ECTS-Soll. Längere Pausen zählen nicht mit, und läuft gleichzeitig der Fokus-Timer, zählt nur der.
 - **Karteikarten per Wischen bewerten:** Nach dem Aufdecken am Handy nach rechts wischen heißt „gewusst“ (Gut), nach links „nicht gewusst“ (Nochmal). Knöpfe und die Tasten 1 bis 4 gehen weiter; die Tasten wechseln jetzt nicht mehr nebenbei den Bereich.
