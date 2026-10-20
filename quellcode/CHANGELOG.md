@@ -16,6 +16,8 @@
 - **Morgens der Tag im Überblick:** Push zur gewünschten Uhrzeit (Standard 07:00) mit Terminen, Abgaben, Prüfungen und fälligen Karten; nur an Tagen, an denen etwas ansteht. Braucht die neue Edge Function.
 - **Semesterwechsel:** Gegen Ende der Semesterferien bietet „Heute“ an, das laufende Semester zu archivieren und das nächste aus dem Studienplan zu übernehmen.
 - **Weniger Erklärtext:** Legenden unter Woche und Monat, Hinweise am Timer, bei Themen, in der Lernnotiz, in der Suche und in den Einstellungen sind weg, wo die Bedienung ohnehin klar ist.
+- **Behoben: Lernzeit aus Besuch und Aufzeichnung am falschen Tag.** „Besucht“ und „Aufzeichnung angeschaut bis“ zählen jetzt an dem Tag, an dem du sie abhakst bzw. einträgst, nicht mehr am Tag des Termins.
+- **Behoben: gelöschte Aufzeichnungszeit blieb in der Lernzeit.** Löschst oder verkürzt du „Aufzeichnung angeschaut bis“, verschwinden die Minuten wieder (bzw. werden von den jüngsten Einträgen abgezogen).
 - **Kalender-Karte bleibt auf dem Handy offen:** Tippst du im Wochenraster einen Termin an und hakst in der Karte „Vorbereitet“, „Besucht“ oder „Nachbereitet“ ab, schloss sich die Karte nach dem ersten Haken. Jetzt bleibt sie offen, bis du daneben tippst, und du kannst mehrere Haken nacheinander setzen.
 - **„Heute“ und Woche nebeneinander am PC:** Ab etwa 1100 px Breite steht rechts neben „Heute“ das Wochenraster (oder die Liste), mit eigener Bildlaufleiste. Abschaltbar unter Daten & Einstellungen.
 - **Monatsansicht:** Unter Woche → „Monat“ ein Kalender mit Punkten in Modulfarbe für Abgaben (blass, wenn erledigt), pink umrandet bei Prüfungen, der Zahl der Termine und schraffierten Feiertagen und Ferien. Ein Tag öffnet seine Woche im Raster.

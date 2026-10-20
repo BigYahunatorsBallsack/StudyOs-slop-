@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextTitle, buildHomeworkSeries, bonusForecast, workload, workloadOverview, studyDiary, watchLog, toggleAttended, sessionCoverage, withoutArchived } from "../../src/lib/study.js";
+import { nextTitle, buildHomeworkSeries, bonusForecast, workload, workloadOverview, studyDiary, syncWatchLogs, toggleAttended, sessionCoverage, withoutArchived } from "../../src/lib/study.js";
 import { cardsFromNote } from "../../src/lib/cards.js";
 import { emptyData } from "../../src/lib/data.js";
 
@@ -82,27 +82,39 @@ describe("Lerntagebuch", () => {
 
 describe("Aufzeichnung als Lernzeit", () => {
   const s = { id: "s", moduleId: "m", type: "Vorlesung", date: "2026-10-13", watchedTo: "47:12" };
-  it("zählt nur neu angeschaute Minuten, nie doppelt", () => {
-    const first = watchLog([], s, "2026-10-14");
-    expect(first).toMatchObject({ moduleId: "m", sessionId: "s", kind: "Aufzeichnung", minutes: 47, date: "2026-10-14" });
-    expect(first.note).toContain("bis 47:12");
-    expect(watchLog([first], s)).toBeNull();
-    expect(watchLog([first], { ...s, watchedTo: "30" })).toBeNull();
-    expect(watchLog([first], { ...s, watchedTo: "1:20:00" }).minutes).toBe(33);
+  const mins = (logs) => logs.filter((l) => l.kind === "Aufzeichnung").map((l) => [l.date, l.minutes]);
+  it("zählt neu angeschaute Minuten am Tag des Eintragens, nie doppelt", () => {
+    const a = syncWatchLogs([], s, "2026-10-14");
+    expect(a.delta).toBe(47);
+    expect(a.logs[0]).toMatchObject({ moduleId: "m", sessionId: "s", kind: "Aufzeichnung", date: "2026-10-14" });
+    expect(a.logs[0].note).toContain("bis 47:12");
+    expect(syncWatchLogs(a.logs, s).delta).toBe(0);
+    const b = syncWatchLogs(a.logs, { ...s, watchedTo: "1:20:00" }, "2026-10-16");
+    expect(mins(b.logs)).toEqual([["2026-10-14", 47], ["2026-10-16", 33]]);
   });
-  it("ohne Stand oder Modul nichts", () => {
-    expect(watchLog([], { ...s, watchedTo: "" })).toBeNull();
-    expect(watchLog([], { ...s, moduleId: "" })).toBeNull();
-    expect(watchLog([], { ...s, watchedTo: "abc" })).toBeNull();
+  it("zurückgestellt zieht von der jüngsten Einheit ab, gelöscht entfernt alles", () => {
+    const a = syncWatchLogs([], s, "2026-10-14").logs;
+    const b = syncWatchLogs(a, { ...s, watchedTo: "1:20:00" }, "2026-10-16").logs;
+    const c = syncWatchLogs(b, { ...s, watchedTo: "40" });
+    expect(c.delta).toBe(-40);
+    expect(mins(c.logs)).toEqual([["2026-10-14", 40]]);
+    const d = syncWatchLogs([...c.logs, { id: "x", kind: "Nacharbeiten", minutes: 30 }], { ...s, watchedTo: "" });
+    expect(d.delta).toBe(-40);
+    expect(d.logs.map((l) => l.id)).toEqual(["x"]);
+  });
+  it("ungültige Eingabe ändert nichts", () => {
+    const a = syncWatchLogs([], s).logs;
+    expect(syncWatchLogs(a, { ...s, watchedTo: "abc" })).toEqual({ logs: a, delta: 0 });
+    expect(syncWatchLogs([], { ...s, moduleId: "" }).delta).toBe(0);
   });
 });
 
 describe("Besucht als Lernzeit", () => {
   const base = () => ({ ...emptyData(), modules: [{ id: "m", ects: 5, status: "belegt" }], sessions: [{ id: "s", moduleId: "m", type: "Vorlesung", date: "2026-10-13", start: "10:15", end: "11:45", attended: false }] });
-  it("legt beim Abhaken eine Einheit am Termintag an und entfernt sie beim Zurücknehmen", () => {
-    const on = toggleAttended(base(), "s");
+  it("legt beim Abhaken eine Einheit am Tag des Abhakens an und entfernt sie beim Zurücknehmen", () => {
+    const on = toggleAttended(base(), "s", "2026-10-15");
     expect(on.sessions[0].attended).toBe(true);
-    expect(on.logs).toMatchObject([{ moduleId: "m", sessionId: "s", kind: "Besucht", date: "2026-10-13", minutes: 90, at: "10:15" }]);
+    expect(on.logs).toMatchObject([{ moduleId: "m", sessionId: "s", kind: "Besucht", date: "2026-10-15", minutes: 90 }]);
     const off = toggleAttended(on, "s");
     expect(off.sessions[0].attended).toBe(false);
     expect(off.logs).toEqual([]);
