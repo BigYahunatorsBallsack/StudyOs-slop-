@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { DONE_HW, WD } from "../lib/constants.js";
 import { isActive } from "../lib/data.js";
-import { addDays, fmt, fmtH, fmtMin, isHeld, iso, parseDec, sum, wdIdx } from "../lib/util.js";
+import { addDays, fmt, fmtH, fmtMin, fmtShort, isHeld, iso, parseDec, sum, wdIdx } from "../lib/util.js";
 import { workloadOverview } from "../lib/study.js";
 import { Bar, Card, Dot, Empty, Stat, Tabs } from "../ui/primitives.jsx";
 import { HomeworkRow } from "../ui/rows.jsx";
@@ -10,7 +10,7 @@ import { btnPrimary, focusRing, inputBase, inputFlex } from "../ui/styles.js";
 import { DataView } from "./Data.jsx";
 import { gopStatus, gradeForecast } from "../lib/tum.js";
 import { achievements } from "../lib/progress.js";
-import { effortVsGrade, gradeTimeline, heatmap, learningRhythm, minutesBySemester } from "../lib/stats.js";
+import { effortVsGrade, gradeTimeline, learningRhythm, minutesBySemester, semesterCalendar, semesterOf } from "../lib/stats.js";
 import { Select } from "../ui/select.jsx";
 
 /* ---------------- Mehr ---------------- */
@@ -133,7 +133,7 @@ export function Review({ db }) {
         ) : <p className="text-sm text-slate-400">In den letzten 7 Tagen keine Lernzeit eingetragen.</p>}
       </Card>
       <EctsCompare db={db} />
-      <Heatmap logs={data.logs} />
+      <Heatmap data={data} />
       <Rhythm data={data} />
     </div>
   );
@@ -189,28 +189,79 @@ function Rhythm({ data }) {
   );
 }
 
-export function Heatmap({ logs, weeks = 20 }) {
+/* Lernzeit-Kalender übers Semester: ein Kästchen je Tag, je kräftiger desto mehr Lernzeit; Antippen zeigt Summe und Module */
+export function Heatmap({ data }) {
   const scroller = useRef(null);
-  useEffect(() => { const el = scroller.current; if (el) el.scrollLeft = el.scrollWidth; }, []);
-  const grid = useMemo(() => heatmap(logs, weeks), [logs, weeks]);
-  const total = grid.flat().reduce((s, c) => s + c.minutes, 0);
-  const active = grid.flat().filter((c) => c.minutes > 0).length;
-  const months = grid.map((col, i) => { const d = col[0].date; return i === 0 || d.slice(5, 7) !== grid[i - 1][0].date.slice(5, 7) ? MONTHS[Number(d.slice(5, 7)) - 1] : ""; });
+  const [offset, setOffset] = useState(0);
+  const [picked, setPicked] = useState(null);
+  const t = iso(), sem = semesterOf(t, offset);
+  const grid = useMemo(() => semesterCalendar(data.logs, sem, t), [data.logs, sem.from, t]);
+  const cells = grid.flat().filter((c) => !c.outside);
+  const total = cells.reduce((s, c) => s + c.minutes, 0);
+  const active = cells.filter((c) => c.minutes > 0).length;
+  const firstOf = (col) => (col.find((c) => !c.outside) || col[0]).date;
+  const months = grid.map((col, i) => { const d = firstOf(col); return i === 0 || d.slice(5, 7) !== firstOf(grid[i - 1]).slice(5, 7) ? MONTHS[Number(d.slice(5, 7)) - 1] : ""; });
+  /* nur ein Tag ist per Tab erreichbar, die Pfeiltasten wandern durch den Kalender */
+  const focusDay = picked && cells.some((c) => c.date === picked) ? picked : (cells.find((c) => c.date === t) || cells[cells.length - 1]).date;
+  /* heutige Woche in die Mitte holen (vergangene Semester: von vorne) */
+  useEffect(() => {
+    const el = scroller.current, cell = el?.querySelector(`[data-day="${focusDay}"]`);
+    if (!el) return;
+    el.scrollLeft = 0;
+    if (offset === 0 && cell) el.scrollLeft = cell.getBoundingClientRect().left - el.getBoundingClientRect().left - el.clientWidth / 2;
+  }, [offset]);
+  const onKey = (e) => {
+    const step = { ArrowLeft: -7, ArrowRight: 7, ArrowUp: -1, ArrowDown: 1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const next = addDays(focusDay, step);
+    if (!cells.some((c) => c.date === next)) return;
+    setPicked(next);
+    requestAnimationFrame(() => scroller.current?.querySelector(`[data-day="${next}"]`)?.focus());
+  };
+  const day = picked && cells.find((c) => c.date === picked);
+  const name = (id) => data.modules.find((m) => m.id === id);
+  const go = (n) => { setOffset(n); setPicked(null); };
+  const nav = (
+    <div className="flex items-center gap-1">
+      <button className="btn btn-ghost btn-icon" onClick={() => go(offset - 1)} aria-label="Voriges Semester">‹</button>
+      <button className="btn btn-ghost btn-icon" onClick={() => go(offset + 1)} disabled={offset >= 0} aria-label="Nächstes Semester">›</button>
+    </div>
+  );
   return (
-    <Card title={`Aktivität (${weeks} Wochen)`}>
-      <p className="mb-2 text-xs text-slate-400">{fmtMin(total)} an {active} Tagen</p>
+    <Card title="Lernzeit-Kalender" action={nav}>
+      <p className="mb-2 text-xs text-slate-400">{sem.label}: {fmtMin(total)} an {active} Tagen</p>
       <div ref={scroller} className="no-scrollbar overflow-x-auto">
-        <div className="inline-flex gap-[3px]" role="img" aria-label={`Lernaktivität der letzten ${weeks} Wochen: ${fmtMin(total)} an ${active} Tagen`}>
-          <div className="mr-1 flex flex-col gap-[3px] pt-4 text-[9px] leading-[11px] text-slate-500">{WD.map((w, i) => <span key={w} className="h-[11px]">{i % 2 === 0 ? w : ""}</span>)}</div>
+        <div className="inline-flex gap-[3px]" role="group" aria-label={`Lernzeit im ${sem.label}`} onKeyDown={onKey}>
+          <div className="mr-1 flex flex-col gap-[3px] pt-4 text-[9px] leading-[11px] text-slate-500" aria-hidden="true">{WD.map((w, i) => <span key={w} className="h-[11px]">{i % 2 === 0 ? w : ""}</span>)}</div>
           {grid.map((col, i) => (
             <div key={col[0].date} className="flex flex-col gap-[3px]">
-              <span className="h-[13px] text-[9px] leading-[13px] text-slate-500">{months[i]}</span>
-              {col.map((c) => <span key={c.date} title={`${fmt(c.date)}: ${fmtMin(c.minutes)}`} className={`hm h-[11px] w-[11px] rounded-[2px] ${c.future ? "hm-f" : "hm" + c.level}`} />)}
+              <span className="h-[13px] text-[9px] leading-[13px] text-slate-500" aria-hidden="true">{months[i]}</span>
+              {col.map((c) => (c.outside ? <span key={c.date} className="h-[11px] w-[11px]" aria-hidden="true" />
+                : <button key={c.date} type="button" data-day={c.date} tabIndex={c.date === focusDay ? 0 : -1} onClick={() => setPicked(picked === c.date ? null : c.date)} aria-pressed={picked === c.date}
+                  aria-label={`${fmtShort(c.date)}: ${c.minutes ? fmtMin(c.minutes) : "keine Lernzeit"}`} title={`${fmt(c.date)}: ${fmtMin(c.minutes)}`}
+                  className={`hm h-[11px] w-[11px] rounded-[2px] ${focusRing} ${c.future ? "hm-f" : "hm" + c.level} ${picked === c.date ? "hm-pick" : ""}`} />))}
             </div>
           ))}
         </div>
       </div>
       <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-500">weniger{[0, 1, 2, 3, 4].map((l) => <span key={l} className={`hm h-[11px] w-[11px] rounded-[2px] hm${l}`} />)}mehr</div>
+      {day ? (
+        <div className="mt-3 text-sm" role="status">
+          <p><b>{fmtShort(day.date)}</b> <span className="font-num text-slate-400">{day.minutes ? fmtMin(day.minutes) : "keine Lernzeit"}</span></p>
+          {day.modules.length > 0 && (
+            <ul className="mt-1 space-y-0.5">
+              {day.modules.map((x) => (
+                <li key={x.moduleId} className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: name(x.moduleId)?.color || "var(--muted)" }} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate">{name(x.moduleId)?.name || "Ohne Modul"}</span>
+                  <span className="font-num shrink-0 text-xs text-slate-400">{fmtMin(x.minutes)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : <p className="mt-2 text-[11px] text-slate-500">Tippe auf einen Tag für Summe und Module.</p>}
     </Card>
   );
 }

@@ -1,16 +1,52 @@
 /* Auswertungen: Aktivitätsraster, Lernzeit je Semester, Notenverlauf */
 import { addDays, iso, sum, wdIdx } from "./util.js";
 
+const level = (m) => (m <= 0 ? 0 : m < 30 ? 1 : m < 60 ? 2 : m < 120 ? 3 : 4);
+
+/* Raster ab dem Montag `start` über `weeks` Wochen; jede Zelle mit Summe und Minuten je Modul ("" = ohne Modul) */
+function dayGrid(logs, start, weeks, today) {
+  const byDay = new Map();
+  logs.forEach((l) => {
+    const min = Number(l.minutes) || 0;
+    if (!l.date || min <= 0) return;
+    const e = byDay.get(l.date) || { minutes: 0, modules: new Map() };
+    e.minutes += min;
+    e.modules.set(l.moduleId || "", (e.modules.get(l.moduleId || "") || 0) + min);
+    byDay.set(l.date, e);
+  });
+  return Array.from({ length: weeks }, (_, w) => Array.from({ length: 7 }, (_, d) => {
+    const date = addDays(start, w * 7 + d), e = byDay.get(date), minutes = e ? e.minutes : 0;
+    const modules = e ? [...e.modules].map(([moduleId, min]) => ({ moduleId, minutes: min })).sort((a, b) => b.minutes - a.minutes) : [];
+    return { date, minutes, level: level(minutes), future: date > today, modules };
+  }));
+}
+
 /** Aktivitätsraster der letzten `weeks` Wochen: Spalten = Wochen ab Montag, Zeilen = Mo bis So. */
 export function heatmap(logs, weeks = 26, today = iso()) {
-  const byDay = new Map();
-  logs.forEach((l) => { if (l.date && Number(l.minutes) > 0) byDay.set(l.date, (byDay.get(l.date) || 0) + Number(l.minutes)); });
-  const start = addDays(today, -wdIdx(today) - (weeks - 1) * 7);
-  const level = (m) => (m <= 0 ? 0 : m < 30 ? 1 : m < 60 ? 2 : m < 120 ? 3 : 4);
-  return Array.from({ length: weeks }, (_, w) => Array.from({ length: 7 }, (_, d) => {
-    const date = addDays(start, w * 7 + d), minutes = byDay.get(date) || 0;
-    return { date, minutes, level: level(minutes), future: date > today };
-  }));
+  return dayGrid(logs, addDays(today, -wdIdx(today) - (weeks - 1) * 7), weeks, today);
+}
+
+/**
+ * Semester, in dem `date` liegt (Wintersemester 1.10. bis 31.3., Sommersemester 1.4. bis 30.9.);
+ * `offset` springt um ganze Semester zurück (negativ) oder vor.
+ */
+export function semesterOf(date = iso(), offset = 0) {
+  const y = Number(date.slice(0, 4)), mo = Number(date.slice(5, 7));
+  /* fortlaufende Nummer: Jahr * 2, + 1 fürs Wintersemester (das im Oktober beginnt) */
+  let n = mo >= 10 ? y * 2 + 1 : mo >= 4 ? y * 2 : (y - 1) * 2 + 1;
+  n += offset;
+  const sy = Math.floor(n / 2), winter = n % 2 === 1;
+  return winter
+    ? { from: `${sy}-10-01`, to: `${sy + 1}-03-31`, label: `Wintersemester ${sy}/${String(sy + 1).slice(2)}`, short: `WiSe ${sy}/${String(sy + 1).slice(2)}` }
+    : { from: `${sy}-04-01`, to: `${sy}-09-30`, label: `Sommersemester ${sy}`, short: `SoSe ${sy}` };
+}
+
+/** Lernzeit-Kalender eines Semesters: Spalten = Wochen (ab Montag), Zeilen = Mo bis So; Tage außerhalb tragen `outside`. */
+export function semesterCalendar(logs, sem, today = iso()) {
+  const start = addDays(sem.from, -wdIdx(sem.from));
+  const weeks = Math.floor((Math.round((new Date(sem.to + "T12:00:00").getTime() - new Date(start + "T12:00:00").getTime()) / 86400000)) / 7) + 1;
+  const inSem = logs.filter((l) => l.date >= sem.from && l.date <= sem.to);
+  return dayGrid(inSem, start, weeks, today).map((col) => col.map((c) => (c.date < sem.from || c.date > sem.to ? { ...c, outside: true } : c)));
 }
 
 /** Lernzeit summiert nach dem Semester des Moduls (Einheiten ohne Modul zählen nicht mit). */

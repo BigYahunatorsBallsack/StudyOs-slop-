@@ -658,3 +658,44 @@ test('Sync-Punkt oben und am Handy nach unten ziehen zum Aktualisieren', async (
   expect(A.errors).toEqual([]);
   await A.context.close();
 });
+
+test('Timer geräteübergreifend: am PC gestartet, am Handy sichtbar und beendet, nur einmal eingetragen', async ({ browser }) => {
+  test.setTimeout(90000);
+  const backend = createBackend();
+  const A = await newDevice(browser, backend);
+  const B = await newDevice(browser, backend, { time: Date.now() });
+  const unlock = async (page, first) => {
+    await page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+    if (first) await page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+    await page.getByRole('button', { name: first ? 'Festlegen und hochladen' : 'Entsperren und synchronisieren' }).click();
+    await expect(page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+  };
+  const focusLogs = (page) => page.evaluate(async () => ((await window.STUDYOS_ENV.load())?.logs || []).filter((l) => l.id.startsWith('fokus')).map((l) => l.minutes));
+  await login(A.page); await unlock(A.page, true);
+  await login(B.page); await unlock(B.page, false);
+  // PC startet den Timer; nach dem Sync zeigt das Handy ihn an
+  const v0 = backend.rows.values().next().value.version;
+  await nav(A.page, 'Lernen').click();
+  await A.page.getByRole('tab', { name: 'Timer' }).click();
+  await A.page.getByRole('button', { name: 'Starten' }).click();
+  await expect.poll(() => backend.rows.values().next().value.version, { timeout: 15000 }).toBeGreaterThan(v0);
+  await expect.poll(async () => {
+    await B.page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
+    return B.page.getByRole('button', { name: 'Zum Timer' }).count();
+  }, { timeout: 20000, intervals: [1500] }).toBe(1);
+  await expect(B.page.getByRole('button', { name: 'Zum Timer' })).toContainText(/Fokus 2[45]:\d\d/);
+  // Handy: drei Minuten später beenden und eintragen
+  await B.page.clock.fastForward('03:00');
+  await B.page.getByRole('button', { name: 'Zum Timer' }).click();
+  await B.page.getByRole('button', { name: 'Beenden & eintragen' }).dispatchEvent('click');
+  await expect.poll(() => focusLogs(B.page)).toHaveLength(1);
+  await expect(B.page.getByRole('button', { name: 'Zum Timer' })).toHaveCount(0);
+  // PC übernimmt das Ende (Rückkehr in die App synchronisiert) und trägt nichts zusätzlich ein
+  await expect.poll(async () => { await A.page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); return focusLogs(A.page); }, { timeout: 30000, intervals: [2000] }).toHaveLength(1);
+  await expect(A.page.getByRole('button', { name: 'Zum Timer' })).toHaveCount(0);
+  await expect(A.page.getByRole('button', { name: 'Starten' })).toBeVisible();
+  expect(await focusLogs(A.page)).toEqual([3]);
+  expect(A.errors).toEqual([]);
+  expect(B.errors).toEqual([]);
+  await A.context.close(); await B.context.close();
+});

@@ -2,7 +2,7 @@
    Jeder übernommene Termin trägt `feedKey` (UID + ursprüngliches Datum), damit er beim nächsten Abruf
    wiedererkannt wird. Eigene Häkchen (vorbereitet, besucht, nachbereitet) bleiben dabei erhalten. */
 import { guessType } from "./ics.js";
-import { PALETTE } from "./constants.js";
+import { pickColor } from "./colors.js";
 import { addDays, iso, uid as newId } from "./util.js";
 import { baseName } from "./modules.js";
 
@@ -41,7 +41,7 @@ export function resolveNewModules(data, map) {
     const base = baseName(summary);
     let m = byBase.get(base);
     if (!m) {
-      m = { id: newId(), name: moduleNameFrom(summary), code: "", ects: 6, semester: 1, status: "belegt", grade: null, color: PALETTE[modules.length % PALETTE.length], created: iso() };
+      m = { id: newId(), name: moduleNameFrom(summary), code: "", ects: 6, semester: 1, status: "belegt", grade: null, color: pickColor(modules), created: iso() };
       modules.push(m);
       byBase.set(base, m);
     }

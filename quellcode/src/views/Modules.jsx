@@ -13,6 +13,7 @@ import { bonusForecast, studyDiary, workload } from "../lib/study.js";
 import { rememberOpened } from "../lib/recent.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
+import { readView, saveView } from "../lib/view.js";
 
 /* ---------------- Module ---------------- */
 export function ModuleList({ db }) {
@@ -95,7 +96,8 @@ export function ModuleList({ db }) {
 
 export function ModuleDetail({ db, id, onBack }) {
   const { data } = db, m = db.mod(id), s = moduleStats(data, id), t = iso(), gop = gopCodes(curriculumOf(data));
-  const [sub, setSub] = useState("uebersicht");
+  const [sub, setSubState] = useState(() => readView().moduleSub || "uebersicht");
+  const setSub = (v) => { setSubState(v); saveView({ moduleSub: v }); };
   const [merge, setMerge] = useState(false);
   useEffect(() => rememberOpened("module", id), [id]);
   const [sesFilter, setSesFilter] = useState("anstehend");

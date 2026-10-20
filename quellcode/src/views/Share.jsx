@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { getCloud } from "../cloud/index.js";
 import { deckFrom, importDeck, openDeck, sealDeck, shareUrl } from "../lib/share.js";
-import { PALETTE } from "../lib/constants.js";
+import { pickColor } from "../lib/colors.js";
 import { iso, uid } from "../lib/util.js";
 import { Card, Modal } from "../ui/primitives.jsx";
 import { Markdown } from "../ui/markdown.jsx";
@@ -88,7 +88,7 @@ export function ShareImport({ db, token, keyStr, onClose }) {
       let d = d0, moduleId = target;
       if (target === "__new") {
         moduleId = uid();
-        d = { ...d, modules: [...d.modules, { id: moduleId, name: deck.title.replace(/\s#\S+$/, ""), code: "", ects: 0, semester: 1, status: "belegt", color: PALETTE[d.modules.length % PALETTE.length], grade: "", bonusPct: "" }] };
+        d = { ...d, modules: [...d.modules, { id: moduleId, name: deck.title.replace(/\s#\S+$/, ""), code: "", ects: 0, semester: 1, status: "belegt", color: pickColor(d.modules), grade: "", bonusPct: "" }] };
       }
       res = importDeck(d, deck, moduleId, today, uid);
       return res.data;
