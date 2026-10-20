@@ -1,9 +1,11 @@
 import React from "react";
-import { DONE_HW, HW_STATUS, TOPIC_STATES } from "../lib/constants.js";
+import { DONE_HW, HW_STATUS, TOPIC_STATES, WD } from "../lib/constants.js";
 import { dueInfo, examCountdown } from "../lib/data.js";
 import { blockDone } from "../lib/blocks.js";
 import { roomChange } from "../lib/feed.js";
-import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";
+import { taskLinkLabel } from "../lib/moodle.js";
+import { crowdedDueDays, fmtTypical, typicalSheetTime } from "../lib/study.js";
+import { fmtMin, fmtShort, isHeld, iso, wdIdx } from "../lib/util.js";
 import { Chip, Empty, Icon } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
 import { isOcc, occLabel } from "../lib/occlusion.js";
@@ -80,6 +82,7 @@ export function NoteRow({ n, db, meta }) {
 
 export function HomeworkRow({ h, db }) {
   const m = db.mod(h.moduleId), done = DONE_HW.has(h.status), dl = dueInfo(h.due, done, h.dueTime);
+  const typical = !done && db.data ? typicalSheetTime(db.data, h.moduleId) : null, link = taskLinkLabel(h);
   const toggleDone = () => {
     const prev = h.status, next = done ? "in Arbeit" : "abgegeben";
     db.setHwStatus(h.id, next);
@@ -92,7 +95,7 @@ export function HomeworkRow({ h, db }) {
       <div className="flex items-start gap-3">
         <button onClick={() => db.openForm("homework", h)} className="row-main min-w-0 flex-1">
           <p className={`row-title truncate ${done ? "line-through" : ""}`}>{h.title}</p>
-          <p className="row-meta truncate">{m?.name}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}</p>
+          <p className="row-meta truncate">{m?.name}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}{typical ? <span title={`Median deiner Timer-Zeit für ${typical.count} erledigte Blätter`}> · {fmtTypical(typical.minutes)}</span> : null}</p>
           <p className={`text-xs font-semibold ${dl.cls}`}>{h.missed && !done ? "nicht abgegeben, " : ""}{dl.text}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
         {!done && <button className="btn btn-ghost btn-icon shrink-0" onClick={() => db.focusOn("homework", h)} aria-label={`Timer starten: ${h.title}`} title="Timer starten"><Icon name="play" className="h-4 w-4" /></button>}
@@ -101,8 +104,21 @@ export function HomeworkRow({ h, db }) {
           {HW_STATUS.map((x) => <option key={x} value={x}>{x}</option>)}
         </Select>
       </div>
+      {link && <a className="link-btn mt-1 inline-block text-xs" href={h.url} target="_blank" rel="noopener noreferrer">{link} ↗</a>}
       <SubtaskChecklist h={h} db={db} color={m?.color} />
     </SwipeRow>
+  );
+}
+
+/** Hinweis, wenn in den nächsten 7 Tagen an einem Tag 3 oder mehr Abgaben fällig sind: „Do: 3 Abgaben“ */
+export function DueCrowding({ homework, className = "" }) {
+  const days = crowdedDueDays(homework, iso());
+  if (!days.length) return null;
+  return (
+    <p className={`notice notice-warn ${className}`} role="note">
+      {days.map((x, i) => <React.Fragment key={x.date}>{i ? " · " : ""}<b title={x.items.map((h) => h.title).join(", ")}>{WD[wdIdx(x.date)]}: {x.items.length} Abgaben</b></React.Fragment>)}
+      {" "}am selben Tag fällig. Früh anfangen lohnt sich.
+    </p>
   );
 }
 

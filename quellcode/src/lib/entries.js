@@ -8,7 +8,7 @@ import { addDays, fmt, uid } from "./util.js";
 
 /* Was eine Kopie nie übernimmt: Abo-Verknüpfung, eigene Sperren, Anhänge (die Datei gehört zum Original),
    Serienzugehörigkeit und Sync-Stempel */
-const NEVER = ["updated", "fu", "feedKey", "source", "locked", "files", "seriesId", "change"];
+const NEVER = ["updated", "fu", "feedKey", "source", "url", "retakeKey", "locked", "files", "seriesId", "change"];
 
 /**
  * Kopie eines Eintrags als eigener, von Hand angelegter Eintrag: neue id, nichts erledigt, besucht oder abgegeben,

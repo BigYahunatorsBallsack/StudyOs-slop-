@@ -9,7 +9,7 @@ import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
 import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
-import { bonusForecast, studyDiary, workload } from "../lib/study.js";
+import { bonusForecast, recordingBacklog, studyDiary, workload } from "../lib/study.js";
 import { rememberOpened } from "../lib/recent.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
@@ -143,6 +143,7 @@ export function ModuleDetail({ db, id, onBack }) {
               <li className="flex justify-between gap-2"><span className="text-slate-400">Prüfung</span><span className="text-right">{nextExam ? `${fmt(nextExam.date)} (in ${diffDays(t, nextExam.date)} T.)` : <button className="text-sky-400 hover:underline" onClick={() => db.openForm("exam", { moduleId: id }, true)}>eintragen</button>}</span></li>
             </ul>
           </Card>
+          <RecordingBacklog b={recordingBacklog(data, id)} db={db} />
           <Card>
             <div className="flex items-center gap-4">
               <TriRing s={s} size={96} />
@@ -245,6 +246,20 @@ export function ModuleDetail({ db, id, onBack }) {
           <CardList cards={cards} db={db} />
         </div>
       )}
+    </div>
+  );
+}
+
+/* Aufzeichnungs-Rückstand: vergangene Vorlesungen, weder besucht noch ganz angeschaut; antippen zeigt die Liste */
+function RecordingBacklog({ b, db }) {
+  const [open, setOpen] = useState(false);
+  if (!b.list.length) return null;
+  return (
+    <div>
+      <button className="link-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {b.list.length} {b.list.length === 1 ? "Aufzeichnung" : "Aufzeichnungen"} offen · {fmtMin(b.minutes)}
+      </button>
+      {open && <ul className="rows mt-2">{b.list.map(({ s }) => <SessionRow key={s.id} s={s} db={db} showDate />)}</ul>}
     </div>
   );
 }

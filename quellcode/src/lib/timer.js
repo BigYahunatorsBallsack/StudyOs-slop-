@@ -6,7 +6,7 @@ export function loadTimer() {
     const t = JSON.parse(localStorage.getItem(TIMER_KEY) || "null");
     if (!t || typeof t !== "object") return base;
     const num = (v, d, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d);
-    const out = { ...base, mode: t.mode === "break" ? "break" : "focus", length: num(t.length, 25, 1, 180), brk: num(t.brk, 5, 1, 60), moduleId: String(t.moduleId || ""), topicId: String(t.topicId || ""), ...(t.kind && { kind: String(t.kind) }), ...(t.note && { note: String(t.note).slice(0, 200) }) };
+    const out = { ...base, mode: t.mode === "break" ? "break" : "focus", length: num(t.length, 25, 1, 180), brk: num(t.brk, 5, 1, 60), moduleId: String(t.moduleId || ""), topicId: String(t.topicId || ""), ...(t.kind && { kind: String(t.kind) }), ...(t.note && { note: String(t.note).slice(0, 200) }), ...(t.homeworkId && { homeworkId: String(t.homeworkId) }) };
     out.remaining = num(t.remaining, (out.mode === "focus" ? out.length : out.brk) * 60, 0, 180 * 60);
     if (t.running && Number(t.endAt) > Date.now() - 12 * 3600 * 1000) { out.running = true; out.endAt = Number(t.endAt); }
     return out;

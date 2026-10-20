@@ -37,7 +37,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
     return v;
   });
   const [err, setErr] = useState("");
-  const setField = (k, val) => setVals((v) => { const n = { ...v, [k]: val }; if (k === "moduleId") { if ("topicId" in n) n.topicId = ""; if ("sessionId" in n) n.sessionId = ""; } return n; });
+  const setField = (k, val) => setVals((v) => { const n = { ...v, [k]: val }; if (k === "moduleId") { if ("topicId" in n) n.topicId = ""; if ("sessionId" in n) n.sessionId = ""; if ("homeworkId" in n) n.homeworkId = ""; } return n; });
   const fileColl = db ? FILE_COLL[form.kind] : null;
   const [pending, setPending] = useState([]);
   const [pasteMsg, setPasteMsg] = useState("");

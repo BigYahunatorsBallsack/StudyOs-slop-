@@ -42,6 +42,27 @@ export function dueOf(e) {
   return { due: e.date, dueTime: e.start };
 }
 
+/* Link zur Aufgabe. Moodle und Artemis liefern im Kalender keine URL-Eigenschaft (Moodle: UID, Titel, Beschreibung, Kurs;
+   Artemis: UID, Titel, Zeit, Ort), deshalb der Reihe nach: URL des Termins, ein Moodle-Aktivitätslink (/mod/…) aus der
+   Beschreibung, bei Moodle die Tagesansicht des Kalenders mit dem Eintrag, bei Artemis die Aufgaben des Kurses (Kursnummer im Abo-Link). */
+export function taskUrl(e, prefix = "moodle", feedUrl = "") {
+  if (e.url) return e.url;
+  if (prefix === "moodle") {
+    const link = /https?:\/\/[^\s\]\[<>"]+\/mod\/[^\s\]\[<>"]+/i.exec(e.description || "");
+    if (link) return link[0].replace(/[).,;]+$/, "");
+    const host = /^\d+@([\w.-]+(?:\/[\w.~-]+)*)$/.exec(e.uid || "")?.[1]; /* Moodle-UID: „Termin-ID@Adresse“ */
+    const root = /^(https?:\/\/\S+?)\/calendar\/export_execute\.php/i.exec(feedUrl)?.[1] || (host ? `https://${host}` : "");
+    if (!root || !e.date) return "";
+    const ts = Math.round(new Date(`${e.date}T${e.allDay ? "12:00" : e.start || "12:00"}:00`).getTime() / 1000);
+    return `${root.replace(/^http:/i, "https:")}/calendar/view.php?view=day&time=${ts}`;
+  }
+  const c = /^(https:\/\/[^/]+)\/api\/(?:[\w-]+\/)?calendar\/courses\/(\d+)\//i.exec(feedUrl);
+  return c ? `${c[1]}/courses/${c[2]}/exercises` : "";
+}
+
+/** Beschriftung des Knopfs zur Aufgabe, null ohne Link */
+export const taskLinkLabel = (h) => (!/^https:\/\//i.test(h?.url || "") ? null : String(h.source || "").startsWith("artemis") ? "In Artemis öffnen" : String(h.source || "") === "moodle" ? "In Moodle öffnen" : "Aufgabe öffnen");
+
 /** Kurse, die noch keinem Modul zugeordnet sind */
 export const unmappedCourses = (events, map = {}) => [...new Set(events.filter(isMoodleDeadline).map(courseOf))].filter((c) => !(c in map)).sort((a, b) => a.localeCompare(b, "de"));
 
@@ -49,7 +70,7 @@ export const unmappedCourses = (events, map = {}) => [...new Set(events.filter(i
  * Gleicht Abgaben aus dem Moodle-Kalender mit den Hausaufgaben ab.
  * Neue Abgaben werden nur angelegt, wenn sie noch nicht vorbei sind.
  */
-export function applyMoodle(data, events, map, today = iso(), dismissed = [], prefix = "moodle") {
+export function applyMoodle(data, events, map, today = iso(), dismissed = [], prefix = "moodle", feedUrl = "") {
   const gone = new Set(dismissed);
   const stats = { added: 0, updated: 0, ignored: 0 };
   const byKey = new Map(data.homework.filter((h) => h.feedKey).map((h) => [h.feedKey, h]));
@@ -64,6 +85,7 @@ export function applyMoodle(data, events, map, today = iso(), dismissed = [], pr
     seen.add(key);
     const { due, dueTime } = dueOf(e);
     const title = cleanTitle(e.summary);
+    const url = taskUrl(e, prefix, feedUrl);
     const old = byKey.get(key);
     if (old) {
       if (DONE_HW.has(old.status) || old.deleted) continue;
@@ -72,11 +94,13 @@ export function applyMoodle(data, events, map, today = iso(), dismissed = [], pr
       if (!locked.has("title") && old.title !== title) patch.title = title;
       if (!locked.has("due") && (old.due !== due || (old.dueTime || "") !== dueTime)) { patch.due = due; patch.dueTime = dueTime; }
       if (!locked.has("moduleId") && old.moduleId !== moduleId) patch.moduleId = moduleId;
-      if (Object.keys(patch).length) { homework[homework.indexOf(old)] = { ...old, ...patch }; stats.updated++; }
+      if (url && old.url !== url) patch.url = url;
+      /* nur der Link nachgetragen: still, keine Meldung „aktualisiert“ */
+      if (Object.keys(patch).length) { homework[homework.indexOf(old)] = { ...old, ...patch }; if (Object.keys(patch).some((k) => k !== "url")) stats.updated++; }
       continue;
     }
     if (due < today) continue;
-    homework.push({ id: newId(), moduleId, title, issued: null, due, dueTime, status: "ausgegeben", points: null, maxPoints: null, feedback: "", feedKey: key, source: prefix });
+    homework.push({ id: newId(), moduleId, title, issued: null, due, dueTime, status: "ausgegeben", points: null, maxPoints: null, feedback: "", feedKey: key, source: prefix, ...(url && { url }) });
     stats.added++;
   }
   return { homework, stats };
@@ -85,5 +109,5 @@ export function applyMoodle(data, events, map, today = iso(), dismissed = [], pr
 /* Artemis: ein Abo pro Kurs; alle Abgaben gehen an das gewählte Modul */
 export const artemisMap = (events, moduleId) => Object.fromEntries([...new Set(events.map(courseOf))].map((c) => [c, moduleId]));
 export function applyArtemis(data, feed, events, today = iso()) {
-  return applyMoodle(data, events, artemisMap(events, feed.moduleId), today, feed.dismissed || [], `artemis:${feed.id}`);
+  return applyMoodle(data, events, artemisMap(events, feed.moduleId), today, feed.dismissed || [], `artemis:${feed.id}`, feed.url || "");
 }

@@ -237,6 +237,71 @@ export function sessionCoverage(s) {
   return w && w.ratio !== null ? { ratio: w.ratio, label: `${Math.round(w.ratio * 100)} % angeschaut` } : null;
 }
 
+/**
+ * Aufzeichnungs-Rückstand eines Moduls: vergangene Vorlesungen (auch Zentralübungen), die weder besucht noch ganz
+ * angeschaut sind. Rest laut „angeschaut bis“, ohne Eintrag die ganze Länge. Älteste zuerst.
+ * @returns {{ list: { s: any, left: number }[], minutes: number }}
+ */
+export function recordingBacklog(data, moduleId, held = isHeld) {
+  const list = data.sessions
+    .filter((s) => s.moduleId === moduleId && !s.cancelled && !s.attended && /vorlesung|zentral/i.test(s.type || "") && held(s))
+    .map((s) => { const sec = parseWatch(s.watchedTo), len = sessionLength(s); return { s, left: Number.isFinite(sec) && sec > 0 ? Math.max(0, len - Math.floor(sec / 60)) : len }; })
+    .filter((x) => x.left > 0)
+    .sort((a, b) => (a.s.date + (a.s.start || "")).localeCompare(b.s.date + (b.s.start || "")));
+  return { list, minutes: list.reduce((n, x) => n + x.left, 0) };
+}
+
+/* ---------------- Bearbeitungszeit der Blätter ---------------- */
+
+/** Gehört eine Lerneinheit zu dieser Abgabe? Mit `homeworkId` (Timer am Eintrag), bei älteren Einheiten: gleiches Modul, Art „Übung/Hausaufgabe“ und der Titel als Notiz. */
+export const logOfHomework = (l, h) => (l.homeworkId ? l.homeworkId === h.id : !!h.title && l.moduleId === h.moduleId && l.kind === "Übung/Hausaufgabe" && String(l.note || "").trim() === h.title.trim());
+
+/** Gemessene Bearbeitungszeit (Minuten) je Abgabe eines Moduls, nur Abgaben mit Lernzeit. */
+export function sheetMinutes(data, moduleId) {
+  const hw = data.homework.filter((h) => h.moduleId === moduleId);
+  const logs = data.logs.filter((l) => l.moduleId === moduleId && Number(l.minutes) > 0);
+  const out = new Map();
+  for (const h of hw) { const m = sum0(logs.filter((l) => logOfHomework(l, h))); if (m > 0) out.set(h.id, m); }
+  return out;
+}
+
+const typicalCache = new WeakMap();
+/**
+ * Übliche Bearbeitungszeit eines Blatts im Modul: Median der erledigten Blätter mit gemessener Zeit, auf 15 Minuten
+ * (ab 2 Stunden auf halbe Stunden) gerundet. Erst ab 2 gemessenen Blättern, sonst null.
+ * @returns {null | { minutes: number, count: number }}
+ */
+export function typicalSheetTime(data, moduleId) {
+  let byModule = typicalCache.get(data);
+  if (!byModule) { byModule = new Map(); typicalCache.set(data, byModule); }
+  if (byModule.has(moduleId)) return byModule.get(moduleId);
+  const mins = sheetMinutes(data, moduleId);
+  const done = data.homework.filter((h) => h.moduleId === moduleId && DONE_HW.has(h.status) && mins.has(h.id)).map((h) => mins.get(h.id)).sort((a, b) => a - b);
+  let res = null;
+  if (moduleId && done.length >= 2) {
+    const mid = done.length / 2, median = done.length % 2 ? done[Math.floor(mid)] : (done[mid - 1] + done[mid]) / 2;
+    const step = median >= 120 ? 30 : 15;
+    res = { minutes: Math.max(step, Math.round(median / step) * step), count: done.length };
+  }
+  byModule.set(moduleId, res);
+  return res;
+}
+
+/** Kurz für die Zeile einer Abgabe: „meist ~4 h“, „meist ~1 h 30 min“ */
+export const fmtTypical = (m) => { const h = Math.floor(m / 60), r = m % 60; return `meist ~${h ? `${h} h` : ""}${h && r ? " " : ""}${r ? `${r} min` : ""}`; };
+
+/* ---------------- Mehrere Abgaben am selben Tag ---------------- */
+
+/**
+ * Tage der nächsten `days` Tage (ab heute), an denen mindestens `min` offene Abgaben fällig sind.
+ * @returns {{ date: string, items: any[] }[]}
+ */
+export function crowdedDueDays(homework, today = iso(), { days = 7, min = 3 } = {}) {
+  const end = addDays(today, days - 1), by = new Map();
+  homework.filter((h) => h.due && h.due >= today && h.due <= end && !DONE_HW.has(h.status) && !h.deleted).forEach((h) => { if (!by.has(h.due)) by.set(h.due, []); by.get(h.due).push(h); });
+  return [...by].filter(([, l]) => l.length >= min).sort((a, b) => a[0].localeCompare(b[0])).map(([date, items]) => ({ date, items }));
+}
+
 /* ---------------- Lerntagebuch ---------------- */
 
 /**

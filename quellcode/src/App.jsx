@@ -59,6 +59,7 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
 import { buildHomeworkSeries, markAttended, seriesSuggestion, reconcileAllSessionLogs, reconcileSessionLogs, toggleAttended, withoutArchived } from "./lib/study.js";
+import { examDismissKeys } from "./lib/feed.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, curriculumOf, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
@@ -272,6 +273,13 @@ export default function App() {
       if (old.due !== item.due || (old.dueTime || "") !== (item.dueTime || "")) locked.add("due");
       item.locked = [...locked];
     }
+    if (kind === "exam" && !isNew && item.feedKey) {
+      /* ebenso Datum, Uhrzeit und Raum einer Prüfung aus dem Abo */
+      const old = d.exams.find((x) => x.id === item.id) || {};
+      const locked = new Set(old.locked || []);
+      ["date", "time", "room"].forEach((k) => { if ((old[k] || "") !== (item[k] || "")) locked.add(k); });
+      item.locked = [...locked];
+    }
     if (kind === "note") {
       item.updated = iso();
       /* Zeilen „Frage :: Antwort“ und Lückentexte werden gleich Karteikarten */
@@ -324,6 +332,9 @@ export default function App() {
     const hw = kind === "homework" && d.homework.find((x) => x.id === id);
     if (hw?.feedKey?.startsWith("moodle|") && d.settings.moodleFeed) n.settings = { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, dismissed: [...(d.settings.moodleFeed.dismissed || []), hw.feedKey].slice(-500) } };
     if (hw?.feedKey?.startsWith("artemis:")) n.settings = { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).map((f) => (hw.feedKey.startsWith(`artemis:${f.id}|`) ? { ...f, dismissed: [...(f.dismissed || []), hw.feedKey].slice(-500) } : f)) };
+    /* ebenso Prüfungen aus dem Stundenplan- oder Artemis-Abo */
+    const ex = kind === "exam" && d.exams.find((x) => x.id === id);
+    if (ex?.feedKey) n.settings = { ...d.settings, examsDismissed: [...(d.settings.examsDismissed || []), ...examDismissKeys(ex)].slice(-200) };
     return n;
   };
 
@@ -548,7 +559,7 @@ export default function App() {
     },
     /* ▶ an einem Eintrag: Timer mit Modul und Art; die Zeit landet als Lerneinheit mit dem Titel als Notiz */
     focusOn: (kind, item) => {
-      if (kind === "homework") db.focus({ moduleId: item.moduleId || "", kind: "Übung/Hausaufgabe", note: item.title });
+      if (kind === "homework") db.focus({ moduleId: item.moduleId || "", kind: "Übung/Hausaufgabe", note: item.title, homeworkId: item.id });
       else if (kind === "session") db.focus({ moduleId: item.moduleId || "", kind: "Nacharbeiten", note: `${item.type} vom ${fmtShort(item.date)}` });
     },
   };
