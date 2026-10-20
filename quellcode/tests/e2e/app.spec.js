@@ -227,6 +227,51 @@ test('Schnelleingabe legt eine Hausaufgabe an, mit Rückgängig', async ({ page 
   await expect(page.getByLabel(/^Titel/)).toHaveValue('Blatt 10');
 });
 
+test('Schnelleingabe: Modul vervollständigen, Lernzeit nachtragen, letzte Eingabe als Vorlage', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
+  const input = page.getByLabel('Was steht an?');
+  await input.fill('1h Diskr');
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Diskrete Strukturen', exact: true })).toBeVisible();
+  await input.press('Tab');
+  await expect(input).toHaveValue('1h Diskrete Strukturen ');
+  await input.pressSequentially('gestern');
+  await expect(page.getByRole('radio', { name: 'Lerneinheit' })).toHaveAttribute('aria-checked', 'true');
+  const yesterday = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('sv-SE'); });
+  await page.getByRole('button', { name: 'Lerneinheit anlegen' }).click();
+  await expect.poll(async () => (await stored(page))?.logs.some((l) => l.minutes === 60 && l.date === yesterday)).toBe(true);
+  // Vorlage: antippen füllt das Feld, das Datum ist markiert und wird überschrieben
+  await page.getByRole('button', { name: 'Schnelleingabe öffnen' }).click();
+  await page.getByRole('list', { name: 'Letzte Eingaben' }).getByRole('button', { name: '1h Diskrete Strukturen gestern' }).click();
+  await expect(input).toHaveValue('1h Diskrete Strukturen gestern');
+  await page.keyboard.type('heute');
+  await expect(input).toHaveValue('1h Diskrete Strukturen heute');
+});
+
+test('Bild aus der Zwischenablage in eine Notiz einfügen', async ({ page }) => {
+  await loadDemo(page);
+  await nav(page, 'Heute').click();
+  await page.keyboard.press('n');
+  await page.getByLabel('Titel').fill('Tafelbild');
+  const area = page.locator('#f-text');
+  await area.click();
+  await area.evaluate((el) => {
+    const bin = atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    const dt = new DataTransfer();
+    dt.items.add(new File([Uint8Array.from(bin, (c) => c.charCodeAt(0))], 'image.png', { type: 'image/png' }));
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await expect(area).toHaveValue(/^!\[Bild [^\]]+\.png\]\(att:[\w-]+\)$/);
+  await expect(page.getByText('Bild eingefügt, wird beim Speichern angehängt.')).toBeVisible();
+  await page.getByRole('button', { name: 'Vorschau' }).click();
+  await expect.poll(() => page.locator('img.md-img').evaluate((img) => img.naturalWidth)).toBe(1);
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page))?.notes.find((n) => n.title === 'Tafelbild')?.files?.length).toBe(1);
+  const note = (await stored(page)).notes.find((n) => n.title === 'Tafelbild');
+  expect(note.text).toContain(`att:${note.files[0].id}`);
+});
+
 test('Plus im Kopf: Abgabe mit Teilaufgaben anlegen, abhaken und im Formular ergänzen', async ({ page }) => {
   await loadDemo(page);
   await nav(page, 'Woche').click();

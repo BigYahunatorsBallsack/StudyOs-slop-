@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseQuick, quickToEntity, quickMissing } from "../../src/lib/quickadd.js";
+import { applySuggestion, dateSpan, moduleSuggestions, parseQuick, quickToEntity, quickMissing } from "../../src/lib/quickadd.js";
 
 const T = "2026-10-21"; /* ein Mittwoch */
 const M = [
@@ -61,5 +61,56 @@ describe("Schnelleingabe", () => {
   });
   it("leere Eingabe", () => {
     expect(q("   ").kind).toBe("");
+  });
+});
+
+describe("Schnelleingabe: Lernzeit nachtragen", () => {
+  const M2 = [...M.filter((m) => m.id !== "la"), { id: "linalg", name: "Lineare Algebra für Informatik" }];
+  const r = (s) => parseQuick(s, M2, T);
+  it("Dauer, Modul und vergangenes Datum", () => {
+    expect(r("1h DS gestern")).toMatchObject({ kind: "log", minutes: 60, date: "2026-10-20", title: "" });
+    expect(r("1h DS gestern").module.id).toBe("ds");
+    expect(quickToEntity(r("1h DS gestern"), T).vals).toMatchObject({ date: "2026-10-20", minutes: 60, moduleId: "ds", kind: "Nacharbeiten" });
+  });
+  it("Art aus dem Text, Karten wird nicht Teil des Titels", () => {
+    const x = r("45 min Karten Analysis");
+    expect(x).toMatchObject({ kind: "log", minutes: 45, logKind: "Karteikarten", title: "" });
+    expect(x.module.id).toBe("ana");
+    expect(quickToEntity(x, T).vals.kind).toBe("Karteikarten");
+    expect(r("90 min Übung DS")).toMatchObject({ kind: "log", logKind: "Übung/Hausaufgabe" });
+    expect(r("Karten sortieren").logKind).toBe("");
+    expect(r("Karten sortieren").title).toBe("Karten sortieren");
+  });
+  it("Wochentag meint bei Lernzeit den letzten, ohne Jahr bleibt das Datum in diesem Jahr", () => {
+    const x = r("90min Lernen LinAlg Mo");
+    expect(x).toMatchObject({ kind: "log", minutes: 90, date: "2026-10-19" });
+    expect(x.module.id).toBe("linalg");
+    expect(r("1h DS mi").date).toBe(T);
+    expect(r("1h DS 3.10.").date).toBe("2026-10-03");
+    expect(r("Abgabe DS mi").date).toBe("2026-10-28");
+  });
+});
+
+describe("Schnelleingabe: Vervollständigung und Vorlagen", () => {
+  it("schlägt Module zum letzten Wort vor", () => {
+    expect(moduleSuggestions("Blatt 4 Ana", M, T).map((m) => m.id)).toEqual(["ana"]);
+    expect(moduleSuggestions("Blatt 4 Ana ", M, T)).toEqual([]);
+    expect(moduleSuggestions("Blatt 4 Fr", M, T)).toEqual([]);
+    expect(moduleSuggestions("Blatt", M, T)).toEqual([]);
+    expect(moduleSuggestions("Blatt 4 Analysis für Informatik", M, T)).toEqual([]);
+    expect(moduleSuggestions("Blatt ds", M, T).map((m) => m.id)).toEqual(["ds"]);
+  });
+  it("übernimmt den vollen Namen und erkennt ihn wieder", () => {
+    expect(applySuggestion("Blatt 4 Ana", M[0])).toBe("Blatt 4 Analysis für Informatik ");
+    expect(applySuggestion("Blatt 4 Diskrete Struk", M[1])).toBe("Blatt 4 Diskrete Strukturen ");
+    expect(applySuggestion("Blatt lin", M[3])).toBe("Blatt Lineare Algebra ");
+    const x = q("Blatt 4 Einführung in die Informatik Fr");
+    expect(x.module.id).toBe("eidi");
+    expect(x.title).toBe("Blatt 4");
+  });
+  it("findet die Datumsangabe zum Ersetzen", () => {
+    expect(dateSpan("Blatt 4 Analysis Fr", T)).toEqual([17, 19]);
+    expect(dateSpan("Abgabe DS in 3 Tagen", T)).toEqual([10, 20]);
+    expect(dateSpan("Blatt 4 Analysis", T)).toBe(null);
   });
 });

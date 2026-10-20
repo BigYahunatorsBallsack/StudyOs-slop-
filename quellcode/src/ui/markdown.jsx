@@ -1,5 +1,6 @@
 import React from "react";
 import { needsExtras, useExtras } from "./extras.js";
+import { fileUrl } from "../lib/files.js";
 
 /* Kleiner, sicherer Markdown-Renderer für Notizen und Karten (ohne HTML-Injection).
    Formeln ($…$, $$…$$) und eingefärbter Code werden über KaTeX bzw. highlight.js gezeigt, sobald geladen;
@@ -34,8 +35,17 @@ function WikiLink({ name, label }) {
   return <button type="button" className="wiki-link" onClick={() => w.open(target.id)}>{text}</button>;
 }
 
+/* Bild aus den Anhängen: ![Name](att:ID) */
+function AttImage({ id, alt }) {
+  const [url, setUrl] = React.useState(undefined);
+  React.useEffect(() => { let live = true; fileUrl(id).then((u) => live && setUrl(u)); return () => { live = false; }; }, [id]);
+  if (url === undefined) return <span className="md-img-missing">{alt || "Bild"}</span>;
+  if (!url) return <span className="md-img-missing">[Bild „{alt || "Bild"}“ nicht auf diesem Gerät]</span>;
+  return <img className="md-img" src={url} alt={alt} />;
+}
+
 export function mdInline(text, keyBase) {
-  const out = []; const re = /(`[^`]+`)|(\$(?=\S)[^$\n]*?\S\$|\$\S\$)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[\[[^\]\n]+\]\])|(\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
+  const out = []; const re = /(`[^`]+`)|(\$(?=\S)[^$\n]*?\S\$|\$\S\$)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[\[[^\]\n]+\]\])|(\[[^\]]+\]\((https?:\/\/[^)\s]+)\))|(!\[([^\]\n]*)\]\(att:([\w-]+)\))/g;
   let last = 0, m, i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
@@ -45,6 +55,7 @@ export function mdInline(text, keyBase) {
     else if (m[3]) out.push(<strong key={k}>{mdInline(m[3].slice(2, -2), k)}</strong>);
     else if (m[4]) out.push(<em key={k}>{m[4].slice(1, -1)}</em>);
     else if (m[5]) { const [name, label] = m[5].slice(2, -2).split("|"); out.push(<WikiLink key={k} name={name.trim()} label={label?.trim()} />); }
+    else if (m[8]) out.push(<AttImage key={k} id={m[10]} alt={m[9]} />);
     else if (m[6]) out.push(<a key={k} href={m[7]} target="_blank" rel="noopener noreferrer">{m[6].slice(1, m[6].indexOf("]"))}</a>);
     last = re.lastIndex;
   }

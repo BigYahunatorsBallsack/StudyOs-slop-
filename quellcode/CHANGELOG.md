@@ -1,6 +1,10 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Schnelleingabe vervollständigt Module:** Beim Tippen schlägt die Schnelleingabe passende Module vor; antippen oder Tab übernimmt den vollen Namen. Die Vorschau zeigt weiter Art, Modul, Datum, Uhrzeit und Teilaufgaben, bei Lernzeit auch die Art der Lerneinheit.
+- **Letzte Eingaben als Vorlage:** Unter dem leeren Feld stehen deine letzten 5 Schnelleingaben (auf diesem Gerät). Antippen füllt das Feld und markiert das Datum, sodass du nur das neue tippst.
+- **Lernzeit nachtragen per Schnelleingabe:** „1h DS gestern“, „45 min Karten Analysis“ oder „90min Lernen LinAlg Mo“ legt eine Lerneinheit beim Modul an. Ein Wochentag meint dabei den letzten, „Karten“ wird zur Art „Karteikarten“, und Abkürzungen wie „LinAlg“ werden erkannt.
+- **Bilder einfügen:** In Notizen, Karteikarten und Abgaben kannst du ein Bild aus der Zwischenablage einfügen (Strg+V oder Einfügen am Handy) oder hineinziehen. Es wird beim Speichern als Anhang abgelegt und in Notizen und Karten gleich als Bild angezeigt.
 - **Fester Weg zur Uni:** Mit den Öffis geht es immer mit der S6 ab Zorneding und in Haar weiter mit dem Bus 230 zum Campus Garching, Haltestellen und Linien stellt man nicht mehr ein. Mit dem Auto geht es ab Zorneding oder dem aktuellen Standort, als Ziel wählst du auf „Heute“ oder in den Einstellungen Campus Garching oder Campus Weihenstephan (Freising). Wer Pharmazeutische Bioprozesstechnik studiert, startet mit Weihenstephan.
 - **Karteikarten zählen als Lernzeit:** Die Zeit beim Abfragen landet automatisch als Lerneinheit „Karteikarten“ beim Modul, eine pro Modul und Tag, und zählt für Serie, Wochenziel und ECTS-Soll. Längere Pausen zählen nicht mit, und läuft gleichzeitig der Fokus-Timer, zählt nur der.
 - **Karteikarten per Wischen bewerten:** Nach dem Aufdecken am Handy nach rechts wischen heißt „gewusst“ (Gut), nach links „nicht gewusst“ (Nochmal). Knöpfe und die Tasten 1 bis 4 gehen weiter; die Tasten wechseln jetzt nicht mehr nebenbei den Bereich.
