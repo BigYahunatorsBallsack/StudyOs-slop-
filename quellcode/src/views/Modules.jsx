@@ -3,7 +3,7 @@ import { DONE_HW, MODULE_STATUS, RING_COLORS } from "../lib/constants.js";
 import { isActive, moduleStats } from "../lib/data.js";
 import { byOrder, byTime, diffDays, fmt, fmtDec, fmtH, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
 import { Bar, Card, Empty, RingLegend, Stat, Tabs, TriRing } from "../ui/primitives.jsx";
-import { CardList, HomeworkRow, SessionRow, TopicRow } from "../ui/rows.jsx";
+import { CardList, HomeworkRow, NoteRow, SessionRow, TopicRow } from "../ui/rows.jsx";
 import { SelectToggle } from "../ui/selection.jsx";
 import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
 import { MergeModules } from "./MergeModules.jsx";
@@ -221,17 +221,11 @@ export function ModuleDetail({ db, id, onBack }) {
 
       {sub === "notizen" && (
         <div className="space-y-3">
-          <div className="flex justify-end"><button className={btnPrimary} onClick={() => db.openForm("note", { moduleId: id }, true)}>+ Notiz</button></div>
+          <div className="flex items-center justify-end gap-3"><SelectToggle db={db} kind="note" ids={notes.map((n) => n.id)} /><button className={btnPrimary} onClick={() => db.openForm("note", { moduleId: id }, true)}>+ Notiz</button></div>
           {notes.length ? (
             <ul className="rows">
               {notes.map((n) => { const ses = data.sessions.find((x) => x.id === n.sessionId); return (
-                <li key={n.id}>
-                  <button onClick={() => db.openNote(n.id)} className={`w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-left hover:bg-slate-800/50 ${focusRing}`}>
-                    <p className="text-sm font-medium">{n.title}</p>
-                    <p className="text-xs text-slate-500">{fmt(n.updated)}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""}</p>
-                    {n.text && <p className="font-num mt-1 max-h-10 overflow-hidden whitespace-pre-wrap text-xs text-slate-400">{n.text}</p>}
-                  </button>
-                </li>
+                <NoteRow key={n.id} n={n} db={db} meta={`${fmt(n.updated)}${ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""}`} />
               ); })}
             </ul>
           ) : <Empty art="book">Noch keine Notizen.</Empty>}

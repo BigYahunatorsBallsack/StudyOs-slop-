@@ -70,3 +70,12 @@ export function mergeModules(data, targetId, sourceIds) {
   if (data.meta?.lastModule && sources.has(data.meta.lastModule)) out.meta = { ...data.meta, lastModule: targetId };
   return out;
 }
+
+/* Kurzname für schmale Spalten und Notiztitel: Klammerzusätze weg, lange Namen als Initialen */
+export function shortName(name = "") {
+  const clean = name.replace(/\s*\(.*?\)\s*/g, " ").trim();
+  if (clean.length <= 14) return clean;
+  const words = clean.split(/\s+/).filter(Boolean);
+  /* Initialen wie an der Uni üblich: „Einführung in die Informatik“ wird „EidI“ */
+  return words.length > 1 ? words.map((w) => w[0]).join("") : clean.slice(0, 12) + "…";
+}

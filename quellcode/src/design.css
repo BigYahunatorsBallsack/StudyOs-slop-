@@ -362,6 +362,9 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .popover::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--mod, var(--accent)); }
 .popover-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; line-height: 1.2; }
 .ev-active { outline: 2px solid var(--text); outline-offset: 1px; z-index: 4; }
+/* Mehrfachauswahl im Raster: ausgewählte Termine umrandet und mit Haken */
+.ev-selected { outline: 3px solid var(--text); outline-offset: 1px; z-index: 4; }
+.ev-selected::after { content: "✓"; position: absolute; right: 3px; top: 1px; font-weight: 700; font-size: .75rem; }
 .mt-0\.5 { margin-top: .125rem; }
 
 /* ---- Heute: Kennzahlen als Zeile ---- */
@@ -533,3 +536,4 @@ html { overscroll-behavior-x: none; }
 .row-selected .todo-check { background: var(--mod, var(--accent)); color: var(--on-module); }
 .select-bar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(.5rem + env(safe-area-inset-top)); z-index: 45; width: min(44rem, calc(100% - 1.5rem)); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem .75rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: 0 10px 30px rgb(0 0 0 / .45); }
 .select-count { font-size: .85rem; font-weight: 600; }
+.select-module { width: auto; min-width: 9.5rem; padding-top: .4rem; padding-bottom: .4rem; font-size: .8rem; }
