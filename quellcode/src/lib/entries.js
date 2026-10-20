@@ -28,6 +28,7 @@ export function duplicateEntry(kind, item, today, newId = uid) {
     Object.assign(x, { done: false, doneAt: null });
   } else if (kind === "note") {
     Object.assign(x, { sessionId: "", title: `${item.title || "Notiz"} (Kopie)`, updated: today });
+    delete x.pinned;
   }
   return x;
 }

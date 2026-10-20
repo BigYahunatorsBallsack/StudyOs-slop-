@@ -468,6 +468,22 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .math-block { overflow-x: auto; overflow-y: hidden; padding: .35rem 0; margin: .5em 0; }
 .math-inline .katex { font-size: 1.05em; }
 .math-raw { white-space: pre-wrap; }
+/* Checklisten in Notizen (- [ ] / - [x]) */
+.md ul.md-tasks { list-style: none; padding-left: 0; }
+.md li.md-task { display: flex; align-items: flex-start; gap: .5rem; margin: .2em 0; }
+.md-check { flex-shrink: 0; width: 1.15rem; height: 1.15rem; margin-top: .15em; border: 2px solid var(--line-strong); display: grid; place-items: center; font-size: .7rem; font-weight: 700; line-height: 1; color: var(--on-module, var(--bg)); }
+.md-check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+button.md-check { cursor: pointer; }
+@media (hover: hover) { button.md-check:hover { border-color: var(--accent); } }
+.md-task-done > span:last-child { color: var(--muted); text-decoration: line-through; }
+/* „Karte daraus“ neben markiertem Text in einer Notiz */
+.sel-card { position: fixed; z-index: 60; padding: .3rem .6rem; font-size: .75rem; }
+/* Angeheftete Notiz und schwere Karte */
+.pin-mark, .hard-mark { display: inline-flex; align-items: center; gap: .2rem; font-size: .7rem; font-weight: 700; color: var(--warn); }
+.mark-icon { width: .85rem; height: .85rem; flex-shrink: 0; }
+.card-flag { color: var(--muted); }
+.card-flag-on { color: var(--warn); }
+.card-flag-on .mark-icon { fill: currentColor; }
 .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type { color: var(--accent-text); font-weight: 600; }
 .hljs-string, .hljs-regexp, .hljs-char { color: var(--ok-text); }
 .hljs-number, .hljs-literal, .hljs-symbol { color: var(--warn-text); }

@@ -69,7 +69,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
               const common = { id, value: vals[f.k] ?? "", onChange: (e) => setField(f.k, e.target.value), className: inputCls + (f.mono ? " font-num" : "") };
               let ctrl;
               if (f.t === "select") ctrl = <Select {...common}>{resolve(f, vals).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>;
-              else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} />;
+              else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} onMakeCard={db?.cardFromText ? (t) => db.cardFromText(t, vals.moduleId) : undefined} />;
               else if (f.t === "textarea") ctrl = <textarea {...common} rows={f.rows || 4} placeholder={f.ph} />;
               else if (f.t === "subtasks") ctrl = <SubtaskEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} />;
               else if (f.t === "weekdays") ctrl = (
