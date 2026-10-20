@@ -7,6 +7,7 @@ export const SHORTCUTS = [
   ["Neu anlegen", [["N", "Notiz"], ["H", "Hausaufgabe"], ["L", "Lerneinheit"], ["S", "Termin (Session)"], ["P", "Prüfung"]]],
   ["Navigation", [["1 bis 5", "Heute, Module, Woche, Lernen, Mehr"], ["T", "Timer"], ["K / J", "Liste: vorheriger / nächster Eintrag"], ["Enter", "Eintrag öffnen"]]],
   ["Timer", [["Leertaste", "Start / Pause (im Timer)"]]],
+  ["Karteikarten", [["Leertaste", "Antwort zeigen"], ["1 bis 4", "Nochmal, Schwer, Gut, Leicht"], ["Esc", "Vollbild beenden"]]],
 ];
 
 const isTyping = (el) => !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);

@@ -141,6 +141,23 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .swipe > .row { will-change: transform; }
 .swipe.dragging > .row { transition: none; }
 
+/* Merkmal ohne eigene Darstellung: Hier wechselt seitliches Wischen nicht den Bereich (siehe App.jsx) */
+.no-tabswipe { }
+/* Karteikarte bewerten per Wischen: Die Karte folgt dem Finger und springt beim Loslassen zurück (nur als Antwort auf die Geste) */
+.card-swipe { position: relative; border-radius: .75rem; }
+.card-swipe > .swipe-under { border-radius: .75rem; }
+.card-swipe > .swipe-under.swipe-left { background: var(--danger); color: var(--bg); }
+.card-stage { position: relative; touch-action: pan-y; transition: transform .22s cubic-bezier(.2, .9, .3, 1.2); }
+.card-swipe.dragging > .card-stage { transition: none; }
+@media (pointer: fine) { .card-swipe-hint { display: none; } }
+@media (prefers-reduced-motion: reduce) { .card-stage { transition: none; } }
+
+/* Vollbild beim Abfragen: deckt Kopfzeile und Navigation ab, größere Karte */
+.card-full { position: fixed; inset: 0; z-index: 30; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); color: var(--text); padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom)); }
+.card-full-inner { max-width: 48rem; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; justify-content: center; }
+.card-full .card-stage { min-height: 50vh; font-size: 1.125rem; }
+.card-full-toggle { padding: .3rem .7rem; font-size: .75rem; }
+
 /* ---- „Als Nächstes“: die eine laute Stelle ---- */
 .hero { position: relative; border-radius: var(--r-hero); padding: 1.25rem 1.25rem 1.1rem; background: var(--mod, var(--accent)); color: var(--on-module); overflow: hidden; box-shadow: var(--shadow); }
 .hero::after { content: ""; position: absolute; right: -56px; bottom: -72px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255, 255, 255, .16); pointer-events: none; }

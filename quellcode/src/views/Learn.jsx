@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { allTags, cardsToCsv, hasCloze, parseCardsCsv, parseTags, renderCloze, schedule } from "../lib/cards.js";
+import { createPortal } from "react-dom";
+import { addReviewMinutes, allTags, cardsToCsv, hasCloze, parseCardsCsv, parseTags, renderCloze, reviewGap, schedule, splitReviewTime } from "../lib/cards.js";
 import { WD_LONG } from "../lib/constants.js";
 import { moduleStats } from "../lib/data.js";
 import { modOpts } from "../lib/forms.js";
@@ -20,6 +21,7 @@ import { ringBlocks } from "../lib/timer.js";
 import { isOcc, occLabel } from "../lib/occlusion.js";
 import { OcclusionImage } from "../ui/Occlusion.jsx";
 import { workload } from "../lib/study.js";
+import { SwipeUnder, useSwipe } from "../ui/swipe.jsx";
 
 /* ---------------- Lernen ---------------- */
 export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
@@ -29,7 +31,7 @@ export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
       <Tabs items={[["timer", "Timer"], ["einheiten", "Lerneinheiten"], ["karten", "Karteikarten"], ["pruefungen", "Prüfungen & Lernplan"]]} value={sub} onChange={setSub} label="Lernbereiche" />
       {sub === "timer" && <TimerView db={db} timer={timer} />}
       {sub === "einheiten" && <LogsView db={db} />}
-      {sub === "karten" && <CardsView db={db} filter={cardFilter} setFilter={setCardFilter} />}
+      {sub === "karten" && <CardsView db={db} timer={timer} filter={cardFilter} setFilter={setCardFilter} />}
       {sub === "pruefungen" && <ExamsView db={db} />}
     </div>
   );
@@ -189,11 +191,66 @@ export function LogsView({ db }) {
   );
 }
 
-export function CardsView({ db, filter, setFilter }) {
+/* Abfragen zählt als Lernzeit: die Zeit zwischen zwei Schritten (je höchstens 2 min, längere Pausen zählen nicht)
+   sammeln und je Modul und Tag in eine Lerneinheit „Karteikarten“ schreiben, sobald eine volle Minute zusammen ist.
+   So geht auch beim Schließen der App höchstens eine Minute verloren. Läuft ein Fokus-Timer, zählt die Zeit dort. */
+function useReviewTime(db, timer) {
+  const st = useRef({ active: false, last: 0, pending: {}, total: 0 });
+  const [logged, setLogged] = useState(0);
+  const dbRef = useRef(db); dbRef.current = db;
+  const timerRef = useRef(timer); timerRef.current = timer;
+  const write = (final) => {
+    const s = st.current, { add, rest } = splitReviewTime(s.pending, final);
+    s.pending = rest;
+    const mods = Object.keys(add);
+    if (!mods.length) return;
+    const date = iso(), now = Date.now();
+    const at = (m) => new Date(now - add[m] * 60000).toTimeString().slice(0, 5);
+    dbRef.current.change((d) => ({ ...d, logs: mods.reduce((logs, m) => addReviewMinutes(logs, m, add[m], { date, at: at(m), newId: uid }), d.logs) }));
+    s.total += mods.reduce((n, m) => n + add[m], 0);
+    setLogged(s.total);
+  };
+  const tick = (moduleId) => {
+    const s = st.current, now = Date.now(), gap = reviewGap(s.last, now), tm = timerRef.current;
+    s.last = now;
+    if (gap && !(tm && tm.running && tm.mode === "focus" && tm.endAt > now)) s.pending[moduleId || ""] = (s.pending[moduleId || ""] || 0) + gap;
+  };
+  return {
+    logged,
+    start: () => { st.current = { active: true, last: Date.now(), pending: {}, total: 0 }; setLogged(0); },
+    /* nach jeder Bewertung */
+    step: (moduleId) => { if (st.current.active) { tick(moduleId); write(false); } },
+    /* App im Hintergrund: bisherige Zeit sichern, die Zeit im Hintergrund zählt nicht */
+    pause: (moduleId) => { const s = st.current; if (s.active && s.last) { tick(moduleId); s.last = 0; write(false); } },
+    resume: () => { const s = st.current; if (s.active && !s.last) s.last = Date.now(); },
+    /* Sitzung zu Ende (ohne Modul: die letzte Bewertung ist schon gezählt) */
+    stop: (moduleId) => { const s = st.current; if (!s.active) return; if (moduleId !== undefined && s.last) tick(moduleId); s.active = false; s.last = 0; write(true); },
+  };
+}
+
+/* Im Vollbild liegt die Abfrage über Kopfzeile und Navigation (eigene Ebene direkt im body, damit keine
+   Bereichs-Animation das Festpositionieren stört); seitliches Wischen wechselt dort nie den Bereich */
+function ReviewFrame({ full, children }) {
+  if (!full) return <div className="no-tabswipe">{children}</div>;
+  return createPortal(<div className="card-full no-tabswipe font-ui"><div className="card-full-inner">{children}</div></div>, document.body);
+}
+
+/* Vollbild beim Abfragen: pro Gerät gemerkt */
+const CARD_FULL_KEY = "studyos-cards-full";
+const readCardFull = () => { try { return localStorage.getItem(CARD_FULL_KEY) === "1"; } catch { return false; } };
+
+export function CardsView({ db, timer, filter, setFilter }) {
   const { data } = db, t = iso();
   const [queue, setQueue] = useState(null);
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(0);
+  const [turn, setTurn] = useState(0);
+  const [full, setFullState] = useState(readCardFull);
+  const setFull = (v) => { setFullState(v); try { localStorage.setItem(CARD_FULL_KEY, v ? "1" : "0"); } catch { /* egal */ } };
+  /* Beim Umschalten wird die Abfrage neu eingehängt: Der Fokus bleibt auf dem Umschalter */
+  const fullBtn = useRef(null), fullFocus = useRef(false);
+  useEffect(() => { if (fullFocus.current) { fullFocus.current = false; fullBtn.current?.focus(); } }, [full]);
+  const rt = useReviewTime(db, timer);
   const [tag, setTag] = useState("");
   const [csvMsg, setCsvMsg] = useState("");
   const byModule = data.cards.filter((c) => !filter || c.moduleId === filter);
@@ -223,26 +280,45 @@ export function CardsView({ db, filter, setFilter }) {
   const current = q && q.length ? data.cards.find((c) => c.id === q[0]) : null;
 
   const weak = weakCards(pool);
-  const practice = () => { setQueue(weak.map((c) => c.id)); setRevealed(false); setDone(0); };
-  const start = () => { const ids = due.map((c) => c.id); for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } setQueue(ids); setRevealed(false); setDone(0); };
+  const practice = () => { setQueue(weak.map((c) => c.id)); setRevealed(false); setDone(0); rt.start(); };
+  const start = () => { const ids = due.map((c) => c.id); for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } setQueue(ids); setRevealed(false); setDone(0); rt.start(); };
+  const stopSession = () => { if (current) rt.stop(current.moduleId); setQueue(null); };
   const rate = (r) => {
     if (!current) return;
     db.patch("cards", current.id, (c) => schedule(c, r));
+    rt.step(current.moduleId);
     setQueue((qq) => { const rest = qq.filter((id) => id !== current.id); return r === 0 ? [...rest, current.id] : rest; });
     if (r !== 0) setDone((n) => n + 1);
     setRevealed(false);
+    setTurn((n) => n + 1);
   };
   const rateRef = useRef(rate); rateRef.current = rate;
+  /* Erfassen statt Durchreichen: Die Ziffern 1 bis 5 wechseln sonst zugleich den Bereich (Tastenkürzel der App) */
   useEffect(() => {
     if (!current) return;
     const onKey = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (document.querySelector('[role="dialog"]') || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       if (e.key === " " || e.key === "Enter") { if (e.target.tagName !== "BUTTON") { e.preventDefault(); setRevealed(true); } }
-      else if (revealed && ["1", "2", "3", "4"].includes(e.key)) rateRef.current(Number(e.key) - 1);
+      else if (revealed && ["1", "2", "3", "4"].includes(e.key)) { e.preventDefault(); rateRef.current(Number(e.key) - 1); }
+      else if (e.key === "Escape" && full) { e.preventDefault(); fullFocus.current = true; setFull(false); }
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [current, revealed]);
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [current, revealed, full]);
+
+  /* Lernzeit: im Hintergrund anhalten, beim Verlassen der Ansicht und am Ende der Sitzung eintragen */
+  const curMod = useRef(""); curMod.current = current ? current.moduleId || "" : "";
+  const rtRef = useRef(rt); rtRef.current = rt;
+  useEffect(() => {
+    const onVis = () => (document.visibilityState === "hidden" ? rtRef.current.pause(curMod.current) : rtRef.current.resume());
+    document.addEventListener("visibilitychange", onVis);
+    return () => { document.removeEventListener("visibilitychange", onVis); rtRef.current.stop(curMod.current); };
+  }, []);
+  useEffect(() => { if (!current) rt.stop(); }, [!!current]);
+
+  /* Nach dem Aufdecken: nach rechts wischen = gewusst (Gut), nach links = nicht gewusst (Nochmal) */
+  const swipe = useSwipe({ onSwipeRight: current && revealed ? () => rate(2) : undefined, onSwipeLeft: current && revealed ? () => rate(0) : undefined });
 
   const m = current ? db.mod(current.moduleId) : null;
   const preview = (r) => { if (!current) return ""; const n = schedule(current, r).interval; return n === 0 ? "heute" : n === 1 ? "1 Tag" : `${n} Tage`; };
@@ -271,16 +347,24 @@ export function CardsView({ db, filter, setFilter }) {
       </div>
 
       {current ? (
+        <ReviewFrame full={full}>
         <Card>
-          <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
-            <span className="flex items-center gap-2"><Dot color={m?.color} />{m?.name}</span>
-            <span className="font-num">{done} gelernt · {q.length} übrig</span>
+          <div className="mb-3 flex items-center justify-between gap-2 text-xs text-slate-400">
+            <span className="flex min-w-0 items-center gap-2"><Dot color={m?.color} /><span className="truncate">{m?.name}</span></span>
+            <span className="flex shrink-0 items-center gap-2">
+              <span className="font-num">{done} gelernt · {q.length} übrig</span>
+              <button ref={fullBtn} className="btn btn-ghost card-full-toggle" onClick={() => { fullFocus.current = true; setFull(!full); }}>{full ? "Vollbild beenden" : "Vollbild"}</button>
+            </span>
           </div>
-          <div className="min-h-[140px] rounded-xl bg-slate-950 p-4">
-            {isOcc(current) ? <><p className="mb-2 text-sm font-semibold">{current.front}</p><OcclusionImage db={db} card={current} revealed={revealed} /></>
-              : <Markdown text={hasCloze(current.front) ? renderCloze(current.front, revealed) : current.front} />}
-            {revealed && current.back && <><hr className="my-3 border-slate-800" /><div className="text-sky-100"><Markdown text={current.back} /></div></>}
+          <div className={`card-swipe ${swipe.dragging ? "dragging" : ""}`}>
+            <SwipeUnder dx={swipe.dx} rightLabel="Gewusst" leftLabel="Nicht gewusst" />
+            <div key={turn} className="card-stage min-h-[140px] rounded-xl bg-slate-950 p-4" style={{ transform: swipe.dx ? `translateX(${swipe.dx}px) rotate(${swipe.dx / 30}deg)` : undefined }} {...swipe.bind}>
+              {isOcc(current) ? <><p className="mb-2 text-sm font-semibold">{current.front}</p><OcclusionImage db={db} card={current} revealed={revealed} /></>
+                : <Markdown text={hasCloze(current.front) ? renderCloze(current.front, revealed) : current.front} />}
+              {revealed && current.back && <><hr className="my-3 border-slate-800" /><div className="text-sky-100"><Markdown text={current.back} /></div></>}
+            </div>
           </div>
+          {revealed && <p className="card-swipe-hint mt-2 text-center text-[11px] text-slate-500">Wischen: rechts gewusst, links nicht gewusst</p>}
           {!revealed ? (
             <button className={`${btnPrimary} mt-3 w-full`} onClick={() => setRevealed(true)}>Antwort zeigen <span className="font-normal opacity-70">(Leertaste)</span></button>
           ) : (
@@ -292,11 +376,12 @@ export function CardsView({ db, filter, setFilter }) {
               ))}
             </div>
           )}
-          <button className={`${btnGhost} mt-3`} onClick={() => setQueue(null)}>Sitzung beenden</button>
+          <button className={`${btnGhost} mt-3`} onClick={stopSession}>Sitzung beenden</button>
         </Card>
+        </ReviewFrame>
       ) : (
         <Card>
-          {q && done > 0 && <p className="mb-2 text-sm text-emerald-300">Sitzung abgeschlossen: {done} Karten gelernt.</p>}
+          {q && done > 0 && <p className="mb-2 text-sm text-emerald-300">Sitzung abgeschlossen: {done} Karten gelernt.{rt.logged > 0 && ` ${fmtMin(rt.logged)} als Lernzeit eingetragen.`}</p>}
           <p className="text-sm text-slate-300"><span className="font-num text-2xl font-semibold text-slate-100">{due.length}</span> Karten fällig · {pool.length} gesamt</p>
           <button className={`${btnPrimary} mt-3`} disabled={!due.length} onClick={start}>Lernen starten</button>
         </Card>

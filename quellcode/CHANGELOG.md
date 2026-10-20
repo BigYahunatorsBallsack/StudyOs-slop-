@@ -1,6 +1,9 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Karteikarten zählen als Lernzeit:** Die Zeit beim Abfragen landet automatisch als Lerneinheit „Karteikarten“ beim Modul, eine pro Modul und Tag, und zählt für Serie, Wochenziel und ECTS-Soll. Längere Pausen zählen nicht mit, und läuft gleichzeitig der Fokus-Timer, zählt nur der.
+- **Karteikarten per Wischen bewerten:** Nach dem Aufdecken am Handy nach rechts wischen heißt „gewusst“ (Gut), nach links „nicht gewusst“ (Nochmal). Knöpfe und die Tasten 1 bis 4 gehen weiter; die Tasten wechseln jetzt nicht mehr nebenbei den Bereich.
+- **Vollbild beim Karteikarten-Lernen:** Der Knopf „Vollbild“ blendet beim Abfragen Kopfzeile und Navigation aus und zeigt die Karte größer; Esc oder „Vollbild beenden“ schließt es. Das Gerät merkt sich die Wahl.
 
 ## 2.11.0
 - **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.
