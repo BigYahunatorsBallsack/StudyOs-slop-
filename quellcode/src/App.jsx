@@ -3,7 +3,7 @@ import { useCloudSync } from "./cloud/useCloudSync.js";
 import { COLL, COLLS, DATA_VERSION, DONE_HW } from "./lib/constants.js";
 import { buildWeeklySeries } from "./lib/data.js";
 import { ENV } from "./lib/env.js";
-import { diffDays, fmtMin, fmtShort, iso, uid } from "./lib/util.js";
+import { dayOf, diffDays, fmtMin, fmtShort, iso, uid } from "./lib/util.js";
 import { usePersistence } from "./app/usePersistence.js";
 import { useTheme } from "./app/useTheme.js";
 import { useTimer } from "./app/useTimer.js";
@@ -24,6 +24,7 @@ import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 import { playSfx, setSfxEnabled } from "./ui/sfx.js";
 import { ItemMenu, PostponeSheet } from "./ui/actions.jsx";
+import { SelectBar } from "./ui/selection.jsx";
 import { postponeHomework } from "./lib/postpone.js";
 import { openTodayCount } from "./lib/todo.js";
 import { syncNoteCards } from "./lib/cards.js";
@@ -59,6 +60,7 @@ import { buildHomeworkSeries, seriesSuggestion, reconcileAllSessionLogs, reconci
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, curriculumOf, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
+import { addTrash, purgeTrash, restoreTrash, trashEntry } from "./lib/trash.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
 
@@ -96,6 +98,9 @@ export default function App() {
   const [bannerOpen, setBannerOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
   const [menu, setMenu] = useState(null);
+  /* Mehrfachauswahl in Listen: { kind: "homework" | "session" | "card", ids } */
+  const [sel, setSel] = useState(null);
+  useEffect(() => setSel(null), [tab, moduleId, moreTab, learnTab]);
   const wide = useMedia("(min-width: 1100px)");
 
   const toast = (text, action, ms = 5000) => {
@@ -294,7 +299,10 @@ export default function App() {
     return { ...d, [coll]: isNew ? [...d[coll], item] : d[coll].map((x) => (x.id === item.id ? item : x)) };
   });
 
-  const removeEntity = (kind, id) => withUndo(kind === "module" ? "Modul gelöscht." : "Eintrag gelöscht.", (d) => {
+  /* Löschen mit Rückgängig; was fehlt, landet zusätzlich 30 Tage im Papierkorb */
+  const withTrash = (label, fn, name) => withUndo(label, (d) => { const next = fn(d); return addTrash(next, trashEntry(d, next, { label: name })); });
+  const removeEntity = (kind, id) => withTrash(kind === "module" ? "Modul gelöscht." : "Eintrag gelöscht.", (d) => removeFrom(d, kind, id));
+  const removeFrom = (d, kind, id) => {
     const n = { ...d };
     if (kind === "module") {
       COLLS.forEach((c) => { n[c] = c === "modules" ? d.modules.filter((x) => x.id !== id) : d[c].filter((x) => x.moduleId !== id); });
@@ -310,12 +318,12 @@ export default function App() {
     if (hw?.feedKey?.startsWith("moodle|") && d.settings.moodleFeed) n.settings = { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, dismissed: [...(d.settings.moodleFeed.dismissed || []), hw.feedKey].slice(-500) } };
     if (hw?.feedKey?.startsWith("artemis:")) n.settings = { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).map((f) => (hw.feedKey.startsWith(`artemis:${f.id}|`) ? { ...f, dismissed: [...(f.dismissed || []), hw.feedKey].slice(-500) } : f)) };
     return n;
-  });
+  };
 
-  const removeSeries = (sid) => withUndo("Serie gelöscht.", (d) => {
+  const removeSeries = (sid) => withTrash("Serie gelöscht.", (d) => {
     const ids = new Set(d.sessions.filter((s) => s.seriesId === sid).map((s) => s.id));
     return { ...d, sessions: d.sessions.filter((s) => !ids.has(s.id)), notes: d.notes.map((x) => (ids.has(x.sessionId) ? { ...x, sessionId: "" } : x)) };
-  });
+  }, "Terminserie");
 
   const modMap = useMemo(() => Object.fromEntries(data.modules.map((m) => [m.id, m])), [data.modules]);
 
@@ -427,7 +435,32 @@ export default function App() {
     },
     setHwStatus: (id, status) => patch("homework", id, (h) => ({ status, doneAt: DONE_HW.has(status) ? h.doneAt || iso() : null })),
     patchSettings: (p) => change((d) => ({ ...d, settings: { ...d.settings, ...p } })),
-    replaceAll, withUndo,
+    replaceAll, withUndo, withTrash,
+    sel,
+    select: (kind, id) => setSel((cur) => {
+      const ids = cur?.kind === kind ? cur.ids : [];
+      return { kind, ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] };
+    }),
+    selectAll: (kind, ids) => setSel({ kind, ids }),
+    endSelect: () => setSel(null),
+    /* Aktionen für die Auswahl; jeweils ein Rückgängig für alle */
+    bulk: {
+      hwDone: (list) => { setSel(null); withUndo(`${list.length} ${list.length === 1 ? "Abgabe" : "Abgaben"} abgegeben.`, (d) => ({ ...d, homework: d.homework.map((h) => (list.some((x) => x.id === h.id) ? { ...h, status: "abgegeben", doneAt: h.doneAt || iso() } : h)) })); },
+      hwMove: (list, date) => { setSel(null); withUndo(`${list.length} ${list.length === 1 ? "Abgabe" : "Abgaben"} auf ${fmtShort(date)} verschoben.`, (d) => ({ ...d, homework: d.homework.map((h) => (list.some((x) => x.id === h.id) ? { ...h, ...postponeHomework(h, date) } : h)) })); },
+      reviewed: (list) => {
+        setSel(null);
+        const ids = new Set(list.filter((s) => !s.reviewed && !s.cancelled).map((s) => s.id));
+        withUndo(`${ids.size} ${ids.size === 1 ? "Termin" : "Termine"} nachbereitet.`, (d) => ({ ...d, sessions: d.sessions.map((s) => (ids.has(s.id) ? { ...s, reviewed: true, reviewedAt: iso() } : s)) }));
+      },
+      remove: (kind, list) => {
+        setSel(null);
+        const noun = { homework: ["Abgabe", "Abgaben"], session: ["Termin", "Termine"], card: ["Karte", "Karten"] }[kind];
+        const label = `${list.length} ${noun[list.length === 1 ? 0 : 1]}`;
+        withTrash(`${label} gelöscht.`, (d) => list.reduce((acc, x) => removeFrom(acc, kind, x.id), d), list.length === 1 ? undefined : label);
+      },
+    },
+    restoreTrash: (id, label) => { change((d) => restoreTrash(d, id)); toast(`„${label}“ wiederhergestellt.`); },
+    purgeTrash: (id) => change((d) => purgeTrash(d, id)),
     saveQuick: (kind, vals, label) => {
       saveEntity(kind, vals, true);
       toast(`${label} angelegt.`, { label: "Rückgängig", run: () => removeEntity(kind, vals.id) }, 6000);
@@ -529,7 +562,7 @@ export default function App() {
     else openForm(r.kind, r.item);
   };
 
-  const backupAge = data.meta?.lastBackup ? diffDays(data.meta.lastBackup.slice(0, 10), iso()) : null;
+  const backupAge = data.meta?.lastBackup ? diffDays(dayOf(data.meta.lastBackup), iso()) : null;
   const hasData = data.modules.length + data.logs.length + data.notes.length > 0;
   const noteObj = noteView ? data.notes.find((n) => n.id === noteView) : null;
 
@@ -624,6 +657,7 @@ export default function App() {
         <p className="mt-10 text-center text-[11px] text-slate-600">StudyOS {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}, Datenformat {DATA_VERSION}</p>
       </main>
 
+      {sel && <SelectBar db={db} />}
       <nav aria-label="Hauptnavigation" className="tabbar">
         <ul>
           {nav.map(([k, l, ic]) => (

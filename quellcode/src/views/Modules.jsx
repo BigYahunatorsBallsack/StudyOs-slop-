@@ -4,6 +4,7 @@ import { isActive, moduleStats } from "../lib/data.js";
 import { byOrder, byTime, diffDays, fmt, fmtDec, fmtH, fmtMin, fmtShort, isHeld, iso, pct, sum } from "../lib/util.js";
 import { Bar, Card, Empty, RingLegend, Stat, Tabs, TriRing } from "../ui/primitives.jsx";
 import { CardList, HomeworkRow, SessionRow, TopicRow } from "../ui/rows.jsx";
+import { SelectToggle } from "../ui/selection.jsx";
 import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
 import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
@@ -131,6 +132,13 @@ export function ModuleDetail({ db, id, onBack }) {
 
       {sub === "uebersicht" && (
         <div className="space-y-4">
+          <Card title="Als Nächstes">
+            <ul className="space-y-2 text-sm">
+              <li className="flex justify-between gap-2"><span className="text-slate-400">Termin</span><span className="text-right">{nextSes ? `${fmtShort(nextSes.date)} ${nextSes.start} · ${nextSes.type}` : "–"}</span></li>
+              <li className="flex justify-between gap-2"><span className="text-slate-400">Abgabe</span><span className="text-right">{nextHw ? `${nextHw.title} · ${fmtShort(nextHw.due)}` : "–"}</span></li>
+              <li className="flex justify-between gap-2"><span className="text-slate-400">Prüfung</span><span className="text-right">{nextExam ? `${fmt(nextExam.date)} (in ${diffDays(t, nextExam.date)} T.)` : <button className="text-sky-400 hover:underline" onClick={() => db.openForm("exam", { moduleId: id }, true)}>eintragen</button>}</span></li>
+            </ul>
+          </Card>
           <Card>
             <div className="flex items-center gap-4">
               <TriRing s={s} size={96} />
@@ -165,13 +173,6 @@ export function ModuleDetail({ db, id, onBack }) {
           )}
           <WorkloadCard w={workload(data, id)} m={m} db={db} />
           <DiaryPreview logs={logs.filter((l) => l.note)} onAll={() => setSub("lernzeit")} />
-          <Card title="Als Nächstes">
-            <ul className="space-y-2 text-sm">
-              <li className="flex justify-between gap-2"><span className="text-slate-400">Termin</span><span className="text-right">{nextSes ? `${fmtShort(nextSes.date)} ${nextSes.start} · ${nextSes.type}` : "–"}</span></li>
-              <li className="flex justify-between gap-2"><span className="text-slate-400">Abgabe</span><span className="text-right">{nextHw ? `${nextHw.title} · ${fmtShort(nextHw.due)}` : "–"}</span></li>
-              <li className="flex justify-between gap-2"><span className="text-slate-400">Prüfung</span><span className="text-right">{nextExam ? `${fmt(nextExam.date)} (in ${diffDays(t, nextExam.date)} T.)` : <button className="text-sky-400 hover:underline" onClick={() => db.openForm("exam", { moduleId: id }, true)}>eintragen</button>}</span></li>
-            </ul>
-          </Card>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {[["session", "+ Termin / Serie"], ["homework", "+ Hausaufgabe"], ["topic", "+ Thema"], ["log", "+ Lerneinheit"], ["note", "+ Notiz"], ["card", "+ Karte"]].map(([k, l]) => (
               <button key={k} className={`${btnGhost} py-2.5`} onClick={() => db.openForm(k, { moduleId: id, ...(k === "log" ? { date: t } : {}) }, true)}>{l}</button>
@@ -184,7 +185,10 @@ export function ModuleDetail({ db, id, onBack }) {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Tabs items={[["anstehend", "Anstehend"], ["offen", `Nachzubereiten (${s.openReviews})`], ["vergangen", "Vergangen"]]} value={sesFilter} onChange={setSesFilter} label="Filter Termine" />
-            <button className={btnPrimary} onClick={() => db.openForm("session", { moduleId: id }, true)}>+ Termin / Serie</button>
+            <div className="flex items-center gap-3">
+              <SelectToggle db={db} kind="session" ids={shownSes.map((x) => x.id)} />
+              <button className={btnPrimary} onClick={() => db.openForm("session", { moduleId: id }, true)}>+ Termin / Serie</button>
+            </div>
           </div>
           {shownSes.length ? <ul className="rows">{shownSes.map((x) => <SessionRow key={x.id} s={x} db={db} showDate />)}</ul> : <Empty art="flag">Keine Termine in dieser Ansicht.</Empty>}
         </div>
@@ -192,7 +196,7 @@ export function ModuleDetail({ db, id, onBack }) {
 
       {sub === "ha" && (
         <div className="space-y-3">
-          <div className="flex justify-end"><button className={btnPrimary} onClick={() => db.openForm("homework", { moduleId: id }, true)}>+ Hausaufgabe</button></div>
+          <div className="flex items-center justify-end gap-3"><SelectToggle db={db} kind="homework" ids={hw.map((h) => h.id)} /><button className={btnPrimary} onClick={() => db.openForm("homework", { moduleId: id }, true)}>+ Hausaufgabe</button></div>
           {hw.length ? <ul className="rows">{hw.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}</ul> : <Empty art="check">Noch keine Hausaufgaben. Genieß die Ruhe.</Empty>}
         </div>
       )}

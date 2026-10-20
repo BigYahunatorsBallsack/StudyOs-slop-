@@ -165,6 +165,14 @@ export function searchAll(data, q) {
   data.notes.forEach((n) => hit(n.title, n.text) && out.push({ kind: "note", label: "Notiz", item: n, title: n.title, sub: mod(n.moduleId)?.name || "Allgemein" }));
   data.cards.forEach((c) => hit(c.front, c.back) && out.push({ kind: "card", label: "Karte", item: c, title: c.front, sub: mod(c.moduleId)?.name || "" }));
   data.exams.forEach((e) => hit("prüfung klausur", mod(e.moduleId)?.name, e.room, e.notes) && out.push({ kind: "exam", label: "Prüfung", item: e, title: `Prüfung ${mod(e.moduleId)?.name || ""}`, sub: fmt(e.date) }));
+  /* Termine nach Modul, Art und Raum; höchstens 5, die nächsten zuerst, danach die zuletzt vergangenen */
+  const today = iso();
+  const ses = data.sessions.filter((x) => hit(mod(x.moduleId)?.name, mod(x.moduleId)?.code, x.type, x.room));
+  const soon = ses.filter((x) => x.date >= today).sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
+  const past = ses.filter((x) => x.date < today).sort((a, b) => (b.date + (b.start || "")).localeCompare(a.date + (a.start || "")));
+  [...soon, ...past].slice(0, 5).forEach((x) => out.push({ kind: "session", label: "Termin", item: x, title: `${mod(x.moduleId)?.name || "Termin"} · ${x.type || "Termin"}`, sub: `${fmtShort(x.date)} ${x.start || ""}${x.room ? " · " + x.room : ""}${x.cancelled ? " · fällt aus" : ""}` }));
+  /* Anhänge nach Dateinamen; öffnet die Abgabe bzw. Notiz, an der die Datei hängt */
+  [["homework", "Hausaufgabe"], ["notes", "Notiz"]].forEach(([coll, what]) => data[coll].forEach((x) => (x.files || []).forEach((f) => terms.every((t) => String(f.name || "").toLowerCase().includes(t)) && out.push({ kind: coll === "notes" ? "note" : "homework", label: "Anhang", item: x, key: "file" + f.id, title: f.name, sub: `${what} ${x.title || ""}`.trim() }))));
   data.logs.forEach((l) => l.note && hit(l.note, l.kind) && out.push({ kind: "log", label: "Lerneinheit", item: l, title: l.note, sub: `${fmt(l.date)} · ${fmtMin(l.minutes)}` }));
   return out.slice(0, 60);
 }

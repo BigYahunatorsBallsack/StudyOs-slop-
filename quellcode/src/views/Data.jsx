@@ -15,6 +15,7 @@ import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
 import { Select } from "../ui/select.jsx";
 import { TUM_BREAKS, offDay } from "../lib/holidays.js";
 import { playSfx } from "../ui/sfx.js";
+import { TRASH_DAYS, trashOf } from "../lib/trash.js";
 
 export function DataView({ db }) {
   const { data } = db;
@@ -129,6 +130,8 @@ export function DataView({ db }) {
         {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
         {showJson && <textarea readOnly aria-label="Exportierte Daten" className={`${inputBase} w-full font-num mt-3 h-40 text-[11px]`} value={json} onFocus={(e) => e.target.select()} />}
       </Card>
+
+      <TrashCard db={db} />
 
       {db.env?.listSnapshots && (
         <Card title="Wiederherstellung auf diesem Gerät">
@@ -421,6 +424,38 @@ function BreaksCard({ db }) {
         </div>
       </div>
       <button className={`${btnGhost} mt-3`} onClick={add} disabled={!from || !to || to < from}>Zeitraum hinzufügen</button>
+    </Card>
+  );
+}
+
+const TRASH_KIND = { modules: "Modul", sessions: "Termin", homework: "Abgabe", topics: "Thema", logs: "Lerneinheit", notes: "Notiz", cards: "Karteikarte", exams: "Prüfung", blocks: "Lernblock" };
+
+/* Papierkorb: Gelöschtes der letzten 30 Tage auf diesem Gerät */
+function TrashCard({ db }) {
+  const list = trashOf(db.data);
+  const [open, setOpen] = useState(false);
+  const shown = open ? list : list.slice(0, 5);
+  return (
+    <Card title={`Papierkorb${list.length ? ` (${list.length})` : ""}`}>
+      {list.length ? (
+        <>
+          <ul className="space-y-2">
+            {shown.map((t) => (
+              <li key={t.id} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">{t.label}</p>
+                  <p className="text-[11px] text-slate-500">{t.named ? "" : TRASH_KIND[t.coll] || "Eintrag"}{t.named ? "gelöscht" : t.count > 1 ? ` mit ${t.count - 1} weiteren ${t.count === 2 ? "Eintrag" : "Einträgen"}` : ""}{t.named ? " " : " · gelöscht "}{new Date(t.at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
+                </div>
+                <button className={btnGhost} onClick={() => db.restoreTrash(t.id, t.label)}>Wiederherstellen</button>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {list.length > 5 && <button className="link-btn" onClick={() => setOpen(!open)}>{open ? "Weniger zeigen" : `Alle ${list.length} zeigen`}</button>}
+            <ConfirmButton label="Papierkorb leeren" confirmLabel="Endgültig löschen?" className={btnGhost} onConfirm={() => db.purgeTrash()} />
+          </div>
+        </>
+      ) : <p className="text-xs text-slate-500">Leer. Gelöschtes bleibt hier {TRASH_DAYS} Tage, nur auf diesem Gerät.</p>}
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 /* Anhänge an Hausaufgaben und Notizen (PDF, Fotos …), lokal und verschlüsselt in der Cloud */
 import React, { useEffect, useRef, useState } from "react";
 import { ACCEPT, MAX_FILE_BYTES, fmtSize, getLocal, putLocal, removeLocal } from "../lib/files.js";
-import { uid } from "../lib/util.js";
+import { iso, uid } from "../lib/util.js";
 
 export function Attachments({ db, coll, itemId }) {
   const item = db.data[coll].find((x) => x.id === itemId);
@@ -34,7 +34,7 @@ export function Attachments({ db, coll, itemId }) {
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) { setErr(`Höchstens ${fmtSize(MAX_FILE_BYTES)} pro Datei.`); return; }
     const id = uid() + uid();
-    const meta = { id, name: file.name.slice(0, 120), type: file.type || "application/octet-stream", size: file.size, added: new Date().toISOString().slice(0, 10) };
+    const meta = { id, name: file.name.slice(0, 120), type: file.type || "application/octet-stream", size: file.size, added: iso() };
     setBusy(file.name);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());

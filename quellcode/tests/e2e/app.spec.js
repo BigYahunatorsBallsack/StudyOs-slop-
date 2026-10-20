@@ -1342,3 +1342,99 @@ test('Wischen am Handy: seitlich wechselt den Bereich, nach links auf einer Abga
   await expect(page.getByRole('dialog', { name: 'Blatt 1 verschieben' })).toBeVisible();
   await expect(nav(page, 'Heute')).toHaveAttribute('aria-current', 'page');
 });
+
+test.describe('am PC mit Maus', () => {
+  test.use({ isMobile: false, hasTouch: false, viewport: { width: 1280, height: 900 } });
+  test('Wochenraster: freie Stelle antippen legt Termin mit Uhrzeit an, Ziehen verschiebt und verlängert', async ({ page }) => {
+    await page.goto('./');
+    /* Montag dieser Woche, damit beide Tage sicher im Raster stehen */
+    await seed(page, (day) => { const wd = (new Date().getDay() + 6) % 7; return { settings: { wideLayout: false }, sessions: [{ id: 's1', moduleId: 'ds', type: 'Übung', date: day(-wd), start: '10:00', end: '12:00', room: 'MI 1' }] }; });
+    await page.reload();
+    await nav(page, 'Woche').click();
+    await page.getByRole('tab', { name: 'Raster' }).click();
+    const cols = page.locator('.grid-col');
+    const mon = await cols.nth(0).boundingBox(), tue = await cols.nth(1).boundingBox();
+    const hourPx = 46, startH = 8;
+    /* Dienstag 14:20 antippen: Beginn 14:15 */
+    await page.mouse.click(tue.x + tue.width / 2, tue.y + (14 + 20 / 60 - startH) * hourPx);
+    const slot = page.getByRole('dialog', { name: /Neu am .* um 14:15/ });
+    await expect(slot).toBeVisible();
+    await slot.getByRole('button', { name: 'Termin' }).click();
+    const form = page.getByRole('dialog', { name: /Lehrveranstaltung/ });
+    await expect(form.getByLabel('Beginn')).toHaveValue('14:15');
+    await expect(form.getByLabel('Ende')).toHaveValue('15:45');
+    await page.keyboard.press('Escape');
+
+    /* Übung von Montag 10:00 auf Dienstag 11:00 ziehen */
+    const ev = page.locator('.ev', { hasText: 'Übung' });
+    const box = await ev.boundingBox();
+    await page.mouse.move(box.x + 10, box.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 10 + (tue.x - mon.x) / 2, box.y + 10 + hourPx / 2, { steps: 4 });
+    await page.mouse.move(box.x + 10 + (tue.x - mon.x), box.y + 10 + hourPx, { steps: 4 });
+    await page.mouse.up();
+    await expect(page.getByText(/liegt jetzt .* 11:00–13:00/)).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /Lehrveranstaltung/ })).toHaveCount(0);
+    await expect.poll(async () => { const x = (await stored(page)).sessions[0]; return [x.start, x.end]; }).toEqual(['11:00', '13:00']);
+    const s = (await stored(page)).sessions[0];
+    const wd = await page.evaluate(() => (new Date().getDay() + 6) % 7);
+    expect(s.date).toBe(await page.evaluate((n) => { const d = new Date(); d.setDate(d.getDate() - n + 1); return d.toLocaleDateString('sv-SE'); }, wd));
+
+    /* am unteren Rand eine halbe Stunde länger ziehen */
+    const b2 = await ev.boundingBox();
+    await page.mouse.move(b2.x + 10, b2.y + b2.height - 3);
+    await page.mouse.down();
+    await page.mouse.move(b2.x + 10, b2.y + b2.height - 3 + hourPx / 2, { steps: 5 });
+    await page.mouse.up();
+    await expect(page.getByText('geht jetzt bis 13:30')).toBeVisible();
+    await page.getByRole('button', { name: 'Rückgängig' }).last().click();
+    await expect.poll(async () => (await stored(page)).sessions[0].end).toBe('13:00');
+  });
+});
+
+test('Mehrfachauswahl und Papierkorb: zwei Abgaben löschen und zurückholen, mehrere abgeben', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ homework: ['Blatt 1', 'Blatt 2', 'Blatt 3'].map((title, i) => ({ id: 'h' + i, moduleId: 'ds', title, due: day(i + 1), status: 'ausgegeben' })) }));
+  await page.reload();
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Alle Hausaufgaben' }).click();
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('checkbox', { name: /Blatt 1/ }).click();
+  await page.getByRole('checkbox', { name: /Blatt 2/ }).click();
+  const bar = page.getByRole('toolbar', { name: 'Auswahl' });
+  await expect(bar).toContainText('2 Abgaben ausgewählt');
+  await bar.getByRole('button', { name: 'Löschen' }).click();
+  await expect(page.getByText('2 Abgaben gelöscht.')).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  await expect.poll(async () => (await stored(page)).homework.map((h) => h.title)).toEqual(['Blatt 3']);
+
+  await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  const trash = page.locator('section', { has: page.getByRole('heading', { name: /^Papierkorb/ }) });
+  await expect(trash).toContainText('2 Abgaben');
+  await trash.getByRole('button', { name: 'Wiederherstellen' }).click();
+  await expect.poll(async () => (await stored(page)).homework.map((h) => h.title).sort()).toEqual(['Blatt 1', 'Blatt 2', 'Blatt 3']);
+  await expect(trash).toContainText('Leer.');
+
+  await page.getByRole('tab', { name: 'Alle Hausaufgaben' }).click();
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('button', { name: 'Alle 3' }).click();
+  await page.getByRole('toolbar', { name: 'Auswahl' }).getByRole('button', { name: 'Abgegeben' }).click();
+  await expect(page.getByText('3 Abgaben abgegeben.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).homework.every((h) => h.status === 'abgegeben')).toBe(true);
+});
+
+test('Suche findet Termine nach Raum und Anhänge nach Dateinamen', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ sessions: [{ id: 's1', moduleId: 'ds', type: 'Vorlesung', date: day(1), start: '10:00', end: '12:00', room: 'Interims 1' }],
+    notes: [{ id: 'n1', moduleId: 'ds', title: 'Skript', text: 'x', files: [{ id: 'f1', name: 'Kapitel_3.pdf', type: 'application/pdf', size: 10 }] }] }));
+  await page.reload();
+  await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  await page.getByLabel('Suchbegriff').fill('interims');
+  await expect(page.getByRole('option', { name: /Diskrete Strukturen · Vorlesung/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: /Lehrveranstaltung/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  await page.getByLabel('Suchbegriff').fill('kapitel_3');
+  await expect(page.getByRole('option', { name: /Kapitel_3\.pdf/ })).toContainText('Anhang · Notiz Skript');
+});

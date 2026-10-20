@@ -144,10 +144,17 @@ async function load() {
   }
 }
 
+/* Lokales Datum eines Zeitstempels: Speicherstände werden in UTC abgelegt, der Tageswechsel gilt aber nach Gerätezeit */
+function localDay(ts) {
+  const d = ts ? new Date(ts) : new Date();
+  if (Number.isNaN(d.getTime())) return String(ts || '').slice(0, 10);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 async function maybeDailySnapshot(db, previous) {
   if (!previous || !previous.payload || !previous.updated) return;
-  const oldDate = String(previous.updated).slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
+  const oldDate = localDay(previous.updated);
+  const today = localDay();
   if (!oldDate || oldDate === today) return;
   const id = `daily-${oldDate}`;
   const local = localSnapshotsRead();
@@ -166,7 +173,7 @@ async function save(payload) {
     const db = await openDb();
     let previous = null;
     try { previous = await txRequest(db, 'app', 'readonly', (s) => s.get('current')); } catch {}
-    if (previous && String(previous.updated || '').slice(0, 10) !== row.updated.slice(0, 10)) {
+    if (previous && localDay(previous.updated) !== localDay(row.updated)) {
       try { await maybeDailySnapshot(db, previous); } catch { /* snapshots must not block saves */ }
     }
     await txRequest(db, 'app', 'readwrite', (s) => s.put(row));

@@ -1,6 +1,7 @@
 /* Karteikarten-Stapel teilen: Inhalt wird im Browser mit einem Zufallsschlüssel (AES-GCM) verschlüsselt.
    Der Server bekommt nur Kennung und Chiffrat; der Schlüssel steht im #-Teil des Links und verlässt den
    Browser nie (Fragmente werden nicht an Server geschickt). */
+import { iso } from "./util.js";
 const enc = new TextEncoder(), dec = new TextDecoder();
 const b64u = (bytes) => { let s = ""; bytes.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
 const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
@@ -12,7 +13,7 @@ export const MAX_SHARE_CARDS = 2000;
 
 /** Stapel aus Karten bauen (ohne Lernfortschritt, nur Inhalt). */
 export function deckFrom(cards, title, by = "") {
-  return { v: 1, title: String(title || "Karteikarten").slice(0, 120), by: String(by || "").slice(0, 60), created: new Date().toISOString().slice(0, 10),
+  return { v: 1, title: String(title || "Karteikarten").slice(0, 120), by: String(by || "").slice(0, 60), created: iso(),
     cards: cards.filter((c) => !c.occ).slice(0, MAX_SHARE_CARDS).map((c) => ({ front: String(c.front || ""), back: String(c.back || ""), tags: String(c.tags || "") })) };
 }
 

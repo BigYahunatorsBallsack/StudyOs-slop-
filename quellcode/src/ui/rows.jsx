@@ -9,6 +9,7 @@ import { SwipeRow } from "./swipe.jsx";
 import { WatchProgress } from "./links.jsx";
 import { SubtaskChecklist } from "./subtasks.jsx";
 import { Select } from "./select.jsx";
+import { SelectRow, SelectToggle } from "./selection.jsx";
 
 /* ---------------- Zeilen ---------------- */
 export function SessionRow({ s, db, showDate }) {
@@ -17,6 +18,7 @@ export function SessionRow({ s, db, showDate }) {
     db.toggleSession(s.id, "reviewed");
     if (!s.reviewed) db.toast(`${m?.name || "Termin"} nachbereitet.`, { label: "Rückgängig", run: () => db.toggleSession(s.id, "reviewed") });
   };
+  if (db.sel?.kind === "session") return <SelectRow db={db} kind="session" id={s.id} color={m?.color} muted={s.cancelled || s.reviewed} title={`${m?.name || "Ohne Modul"} · ${s.type}`} meta={`${fmtShort(s.date)}, ${s.start}–${s.end}${s.room ? ", " + s.room : ""}${s.cancelled ? ", fällt aus" : s.reviewed ? ", nachbereitet" : ""}`} />;
   return (
     <SwipeRow className={s.cancelled ? "row-muted" : ""} style={{ "--mod": m?.color }} onSwipeRight={s.cancelled ? null : toggleReview} rightLabel={s.reviewed ? "Nicht nachbereitet" : "Nachbereitet"} onLongPress={() => db.menu("session", s)}>
       <button onClick={() => db.openForm("session", s)} className="row-main">
@@ -65,6 +67,7 @@ export function HomeworkRow({ h, db }) {
     db.setHwStatus(h.id, next);
     db.toast(done ? `„${h.title}“ wieder offen.` : `„${h.title}“ abgegeben.`, { label: "Rückgängig", run: () => db.setHwStatus(h.id, prev) });
   };
+  if (db.sel?.kind === "homework") return <SelectRow db={db} kind="homework" id={h.id} color={m?.color} muted={done} title={h.title} meta={`${m?.name || ""}${m ? " · " : ""}${dl.text}`} />;
   return (
     <SwipeRow className={done ? "row-muted" : ""} style={{ "--mod": m?.color }} onSwipeRight={toggleDone} rightLabel={done ? "Wieder offen" : "Abgegeben"}
       onSwipeLeft={done ? null : () => db.postpone("homework", h)} onLongPress={() => db.menu("homework", h)}>
@@ -135,8 +138,10 @@ export function CardList({ cards, db }) {
   const t = iso();
   if (!cards.length) return <Empty art="card">Noch keine Karteikarten. Der Stapel wartet auf seine erste Karte.</Empty>;
   return (
+    <>
+    <div className="mb-1 flex justify-end"><SelectToggle db={db} kind="card" ids={cards.map((c) => c.id)} /></div>
     <ul className="rows">
-      {[...cards].sort((a, b) => a.due.localeCompare(b.due)).map((c) => { const m = db.mod(c.moduleId); return (
+      {[...cards].sort((a, b) => a.due.localeCompare(b.due)).map((c) => { const m = db.mod(c.moduleId); if (db.sel?.kind === "card") return <SelectRow key={c.id} db={db} kind="card" id={c.id} color={m?.color} title={isOcc(c) ? occLabel(c) : String(hasCloze(c.front) ? renderCloze(c.front, true) : c.front || "").replace(/\*\*/g, "")} meta={m?.name || ""} />; return (
         <li key={c.id} className="row" style={{ "--mod": m?.color }}>
           <button onClick={() => db.openForm("card", c)} className="row-main flex items-start gap-3">
             <p className="min-w-0 flex-1 truncate text-sm">{isOcc(c) ? <><span className="occ-tag">Bild</span>{occLabel(c)}</> : hasCloze(c.front) ? renderCloze(c.front, true).replace(/\*\*/g, "") : c.front}{c.tags ? <span className="ml-2 text-[11px] text-slate-500">{parseTags(c.tags).map((t) => "#" + t).join(" ")}</span> : null}</p>
@@ -145,5 +150,6 @@ export function CardList({ cards, db }) {
         </li>
       ); })}
     </ul>
+    </>
   );
 }

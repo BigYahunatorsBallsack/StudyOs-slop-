@@ -1,5 +1,5 @@
 import { EXAM_RESULTS, HW_STATUS, LOG_KINDS, MODULE_STATUS, PALETTE, SESSION_TYPES, TOPIC_STATES } from "./constants.js";
-import { addDays, byOrder, byTime, fmtShort, iso } from "./util.js";
+import { addDays, byOrder, byTime, dayOf, fmtShort, iso } from "./util.js";
 import { hasCloze } from "./cards.js";
 import { parseWatch } from "./tum.js";
 
@@ -14,7 +14,7 @@ export function byUse(d, today = iso()) {
   const count = (id) => { if (id) n[id] = (n[id] || 0) + 1; };
   (d.logs || []).forEach((l) => l.date >= from && count(l.moduleId));
   (d.homework || []).forEach((h) => (h.created || h.issued || "") >= from && count(h.moduleId));
-  (d.notes || []).forEach((x) => (x.updated || x.created || "").slice(0, 10) >= from && count(x.moduleId));
+  (d.notes || []).forEach((x) => dayOf(x.updated || x.created) >= from && count(x.moduleId));
   const live = d.modules.filter((m) => !m.archived), top = live.filter((m) => n[m.id]).sort((a, b) => n[b.id] - n[a.id]).slice(0, 3);
   return [...top, ...live.filter((m) => !top.includes(m)), ...d.modules.filter((m) => m.archived)];
 }
