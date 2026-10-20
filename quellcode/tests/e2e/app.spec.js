@@ -935,6 +935,14 @@ test('Aufzeichnung: „angeschaut bis“ eintragen, Stand erscheint bei Zu erled
   await dlg.getByLabel(/Aufzeichnung angeschaut bis/).fill('');
   await dlg.getByRole('button', { name: 'Speichern' }).click();
   await expect.poll(async () => (await stored(page)).logs.length).toBe(0);
+  // danach besucht: zählt genau einmal die Länge der Vorlesung (90 min), auch nach dem Neuladen
+  await page.getByRole('button', { name: /Nachbereiten: Vorlesung/ }).click();
+  await dlg.getByLabel(/Aufzeichnung angeschaut bis/).fill('60');
+  await dlg.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page)).logs.map((l) => l.minutes)).toEqual([60]);
+  await page.evaluate(async () => { const d = await window.STUDYOS_ENV.load(); d.sessions[0].attended = true; d.sessions[0].watchedTo = ''; await window.STUDYOS_ENV.save(d); });
+  await page.reload();
+  await expect.poll(async () => (await stored(page)).logs.map((l) => [l.kind, l.minutes])).toEqual([]);
 });
 
 test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, Tippen', async ({ page }) => {

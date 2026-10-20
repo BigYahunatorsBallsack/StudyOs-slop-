@@ -55,7 +55,7 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
-import { buildHomeworkSeries, seriesSuggestion, syncWatchLogs, toggleAttended, withoutArchived } from "./lib/study.js";
+import { buildHomeworkSeries, seriesSuggestion, reconcileAllSessionLogs, reconcileSessionLogs, toggleAttended, withoutArchived } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
 import { applySemester, curriculumOf, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
@@ -212,6 +212,11 @@ export default function App() {
   /* Jede Änderung bekommt Zeitstempel (bzw. Grabsteine), damit Sicherungen zweier Geräte zusammengeführt werden können. */
   const change = (fn) => { setData((d) => stampChanges(d, typeof fn === "function" ? fn(d) : fn)); setDirty(true); };
   const patch = (coll, id, p) => change((d) => ({ ...d, [coll]: d[coll].map((x) => (x.id === id ? { ...x, ...(typeof p === "function" ? p(x) : p) } : x)) }));
+  /* Lernzeit aus Besuch und Aufzeichnung aufräumen (alte Einträge, Sync von anderen Geräten): kein Termin zählt mehr als einmal seine Länge */
+  useEffect(() => {
+    if (!ready || loadError) return;
+    if (reconcileAllSessionLogs(data) !== data) change((d) => reconcileAllSessionLogs(d));
+  }, [ready, loadError, data.sessions, data.logs]);
   const withUndo = (label, fn) => {
     const before = dataRef.current, after = stampChanges(before, fn(before));
     setData(after); setDirty(true);
@@ -279,8 +284,9 @@ export default function App() {
     if (kind === "session" && !isNew) {
       const r = saveSessionEdit(d.sessions, item, !!extra.applySeries);
       if (r.count) setTimeout(() => toast(`Auch ${r.count} folgende ${r.count === 1 ? "Termin" : "Termine"} geändert.`), 0);
-      /* angeschaute Aufzeichnung zählt als Lernzeit: weiter vorgestellt kommt dazu, zurückgestellt oder gelöscht geht weg */
-      const w = syncWatchLogs(d.logs, item);
+      /* angeschaute Aufzeichnung zählt als Lernzeit: weiter vorgestellt kommt dazu, zurückgestellt oder gelöscht geht weg;
+         ein Termin zählt höchstens so lange, wie er dauert */
+      const w = reconcileSessionLogs(d.logs, item, iso(), { addPresence: false });
       if (w.delta > 0) setTimeout(() => toast(`${fmtMin(w.delta)} Aufzeichnung als Lernzeit eingetragen.`), 0);
       if (w.delta < 0) setTimeout(() => toast(`${fmtMin(-w.delta)} Aufzeichnung aus der Lernzeit entfernt.`), 0);
       return { ...d, sessions: r.sessions, ...(w.delta ? { logs: w.logs } : {}) };

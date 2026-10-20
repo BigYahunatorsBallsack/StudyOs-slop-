@@ -149,32 +149,18 @@ export function workloadOverview(data, today = iso()) {
     .sort((a, b) => a.w.ratio - b.w.ratio || b.w.gapH - a.w.gapH);
 }
 
-/* ---------------- Aufzeichnungen als Lernzeit ---------------- */
+/* ---------------- Besuch und Aufzeichnung als Lernzeit ---------------- */
 
 const nowHM = () => new Date().toTimeString().slice(0, 5);
+const sum0 = (list) => list.reduce((n, l) => n + (Number(l.minutes) || 0), 0);
+/** Länge eines Termins in Minuten (ohne Beginn/Ende 90) – mehr zählt ein Termin nie. */
+export const sessionLength = (s) => minutesOf(s) || 90;
 
-/**
- * Aufzeichnungs-Lernzeit eines Termins an „angeschaut bis“ angleichen.
- * Weiter vorgestellt: die neuen Minuten kommen als Lerneinheit am heutigen Tag dazu.
- * Zurückgestellt oder gelöscht: die zu viel gezählten Minuten werden von den jüngsten Einheiten abgezogen
- * (leere Einheiten fallen weg). So zählt dieselbe Stelle nie doppelt.
- * @returns {{ logs: any[], delta: number }} delta in Minuten (positiv eingetragen, negativ abgezogen, 0 unverändert)
- */
-export function syncWatchLogs(logs, s, today = iso()) {
-  const sec = parseWatch(s?.watchedTo);
-  if (!s?.id || (sec !== null && !Number.isFinite(sec))) return { logs, delta: 0 };
-  const mine = (l) => l.sessionId === s.id && l.kind === "Aufzeichnung";
-  const logged = logs.filter(mine).reduce((n, l) => n + (Number(l.minutes) || 0), 0);
-  const target = s.moduleId && sec ? Math.floor(sec / 60) : 0;
-  const delta = target - logged;
-  if (delta >= 1) {
-    const log = { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Aufzeichnung", date: today, at: nowHM(), minutes: delta, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} angeschaut bis ${fmtWatch(sec)}`, created: today };
-    return { logs: [...logs, log], delta };
-  }
-  if (delta >= 0) return { logs, delta: 0 };
-  /* zu viel gezählt: von der jüngsten Einheit an abziehen */
-  let over = -delta;
-  const newest = logs.filter(mine).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.at || "").localeCompare(a.at || ""));
+/** Einheiten, die `pick` trifft, auf `target` Minuten kürzen: von der jüngsten an abziehen, leere fallen weg. */
+function trimTo(logs, pick, target) {
+  let over = sum0(logs.filter(pick)) - Math.max(0, target);
+  if (over <= 0) return logs;
+  const newest = logs.filter(pick).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.at || "").localeCompare(a.at || ""));
   const cut = new Map();
   for (const l of newest) {
     if (over <= 0) break;
@@ -182,28 +168,60 @@ export function syncWatchLogs(logs, s, today = iso()) {
     cut.set(l.id, (Number(l.minutes) || 0) - take);
     over -= take;
   }
-  const out = logs.flatMap((l) => (!cut.has(l.id) ? [l] : cut.get(l.id) >= 1 ? [{ ...l, minutes: cut.get(l.id) }] : []));
-  return { logs: out, delta };
-}
-
-/** Besuchter Termin als Lerneinheit am Tag des Abhakens (Dauer aus Beginn und Ende, sonst 90 Minuten). */
-export function presenceLog(s, today = iso()) {
-  if (!s?.moduleId) return null;
-  return { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Besucht", date: today, at: nowHM(), minutes: minutesOf(s) || 90, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} besucht`, created: today };
+  return logs.flatMap((l) => (!cut.has(l.id) ? [l] : cut.get(l.id) >= 1 ? [{ ...l, minutes: cut.get(l.id) }] : []));
 }
 
 /**
- * Besucht an- oder abhaken, samt Lerneinheit: An legt sie an (höchstens eine je Termin), Ab entfernt sie wieder.
- * @returns neuer Datenstand (ohne Zeitstempel; die setzt stampChanges)
+ * Lernzeit eines Termins an seinen Stand angleichen. Ein Termin zählt höchstens so lange, wie er dauert:
+ * besucht → eine Einheit „Besucht“ über die ganze Länge, Aufzeichnungs-Minuten fallen weg;
+ * nicht besucht → keine „Besucht“-Einheit, Aufzeichnung so weit wie „angeschaut bis“ (höchstens die Länge).
+ * Neue Minuten kommen am heutigen Tag dazu; zu viel gezählte werden von den jüngsten Einheiten abgezogen.
+ * Optionen: add: false legt nichts Neues an, sondern kürzt nur (zum Aufräumen alter Daten);
+ *   addPresence: false legt keine fehlende „Besucht“-Einheit an (beim bloßen Bearbeiten eines früher abgehakten Termins)
+ * @returns {{ logs: any[], delta: number }} delta: Änderung der Minuten dieses Termins insgesamt
  */
+export function reconcileSessionLogs(logs, s, today = iso(), { add = true, addPresence = add } = {}) {
+  if (!s?.id) return { logs, delta: 0 };
+  const sec = parseWatch(s.watchedTo);
+  if (sec !== null && !Number.isFinite(sec)) return { logs, delta: 0 };
+  const len = sessionLength(s);
+  const isRec = (l) => l.sessionId === s.id && l.kind === "Aufzeichnung";
+  const isPres = (l) => l.sessionId === s.id && l.kind === "Besucht";
+  const before = sum0(logs.filter((l) => isRec(l) || isPres(l)));
+  const counts = !!s.moduleId && !s.cancelled;
+  const recTarget = counts && !s.attended && sec ? Math.min(len, Math.floor(sec / 60)) : 0;
+  let out = trimTo(logs, isRec, recTarget);
+  out = trimTo(out, isPres, counts && s.attended ? len : 0);
+  if (add) {
+    const recMissing = recTarget - sum0(out.filter(isRec));
+    if (recMissing >= 1) out = [...out, { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Aufzeichnung", date: today, at: nowHM(), minutes: recMissing, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} angeschaut bis ${fmtWatch(sec)}`, created: today }];
+  }
+  if (addPresence) {
+    if (counts && s.attended && !out.some(isPres)) out = [...out, { id: uid(), moduleId: s.moduleId, topicId: "", sessionId: s.id, kind: "Besucht", date: today, at: nowHM(), minutes: len, note: `${s.type || "Termin"} vom ${fmtShort(s.date)} besucht`, created: today }];
+  }
+  const delta = sum0(out.filter((l) => isRec(l) || isPres(l))) - before;
+  return { logs: out, delta };
+}
+
+/** Besucht an- oder abhaken und die Lernzeit des Termins angleichen (ohne Zeitstempel; die setzt stampChanges). */
 export function toggleAttended(data, id, today = iso()) {
   const s = data.sessions.find((x) => x.id === id);
   if (!s) return data;
-  const on = !s.attended, mine = (l) => l.sessionId === id && l.kind === "Besucht";
-  const sessions = data.sessions.map((x) => (x.id === id ? { ...x, attended: on } : x));
-  const log = on && !data.logs.some(mine) ? presenceLog({ ...s, attended: on }, today) : null;
-  const logs = on ? (log ? [...data.logs, log] : data.logs) : data.logs.filter((l) => !mine(l));
-  return { ...data, sessions, logs };
+  const next = { ...s, attended: !s.attended };
+  return { ...data, sessions: data.sessions.map((x) => (x.id === id ? next : x)), logs: reconcileSessionLogs(data.logs, next, today).logs };
+}
+
+/**
+ * Alte oder per Sync gekommene Einheiten aufräumen: bei jedem Termin mit verknüpfter Lernzeit zu viel Gezähltes
+ * entfernen (z. B. Aufzeichnung trotz gelöschtem „angeschaut bis“ oder zusätzlich zu „Besucht“). Legt nichts an.
+ * Gibt dasselbe Objekt zurück, wenn nichts zu tun ist.
+ */
+export function reconcileAllSessionLogs(data) {
+  const linked = new Set(data.logs.filter((l) => l.sessionId && (l.kind === "Aufzeichnung" || l.kind === "Besucht")).map((l) => l.sessionId));
+  if (!linked.size) return data;
+  let logs = data.logs;
+  data.sessions.forEach((s) => { if (linked.has(s.id)) logs = reconcileSessionLogs(logs, s, iso(), { add: false }).logs; });
+  return logs.length === data.logs.length && logs.every((l, i) => l === data.logs[i]) ? data : { ...data, logs };
 }
 
 /** Wie weit ein Termin wahrgenommen ist: besucht = 100 %, sonst der Anteil der angeschauten Aufzeichnung; null ohne beides. */
