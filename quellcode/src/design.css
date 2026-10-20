@@ -495,6 +495,17 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
   .ev-move .ev-resize { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; z-index: 1; }
 }
 .ev.ev-dragging { z-index: 5; opacity: .85; outline: 2px dashed var(--text); outline-offset: 1px; }
+/* Überschneidungen: rote Kante; Abgaben als Marker zur Frist-Uhrzeit; Tagesansicht mit Uhrzeit und Raum */
+.ev.ev-clash { border: 2px solid var(--danger); }
+.ev.ev-block.ev-clash { border: 2px dashed var(--danger); }
+.ev-when { display: block; opacity: .85; font-size: .6rem; }
+.grid-hw { position: absolute; left: 0; right: 0; height: 14px; z-index: 3; display: flex; align-items: center; border-top: 2px solid var(--mod); text-align: left; }
+.grid-hw > span { max-width: 100%; margin-top: -2px; padding: 0 .25rem; background: var(--mod); color: var(--on-module); font-size: .55rem; font-weight: 700; line-height: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.grid-hw.grid-hw-done { opacity: .5; }
+.grid-hw.grid-hw-done > span { text-decoration: line-through; }
+.grid-zoom { touch-action: pan-x pan-y; }
+.sem-week { color: var(--muted); font-size: .7em; font-weight: 400; }
+.popover-warn { color: var(--danger); font-weight: 700; }
 body.grid-dragging, body.grid-dragging * { cursor: grabbing !important; user-select: none; }
 .row-block .todo-check[aria-checked="true"] { background: var(--mod); color: var(--on-module); border-color: var(--mod); font-size: .8rem; font-weight: 700; }
 @media (hover: hover) { .row-block .todo-check[aria-checked="true"]:hover::after { content: none; } }

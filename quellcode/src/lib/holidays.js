@@ -35,7 +35,7 @@ export const TUM_BREAKS = [
   { from: "2027-02-06", to: "2027-04-11", label: "Semesterferien" },
   { from: "2027-07-17", to: "2027-09-30", label: "Semesterferien" },
 ];
-const isTum = (settings) => /\bTUM\b|Technische Universität München/i.test(settings.university || "");
+export const isTum = (settings) => /\bTUM\b|Technische Universität München/i.test(settings.university || "");
 
 /** Alle vorlesungsfreien Zeiträume: eigene aus den Einstellungen, an der TUM zusätzlich die bekannten (abschaltbar). */
 export function breaksOf(settings = {}) {

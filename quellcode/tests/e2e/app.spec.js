@@ -313,7 +313,7 @@ test('Tastenkürzel: Hilfe, Tabs, Timer, Listen-Navigation', async ({ page }) =>
   await expect(page.getByRole('dialog', { name: 'Tastenkürzel' })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.keyboard.press('3');
-  await expect(page.getByRole('heading', { name: /Woche \d+/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /KW \d+/ })).toBeVisible();
   await page.keyboard.press('t');
   await expect(page.getByRole('tab', { name: 'Timer' })).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('1');
@@ -730,6 +730,64 @@ test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('Woche: Vorlesungswoche, Überschneidungen, Abgabe-Marker, Tagesansicht mit Wischen, Pinch-Zoom', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-04T09:00:00') }); /* Mittwoch, 3. Vorlesungswoche */
+  await page.goto('./');
+  await seed(page, () => ({ settings: { university: 'TUM' },
+    sessions: [{ id: 'a', moduleId: 'ds', type: 'Vorlesung', date: '2026-11-04', start: '10:00', end: '12:00' },
+      { id: 'x', moduleId: 'ds', type: 'Übung', date: '2026-11-04', start: '10:30', end: '11:30', cancelled: true }],
+    blocks: [{ id: 'b', moduleId: 'ds', title: 'Lernen DS', date: '2026-11-04', start: '11:00', end: '13:00' }],
+    homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 4', due: '2026-11-05', dueTime: '23:59', status: 'ausgegeben' },
+      { id: 'h2', moduleId: 'ds', title: 'Quiz', due: '2026-11-04', dueTime: '14:00', status: 'ausgegeben' }] }));
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  await expect(page.getByRole('heading', { name: 'KW 45 · VL-Woche 3 von 15' })).toBeVisible();
+  // Vorlesung und Lernblock überschneiden sich, die ausgefallene Übung zählt nicht
+  await expect(page.locator('.ev-clash')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /Lernblock Lernen DS.*überschneidet sich mit DS Vorlesung$/ })).toBeVisible();
+  await expect(page.locator('.ev-cancelled.ev-clash')).toHaveCount(0);
+  // Abgaben als Marker im Raster; 23:59 am unteren Rand des Tages
+  const col = page.locator('[data-day="2026-11-05"]');
+  const marker = col.getByRole('button', { name: /Abgabe Blatt 4.*bis 23:59/ });
+  const [cb, mb] = [await col.boundingBox(), await marker.boundingBox()];
+  expect(Math.abs(cb.y + cb.height - (mb.y + mb.height))).toBeLessThan(2);
+  await page.getByRole('button', { name: /Abgabe Quiz/ }).click();
+  await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Pinch mit zwei Fingern: die Stunden werden höher, gemerkt pro Gerät
+  const grid = page.locator('.grid-zoom');
+  const h0 = (await col.boundingBox()).height;
+  await grid.evaluate((el) => {
+    const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 100;
+    const touch = (id, dy) => new Touch({ identifier: id, target: el, clientX: x, clientY: y + dy });
+    const fire = (type, list) => el.dispatchEvent(new TouchEvent(type, { touches: list, changedTouches: list, bubbles: true, cancelable: true }));
+    fire('touchstart', [touch(1, -20), touch(2, 20)]);
+    fire('touchmove', [touch(1, -40), touch(2, 40)]);
+    fire('touchend', []);
+  });
+  await expect.poll(async () => (await col.boundingBox()).height).toBeGreaterThan(h0 * 1.8);
+  await expect.poll(() => page.evaluate(() => Number(localStorage.getItem('studyos-week-hourpx')))).toBe(92);
+  // Tagesansicht: ein Tag, Wischen wechselt den Tag statt des Bereichs
+  await page.getByRole('tab', { name: 'Tag' }).click();
+  await expect(page.getByRole('heading', { name: 'Mittwoch, 04.11.' })).toBeVisible();
+  await expect(page.locator('.grid-col')).toHaveCount(1);
+  const day = page.locator('.grid-col');
+  const b = await day.boundingBox();
+  await page.locator('.no-tabswipe').evaluate((el, [x, y]) => {
+    const t = (cx) => [new Touch({ identifier: 1, target: el, clientX: cx, clientY: y })];
+    el.dispatchEvent(new TouchEvent('touchstart', { touches: t(x + 120), changedTouches: t(x + 120), bubbles: true }));
+    el.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: t(x), bubbles: true }));
+  }, [b.x + 20, b.y + 40]);
+  await expect(page.getByRole('heading', { name: 'Donnerstag, 05.11.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Vorheriger Tag' }).click();
+  await expect(page.getByRole('heading', { name: 'Mittwoch, 04.11.' })).toBeVisible();
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await expect(page.getByRole('tab', { name: 'Tag' })).toHaveAttribute('aria-selected', 'true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('Teilen-Ziel: geteilte PDF wird zur Notiz mit Anhang', async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => navigator.serviceWorker.ready);
@@ -766,7 +824,7 @@ test('Retro ist das einzige Farbschema: alle Bereiche ohne horizontales Scrollen
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0221');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe('#0d0221');
   expect(await page.evaluate(() => getComputedStyle(document.querySelector('.btn')).borderRadius)).toBe('0px');
-  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'], Woche: ['Raster', 'Liste'] };
+  const subs = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'], Woche: ['Raster', 'Tag', 'Liste'] };
   for (const tab of ['Heute', 'Module', 'Woche', 'Lernen', 'Mehr']) {
     await nav(page, tab).click();
     for (const sub of subs[tab] || [null]) {
