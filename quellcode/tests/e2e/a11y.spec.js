@@ -17,6 +17,7 @@ for (const theme of ['retro']) {
     // feste Uhrzeit: Dienstag 19:30, die Beispiel-Termine des Tages sind vorbei (prüft auch die abgeblendete Darstellung)
     await page.clock.setFixedTime(new Date('2026-10-20T19:30:00+02:00'));
     await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
+    await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
     await page.goto('./');
     await nav(page, 'Mehr').click();
     await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();

@@ -53,6 +53,8 @@ async function newDevice(browser, backend, { time, touch } = {}) {
     if (window.Notification) Notification.requestPermission = async () => 'granted';
   });
   await context.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
+  /* Wetter (Open-Meteo): Attrappe, nie ins Netz */
+  await context.route('https://api.open-meteo.com/**', (r) => { backend.wxCalls = (backend.wxCalls || 0) + 1; return r.fulfill({ json: backend.weather ? backend.weather() : [] }); });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -137,6 +139,7 @@ test('zwei Geräte: anmelden, Passphrase, gegenseitig synchronisieren, falsche P
 
 test('echte Supabase-Anbindung: verständliche Meldung, wenn der Server nicht erreichbar ist', async ({ browser }) => {
   const context = await browser.newContext({ locale: 'de-DE' });
+  await context.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -360,6 +363,14 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
     return [0, 1].flatMap((d) => ['07:53', '08:13', '08:33', '09:13'].map((hm) => ({ line: '230', destination: 'Garching, Forschungszentrum (U)', type: 'REGIONAL_BUS', planned: t(d, hm), time: t(d, hm) + (hm === '08:13' ? 120000 : 0), delay: hm === '08:13' ? 2 : 0, realtime: true, cancelled: false })))
       .concat([{ line: '241', destination: 'Taufkirchen', type: 'REGIONAL_BUS', planned: NOW.getTime() + 600000, time: NOW.getTime() + 600000, delay: 0, realtime: true, cancelled: false }]);
   };
+  /* Wetter morgen: in Zorneding ab 8 Uhr Regen, in Garching am Nachmittag trocken */
+  backend.weather = () => {
+    const base = new Date(NOW); base.setHours(0, 0, 0, 0);
+    const time = Array.from({ length: 96 }, (_, i) => base.getTime() / 1000 + i * 3600);
+    const loc = (fn) => ({ hourly: { time, ...Object.fromEntries(['temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code'].map((k, j) => [k, time.map((t) => fn(new Date(t * 1000))[j])])) } });
+    const tomorrow = (d, h) => d.getDate() !== NOW.getDate() && d.getHours() === h;
+    return [loc((d) => (tomorrow(d, 7) ? [8.6, 20, 0, 3] : tomorrow(d, 8) ? [9.2, 80, 1.5, 61] : [10, 0, 0, 0])), loc((d) => (tomorrow(d, 13) ? [14.2, 10, 0, 2] : [12, 0, 0, 0]))];
+  };
   const A = await newDevice(browser, backend, { time: NOW });
   await A.page.evaluate(async () => {
     const d = new Date(); d.setDate(d.getDate() + 1); const tomorrow = d.toLocaleDateString('sv-SE');
@@ -387,6 +398,10 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(card.getByText('Grafing')).toHaveCount(0);
   await expect(card.getByText('241')).toHaveCount(0);
   await expect(card.getByRole('list', { name: 'Störungen und Baustellen' }).getByText('Weichenstörung bei Haar')).toBeVisible();
+  // Wetter zur Losgeh-Zeit in Zorneding und zur Rückfahrt nach der Übung (bis 13:30) in Garching
+  const wetter = card.getByRole('list', { name: 'Wetter' });
+  await expect(wetter.getByText('07:47 Zorneding: Regen ab 8 Uhr, Schirm mitnehmen · 9 °C')).toBeVisible();
+  await expect(wetter.getByText('13:30 zurück ab Garching: trocken · 14 °C')).toBeVisible();
 
   // Umschalten aufs Auto: Fahrzeit mit Verkehr; 9:15 − 10 Puffer − 10 Parken − 47 Fahrt = 8:08 losfahren
   const asked = [];
@@ -394,6 +409,7 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await card.getByRole('tab', { name: 'Auto' }).click();
   await expect(card.getByText(/47 Min\. mit dem Auto \(38,4 km\), 11 Min\. Verzögerung durch Verkehr/)).toBeVisible();
   await expect(card.getByText(/08:08 losfahren in Zorneding, damit du morgen um 09:15 bei Diskrete Strukturen bist/)).toBeVisible();
+  await expect(wetter.getByText('08:08 Zorneding: Regen, Schirm mitnehmen · 9 °C')).toBeVisible();
   await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&origin=Zorneding&destination=Boltzmannstra/);
   expect(asked[0]).toEqual({ from: 'Zorneding', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
   await expect(card.getByText('Weichenstörung bei Haar')).toHaveCount(0);
@@ -422,8 +438,11 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   // Abfahrten kommen gebündelt in einem Aufruf; nach dem Neuladen steht der letzte Stand sofort da, auch wenn die MVG hängt
   expect(backend.batches).toBeGreaterThan(0);
   backend.mvg = () => new Promise(() => {});
+  const wxCalls = backend.wxCalls;
   await A.page.reload();
   await expect(A.page.getByRole('region', { name: 'Weg zur Uni' }).getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();
+  await expect(A.page.getByRole('list', { name: 'Wetter' }).getByText(/07:47 Zorneding: Regen ab 8 Uhr/)).toBeVisible();
+  expect(backend.wxCalls).toBe(wxCalls); /* frischer Stand aus dem Zwischenspeicher, keine neue Abfrage */
 
   // Anhang: verschlüsselt hochgeladen
   await nav(A.page, 'Mehr').click();
