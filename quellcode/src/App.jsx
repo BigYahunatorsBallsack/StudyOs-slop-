@@ -24,7 +24,7 @@ import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 import { playSfx, setSfxEnabled } from "./ui/sfx.js";
 import { ItemMenu, PostponeSheet } from "./ui/actions.jsx";
-import { SelectBar } from "./ui/selection.jsx";
+import { SelectBar, countLabel } from "./ui/selection.jsx";
 import { postponeHomework } from "./lib/postpone.js";
 import { openTodayCount } from "./lib/todo.js";
 import { syncNoteCards } from "./lib/cards.js";
@@ -98,7 +98,7 @@ export default function App() {
   const [bannerOpen, setBannerOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
   const [menu, setMenu] = useState(null);
-  /* Mehrfachauswahl in Listen: { kind: "homework" | "session" | "card", ids } */
+  /* Mehrfachauswahl in Listen: { kind: "homework" | "session" | "card" | "note" | "block", ids } */
   const [sel, setSel] = useState(null);
   useEffect(() => setSel(null), [tab, moduleId, moreTab, learnTab]);
   const wide = useMedia("(min-width: 1100px)");
@@ -454,8 +454,7 @@ export default function App() {
       },
       remove: (kind, list) => {
         setSel(null);
-        const noun = { homework: ["Abgabe", "Abgaben"], session: ["Termin", "Termine"], card: ["Karte", "Karten"] }[kind];
-        const label = `${list.length} ${noun[list.length === 1 ? 0 : 1]}`;
+        const label = countLabel(kind, list.length);
         withTrash(`${label} gelöscht.`, (d) => list.reduce((acc, x) => removeFrom(acc, kind, x.id), d), list.length === 1 ? undefined : label);
       },
     },

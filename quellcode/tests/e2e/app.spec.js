@@ -1438,3 +1438,124 @@ test('Suche findet Termine nach Raum und Anhänge nach Dateinamen', async ({ pag
   await page.getByLabel('Suchbegriff').fill('kapitel_3');
   await expect(page.getByRole('option', { name: /Kapitel_3\.pdf/ })).toContainText('Anhang · Notiz Skript');
 });
+
+test('Duplizieren im Schnellmenü und Notiz-Vorlage am Termin', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({
+    homework: [{ id: 'h1', moduleId: 'ds', title: 'Blatt 3', due: day(2), status: 'in Arbeit', feedKey: 'moodle|1', subtasks: [{ id: 'a', title: 'a', done: true }, { id: 'b', title: 'b', done: false }] }],
+    sessions: [{ id: 's1', moduleId: 'ds', type: 'Vorlesung', date: day(0), start: '10:00', end: '12:00', room: 'MI HS 1', attended: true, reviewed: true }],
+  }));
+  await page.reload();
+  /* Abgabe duplizieren: Kopie offen, ohne Haken und Abo, Formular zum Anpassen */
+  await page.locator('.todo-item', { hasText: 'Blatt 3' }).locator('.todo-row').click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Blatt 3' }).getByRole('button', { name: 'Duplizieren' }).click();
+  await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toBeVisible();
+  await expect(page.getByText('Kopie angelegt.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).homework.length).toBe(2);
+  const copy = (await stored(page)).homework.find((h) => h.id !== 'h1');
+  expect(copy).toMatchObject({ title: 'Blatt 3', status: 'ausgegeben' });
+  expect(copy.feedKey).toBeUndefined();
+  expect(copy.subtasks.map((s) => s.done)).toEqual([false, false]);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Rückgängig' }).last().click();
+  await expect.poll(async () => (await stored(page)).homework.map((h) => h.id)).toEqual(['h1']);
+
+  /* Notiz am Termin: neue Notiz mit Titel und Gerüst, beim zweiten Mal die vorhandene */
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Liste' }).click();
+  const row = page.locator('.swipe .row', { hasText: 'MI HS 1' });
+  await row.click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Notiz' }).click();
+  const form = page.getByRole('dialog', { name: 'Notiz anlegen' });
+  await expect(form.getByLabel('Titel')).toHaveValue(/^DS Vorlesung \d\d\.\d\d\.\d{4}$/);
+  await expect(form.getByLabel('Inhalt')).toHaveValue(/^# Vorlesung, .*\n10:00–12:00, MI HS 1\n/);
+  await form.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(async () => (await stored(page)).notes.map((n) => n.sessionId)).toEqual(['s1']);
+  await row.click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Notiz' }).click();
+  await expect(page.getByRole('dialog', { name: 'Notiz bearbeiten' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  /* Termin duplizieren: nicht besucht, nicht nachbereitet (das Schnellmenü öffnet sich höchstens alle 0,8 s) */
+  await page.waitForTimeout(900);
+  await row.click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Duplizieren' }).click();
+  await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toBeVisible();
+  await expect.poll(async () => (await stored(page)).sessions.length).toBe(2);
+  expect((await stored(page)).sessions[1]).toMatchObject({ room: 'MI HS 1', attended: false, reviewed: false });
+});
+
+test('Mehrfachauswahl im Wochenraster: besucht, verschieben, Modul ändern', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({
+    modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }, { id: 'an', name: 'Analysis', ects: 8, semester: 1, status: 'belegt', color: '#f472b6' }],
+    sessions: [
+      { id: 's1', moduleId: 'ds', type: 'Vorlesung', date: day(0), start: '10:00', end: '11:30' },
+      { id: 's2', moduleId: 'ds', type: 'Übung', date: day(0), start: '14:00', end: '15:00' },
+    ],
+  }));
+  await page.reload();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  /* Schnellmenü per Rechtsklick, dort die Auswahl starten; Antippen hakt weitere an statt die Karte zu öffnen */
+  await page.locator('.ev', { hasText: 'Vorlesung' }).click({ button: 'right' });
+  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Mehrere auswählen' }).click();
+  const bar = page.getByRole('toolbar', { name: 'Auswahl' });
+  await expect(bar).toContainText('1 Termin ausgewählt');
+  await page.locator('.ev', { hasText: 'Übung' }).tap();
+  await expect(bar).toContainText('2 Termine ausgewählt');
+  await expect(page.locator('.popover')).toHaveCount(0);
+  await expect(page.locator('.ev-selected')).toHaveCount(2);
+  await bar.getByRole('button', { name: 'Besucht' }).click();
+  await expect(page.getByText('2 Termine besucht.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).logs.filter((l) => l.kind === 'Besucht').map((l) => l.minutes).sort()).toEqual([60, 90]);
+
+  /* über „Auswählen“: alle eine Woche später, dann zurück */
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('button', { name: 'Alle 2' }).click();
+  await bar.getByRole('button', { name: 'Verschieben' }).click();
+  await page.getByRole('dialog', { name: '2 Termine verschieben' }).getByRole('button', { name: '1 Woche später' }).click();
+  await expect(page.getByText('2 Termine verschoben (1 Woche später).')).toBeVisible();
+  const today = await page.evaluate(() => new Date().toLocaleDateString('sv-SE'));
+  const week = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toLocaleDateString('sv-SE'); });
+  await expect.poll(async () => (await stored(page)).sessions.map((s) => s.date)).toEqual([week, week]);
+  await page.getByRole('button', { name: 'Rückgängig' }).last().click();
+  await expect.poll(async () => (await stored(page)).sessions.map((s) => s.date)).toEqual([today, today]);
+
+  /* Modul ändern: Termine und ihre Lernzeit gehören dann zu Analysis */
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('button', { name: 'Alle 2' }).click();
+  await choose(bar.getByRole('combobox', { name: 'Modul ändern' }), { label: 'Analysis' });
+  await expect(page.getByText('2 Termine: Modul „Analysis“.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).sessions.map((s) => s.moduleId)).toEqual(['an', 'an']);
+  expect((await stored(page)).logs.map((l) => l.moduleId)).toEqual(['an', 'an']);
+});
+
+test('Mehrfachauswahl für Notizen: Modul ändern und löschen, Notiz duplizieren', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, () => ({
+    modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }, { id: 'an', name: 'Analysis', ects: 8, semester: 1, status: 'belegt', color: '#f472b6' }],
+    notes: ['Graphen', 'Bäume', 'Logik'].map((title, i) => ({ id: 'n' + i, moduleId: 'ds', sessionId: '', title, text: 'x', updated: '2026-10-0' + (i + 1) })),
+  }));
+  await page.reload();
+  await nav(page, 'Module').click();
+  await page.getByText('Diskrete Strukturen').first().click();
+  await page.getByRole('tab', { name: /Notizen/ }).click();
+  await page.getByRole('button', { name: /Graphen/ }).click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Graphen' }).getByRole('button', { name: 'Mehrere auswählen' }).click();
+  await page.getByRole('checkbox', { name: /Bäume/ }).click();
+  const bar = page.getByRole('toolbar', { name: 'Auswahl' });
+  await expect(bar).toContainText('2 Notizen ausgewählt');
+  await choose(bar.getByRole('combobox', { name: 'Modul ändern' }), { label: 'Analysis' });
+  await expect.poll(async () => (await stored(page)).notes.filter((n) => n.moduleId === 'an').map((n) => n.title).sort()).toEqual(['Bäume', 'Graphen']);
+
+  await page.getByRole('button', { name: /Logik/ }).click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Logik' }).getByRole('button', { name: 'Duplizieren' }).click();
+  await expect(page.getByRole('dialog', { name: 'Notiz bearbeiten' }).getByLabel('Titel')).toHaveValue('Logik (Kopie)');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Auswählen' }).click();
+  await page.getByRole('button', { name: 'Alle 2' }).click();
+  await bar.getByRole('button', { name: 'Löschen' }).click();
+  await expect(page.getByText('2 Notizen gelöscht.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).notes.map((n) => n.title).sort()).toEqual(['Bäume', 'Graphen']);
+});

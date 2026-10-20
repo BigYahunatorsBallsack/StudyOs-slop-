@@ -5,7 +5,7 @@ import { fmtMin, fmtShort, isHeld, iso } from "../lib/util.js";
 import { Chip, Empty, Icon } from "./primitives.jsx";
 import { hasCloze, parseTags, renderCloze } from "../lib/cards.js";
 import { isOcc, occLabel } from "../lib/occlusion.js";
-import { SwipeRow } from "./swipe.jsx";
+import { SwipeRow, useSwipe } from "./swipe.jsx";
 import { WatchProgress } from "./links.jsx";
 import { SubtaskChecklist } from "./subtasks.jsx";
 import { Select } from "./select.jsx";
@@ -45,6 +45,7 @@ export function SessionRow({ s, db, showDate }) {
 export function BlockRow({ b, db, showDate }) {
   const m = db.mod(b.moduleId);
   const mins = Math.max(5, (Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3))) - (Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3))));
+  if (db.sel?.kind === "block") return <SelectRow db={db} kind="block" id={b.id} color={m?.color || "var(--accent)"} muted={b.done} title={b.title} meta={`${fmtShort(b.date)}, ${b.start}–${b.end}${m ? ", " + m.name : ""}`} />;
   return (
     <SwipeRow className={`row-block ${b.done ? "row-muted" : ""}`} style={{ "--mod": m?.color || "var(--accent)" }} onSwipeRight={() => db.patch("blocks", b.id, { done: !b.done })} rightLabel={b.done ? "Nicht erledigt" : "Erledigt"}
       onSwipeLeft={b.done ? null : () => db.postpone("block", b)} onLongPress={() => db.menu("block", b)}>
@@ -57,6 +58,21 @@ export function BlockRow({ b, db, showDate }) {
         {!b.done && <button className="btn btn-ghost shrink-0" onClick={() => db.focus({ moduleId: b.moduleId || "", minutes: Math.min(90, mins), kind: b.kind, blockId: b.id, note: b.title })}>Timer</button>}
       </div>
     </SwipeRow>
+  );
+}
+
+/** Notiz in der Liste eines Moduls: antippen öffnet sie, lange drücken das Schnellmenü */
+export function NoteRow({ n, db, meta }) {
+  const { bind } = useSwipe({ onLongPress: () => db.menu("note", n) });
+  if (db.sel?.kind === "note") return <SelectRow db={db} kind="note" id={n.id} color={db.mod(n.moduleId)?.color} title={n.title} meta={meta} />;
+  return (
+    <li {...bind}>
+      <button onClick={() => db.openNote(n.id)} className="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-left hover:bg-slate-800/50">
+        <p className="text-sm font-medium">{n.title}</p>
+        <p className="text-xs text-slate-500">{meta}</p>
+        {n.text && <p className="font-num mt-1 max-h-10 overflow-hidden whitespace-pre-wrap text-xs text-slate-400">{n.text}</p>}
+      </button>
+    </li>
   );
 }
 

@@ -9,6 +9,7 @@ import { nextUp } from "../lib/next.js";
 import { SessionTri } from "../ui/session.jsx";
 import { dueLabel, isLate, todoItems } from "../lib/todo.js";
 import { PlaceLinks, WatchProgress } from "../ui/links.jsx";
+import { openSessionNote } from "../ui/actions.jsx";
 import { MensaCard } from "./Mensa.jsx";
 import { mensaOf } from "../lib/mensa.js";
 import { Group } from "../ui/collapse.jsx";
@@ -352,7 +353,7 @@ function NextUp({ db, openReviews, cardsDue }) {
     actions = (<>
       {n.live || isHeld(x) ? <button className="btn btn-solid" onClick={() => db.toggleSession(x.id, "reviewed")}>{x.reviewed ? "Nachbereitet ✓" : "Nachbereitet"}</button>
         : <button className="btn btn-solid" onClick={() => db.toggleSession(x.id, "prepared")}>{x.prepared ? "Vorbereitet ✓" : "Vorbereitet"}</button>}
-      <button className="btn" onClick={() => db.openForm("note", { moduleId: x.moduleId, sessionId: x.id }, true)}>Notiz</button>
+      <button className="btn" onClick={() => openSessionNote(db, x)}>Notiz</button>
       <button className="btn" onClick={() => db.openForm("session", x)}>Details</button>
     </>);
   } else if (n.type === "exam") {

@@ -3,6 +3,7 @@ import { DONE_HW, WD, WD_LONG } from "../lib/constants.js";
 import { addDays, byTime, fmt, fmtMin, fmtShort, isHeld, iso, isoWeek, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
 import { BlockRow, HomeworkRow, SessionRow } from "../ui/rows.jsx";
 import { Tabs } from "../ui/primitives.jsx";
+import { SelectToggle } from "../ui/selection.jsx";
 import { isActive } from "../lib/data.js";
 import { SessionPopover, useHoverCard } from "../ui/session.jsx";
 import { suggestBlocks } from "../lib/blocks.js";
@@ -10,6 +11,7 @@ import { sessionCoverage } from "../lib/study.js";
 import { offDay } from "../lib/holidays.js";
 import { dragTo, movePatch, slotAt } from "../lib/gridmove.js";
 import { toHM } from "../lib/blocks.js";
+import { shortName } from "../lib/modules.js";
 
 const HOUR_PX = 46;
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
@@ -64,7 +66,10 @@ export function WeekView({ db, compact = false }) {
           <button className="btn btn-ghost btn-icon" onClick={() => (isMonth ? shiftMonth(1) : setWs(addDays(ws, 7)))} aria-label={isMonth ? "Nächster Monat" : "Nächste Woche"}><span aria-hidden="true" className="block w-4 text-center">›</span></button>
         </div>
       </div>
-      <Tabs items={compact ? [["raster", "Raster"], ["liste", "Liste"]] : [["raster", "Raster"], ["liste", "Liste"], ["monat", "Monat"]]} value={view} onChange={setMode} label="Ansicht" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Tabs items={compact ? [["raster", "Raster"], ["liste", "Liste"]] : [["raster", "Raster"], ["liste", "Liste"], ["monat", "Monat"]]} value={view} onChange={setMode} label="Ansicht" />
+        {!isMonth && <SelectToggle db={db} kind="session" ids={weekSes.map((s) => s.id)} />}
+      </div>
       {!compact && !isMonth && <BlockSuggestions db={db} days={days} />}
       {isMonth ? <MonthGrid db={db} month={month} onPick={openWeek} /> : view === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
     </div>
@@ -138,8 +143,10 @@ function WeekGrid({ db, days, weekSes }) {
   /* Am PC: Termine und Lernblöcke ziehen (verschieben) oder am unteren Rand ziehen (verlängern) */
   const [drag, setDrag] = useState(null); /* Vorschau { id, date, start, end } */
   const dragRef = useRef(null), gridRef = useRef(null), swallowClick = useRef(false);
+  /* Mehrfachauswahl: Antippen hakt Termine (bzw. Lernblöcke) an, statt Karte oder Formular zu öffnen */
+  const selKind = db.sel?.kind, picked = (kind, id) => selKind === kind && db.sel.ids.includes(id);
   const startDrag = (e, ev) => {
-    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    if (e.pointerType !== "mouse" || e.button !== 0 || selKind === (ev.isBlock ? "block" : "session")) return;
     const coll = ev.isBlock ? "blocks" : "sessions";
     const item = data[coll].find((x) => x.id === ev.id);
     if (!item) return;
@@ -174,6 +181,25 @@ function WeekGrid({ db, days, weekSes }) {
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); document.body.classList.remove("grid-dragging"); };
   }, [data]);
+  /* Lange drücken (Touch) oder Rechtsklick öffnet das Schnellmenü; Android meldet langes Drücken zusätzlich als Kontextmenü */
+  const press = useRef({ timer: 0, at: 0, x: 0, y: 0 });
+  const menuOf = (kind, id) => {
+    const item = data[kind === "block" ? "blocks" : "sessions"].find((x) => x.id === id);
+    if (!item || Date.now() - press.current.at < 800) return;
+    press.current.at = Date.now();
+    hover.close(); db.menu(kind, item);
+  };
+  const pressProps = (kind, id) => ({
+    onContextMenu: (e) => { e.preventDefault(); clearTimeout(press.current.timer); menuOf(kind, id); },
+    onPointerDown: (e) => {
+      clearTimeout(press.current.timer);
+      if (e.pointerType === "mouse") return;
+      Object.assign(press.current, { x: e.clientX, y: e.clientY, timer: setTimeout(() => { swallowClick.current = true; menuOf(kind, id); }, 480) });
+    },
+    onPointerMove: (e) => { if (Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 8) clearTimeout(press.current.timer); },
+    onPointerUp: () => { clearTimeout(press.current.timer); if (swallowClick.current) setTimeout(() => { swallowClick.current = false; }, 0); },
+    onPointerCancel: () => clearTimeout(press.current.timer),
+  });
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(id); }, []);
   /* Wochenende nur, wenn dort etwas ist: Termine, Prüfungen, Abgaben, Lernblöcke (oder heute) */
@@ -223,7 +249,7 @@ function WeekGrid({ db, days, weekSes }) {
           const items = layoutDay(timed.filter((s) => s.date === d));
           return (
             <div key={d} data-day={d} className={`grid-col ${d === t ? "today" : ""}`} style={{ height }} aria-label={`${WD_LONG[wdIdx(d)]} ${fmt(d)}`} role="group"
-              onClick={(e) => { if (e.target !== e.currentTarget && !e.target.classList.contains("grid-line")) return; const r = e.currentTarget.getBoundingClientRect(); setSlot({ date: d, min: slotAt(startH * 60 + ((e.clientY - r.top) / HOUR_PX) * 60) }); }}>
+              onClick={(e) => { if (selKind || (e.target !== e.currentTarget && !e.target.classList.contains("grid-line"))) return; const r = e.currentTarget.getBoundingClientRect(); setSlot({ date: d, min: slotAt(startH * 60 + ((e.clientY - r.top) / HOUR_PX) * 60) }); }}>
               {hours.slice(1, -1).map((h) => <span key={h} className="grid-line" style={{ top: y(h * 60) }} />)}
               {slot?.date === d && (
                 <div ref={slotRef} className="grid-slot" style={{ top: y(slot.min) }} role="dialog" aria-label={`Neu am ${fmt(d)} um ${toHM(slot.min)}`}>
@@ -239,8 +265,9 @@ function WeekGrid({ db, days, weekSes }) {
                 /* Der Name beginnt mit dem sichtbaren Text (für Sprachsteuerung), danach die Einzelheiten */
                 const shown = (a, b) => (tall && b ? `${a} ${b}: ` : `${a}: `);
                 if (ev.isBlock) return (
-                  <button key={ev.id} className={`ev ev-block ev-move ${ev.done ? "ev-done" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""}`} onPointerDown={(e) => startDrag(e, ev)} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
-                    onClick={() => db.openForm("block", ev)}
+                  <button key={ev.id} className={`ev ev-block ev-move ${ev.done ? "ev-done" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("block", ev.id) ? "ev-selected" : ""}`} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}`}
+                    {...(selKind === "block" ? { "aria-pressed": picked("block", ev.id), onClick: () => db.select("block", ev.id) }
+                      : withDrag({ ...pressProps("block", ev.id), onClick: () => db.openForm("block", ev) }, (e) => startDrag(e, ev)))}
                     style={{ "--mod": m?.color || "var(--accent)", top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto" }}>
                     <b>{shortName(ev.title)}</b>
                     {tall && " "}{tall && <span>{m ? shortName(m.name) : "Lernen"}</span>}
@@ -251,8 +278,10 @@ function WeekGrid({ db, days, weekSes }) {
                 const cls = ev.isExam ? "" : ev.cancelled ? "ev-cancelled" : ev.reviewed ? "ev-done" : isHeld(ev) ? "ev-review" : "";
                 const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}${cov ? `, ${cov.label}` : ""}`);
                 return (
-                  <button key={ev.id} className={`ev ${cls} ${ev.isExam ? "" : "ev-move"} ${hover.card?.id === ev.id ? "ev-active" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
-                    {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") } : withDrag(hover.trigger(ev.id, () => db.openForm("session", data.sessions.find((x) => x.id === ev.id) || ev)), (e) => startDrag(e, ev)))}
+                  <button key={ev.id} className={`ev ${cls} ${ev.isExam ? "" : "ev-move"} ${hover.card?.id === ev.id ? "ev-active" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("session", ev.id) ? "ev-selected" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
+                    {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") }
+                      : selKind === "session" ? { "aria-pressed": picked("session", ev.id), onClick: () => db.select("session", ev.id) }
+                      : withDrag(chain(hover.trigger(ev.id, () => db.openForm("session", data.sessions.find((x) => x.id === ev.id) || ev)), pressProps("session", ev.id)), (e) => startDrag(e, ev)))}
                     style={{ "--mod": ev.isExam ? "var(--danger)" : m?.color, top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * HOUR_PX - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto", color: ev.isExam ? "#fff" : undefined }}>
                     <b>{ev.isExam ? "Prüfung" : shortName(m?.name)}</b>
                     {tall && " "}{tall && <span>{ev.isExam ? shortName(m?.name) : ev.type}</span>}
@@ -272,15 +301,8 @@ function WeekGrid({ db, days, weekSes }) {
 
 /* Eigener pointerdown zusätzlich zu dem der Hover-Karte */
 const withDrag = (props, onDown) => ({ ...props, onPointerDown: (e) => { props.onPointerDown?.(e); onDown(e); } });
-
-/* Kurzname für schmale Spalten: Klammerzusätze weg, lange Namen als Initialen */
-function shortName(name = "") {
-  const clean = name.replace(/\s*\(.*?\)\s*/g, " ").trim();
-  if (clean.length <= 14) return clean;
-  const words = clean.split(/\s+/).filter(Boolean);
-  /* Initialen wie an der Uni üblich: „Einführung in die Informatik“ wird „EidI“ */
-  return words.length > 1 ? words.map((w) => w[0]).join("") : clean.slice(0, 12) + "…";
-}
+/* Handler mehrerer Prop-Sätze nacheinander ausführen */
+const chain = (a, b) => ({ ...a, ...b, ...Object.fromEntries(Object.keys(b).filter((k) => a[k]).map((k) => [k, (e) => { a[k](e); b[k](e); }])) });
 
 function WeekList({ db, days, weekSes }) {
   const { data } = db, t = iso();

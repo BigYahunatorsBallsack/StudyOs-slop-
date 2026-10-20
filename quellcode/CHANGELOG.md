@@ -1,6 +1,10 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Einträge duplizieren:** Im Schnellmenü (lange drücken oder Rechtsklick) legt „Duplizieren“ eine Kopie einer Abgabe, eines Termins, eines Lernblocks oder einer Notiz an, ohne Haken und ohne Verknüpfung zum Abo. Das Formular öffnet sich gleich, meist musst du nur noch das Datum ändern.
+- **Mehrfachauswahl für Notizen und im Wochenraster:** Notizen eines Moduls lassen sich gemeinsam löschen oder einem anderen Modul zuordnen. Im Wochenraster startet „Auswählen“ (oder „Mehrere auswählen“ im Schnellmenü, das dort jetzt auch lange drücken bzw. Rechtsklick öffnet); angetippte Termine kannst du dann gemeinsam als besucht oder nachbereitet markieren, um Tage oder Wochen verschieben oder löschen.
+- **Modul ändern in der Mehrfachauswahl:** Ausgewählte Abgaben, Termine, Karteikarten, Notizen und Lernblöcke ordnest du mit „Modul ändern …“ in der Auswahlleiste gemeinsam einem anderen Modul zu, z. B. falsch zugeordnete Termine aus dem Stundenplan-Abo.
+- **Notiz-Vorlage für Termine:** „Notiz“ an einem Termin legt eine Notiz mit Modul, einem Titel wie „DS Vorlesung 20.10.2026“ und einem kurzen Gerüst (Uhrzeit, Raum, Mitschrift, offene Fragen) an. Gibt es zu dem Termin schon eine Notiz, öffnet sich diese.
 
 ## 2.11.0
 - **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.
