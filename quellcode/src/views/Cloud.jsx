@@ -146,6 +146,11 @@ function Reminders({ cloud, settings, patchSettings }) {
       )}
       {on && patchSettings && (
         <div className="mt-3 space-y-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushMorning !== false} onChange={(e) => patchSettings({ pushMorning: e.target.checked })} /> Morgens der Tag im Überblick um</label>
+            <label className="sr-only" htmlFor="push-morning">Uhrzeit für den Tagesüberblick</label>
+            <input id="push-morning" type="time" className="field py-1 text-sm" value={settings.morningTime || "07:00"} disabled={settings.pushMorning === false} onChange={(e) => e.target.value && patchSettings({ morningTime: e.target.value })} />
+          </div>
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushReviews !== false} onChange={(e) => patchSettings({ pushReviews: e.target.checked })} /> Um 20 Uhr, wenn heutige Termine noch nicht nachbereitet sind</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushChanges !== false} onChange={(e) => patchSettings({ pushChanges: e.target.checked })} /> Wenn sich im Stundenplan-Abo ein Raum oder eine Uhrzeit ändert oder etwas ausfällt</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushBlocks !== false} onChange={(e) => patchSettings({ pushBlocks: e.target.checked })} /> 10 Minuten vor einem geplanten Lernblock</label>

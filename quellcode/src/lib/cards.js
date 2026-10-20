@@ -129,3 +129,39 @@ export function cardsFromNote(text, existingFronts = []) {
   }
   return out;
 }
+
+/**
+ * Karten einer Notiz beim Speichern abgleichen: neue Zeilen „Frage :: Antwort“ bzw. Lückentexte werden Karten,
+ * geänderte Antworten ändern die Karte. Eine geänderte Frage übernimmt die Karte, die ihre Zeile verloren hat
+ * (Lernstand bleibt); was übrig bleibt, wird gelöscht. Ohne Modul passiert nichts.
+ * @returns {{ cards: any[], added: number, updated: number, removed: number }}
+ */
+export function syncNoteCards(cards, note, today, newId) {
+  const same = { cards, added: 0, updated: 0, removed: 0 };
+  if (!note.moduleId) return same;
+  const own = cards.filter((c) => c.fromNote === note.id);
+  const others = cards.filter((c) => c.fromNote !== note.id && c.moduleId === note.moduleId).map((c) => c.front);
+  const parsed = cardsFromNote(note.text, others);
+  if (!own.length && !parsed.length) return same;
+  const key = (s) => String(s).trim().toLowerCase();
+  const left = new Map(own.map((c) => [key(c.front), c]));
+  const keep = new Map(), fresh = [];
+  for (const p of parsed) {
+    const hit = left.get(key(p.front));
+    if (hit) { left.delete(key(p.front)); keep.set(hit.id, p); } else fresh.push(p);
+  }
+  const orphans = [...left.values()];
+  let added = 0, updated = 0;
+  const patches = new Map();
+  for (const [id, p] of keep) { const c = own.find((x) => x.id === id); if (c.back !== p.back) { patches.set(id, { back: p.back }); updated++; } }
+  const extra = [];
+  fresh.forEach((p) => {
+    const reuse = orphans.shift();
+    if (reuse) { patches.set(reuse.id, { front: p.front, back: p.back }); updated++; }
+    else { extra.push({ ...p, id: newId(), moduleId: note.moduleId, topicId: "", tags: "", created: today, ease: 2.5, interval: 0, reps: 0, due: today, fromNote: note.id }); added++; }
+  });
+  const gone = new Set(orphans.map((c) => c.id));
+  if (!added && !updated && !gone.size) return same;
+  const next = cards.filter((c) => !gone.has(c.id)).map((c) => (patches.has(c.id) ? { ...c, ...patches.get(c.id) } : c));
+  return { cards: [...next, ...extra], added, updated, removed: gone.size };
+}

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PALETTE } from "../lib/constants.js";
 import { countsOf, demoData, emptyData, normalizeImport } from "../lib/data.js";
-import { ENV } from "../lib/env.js";
 import { buildICS, guessType, parseICS } from "../lib/ics.js";
 import { fmt, iso, saveFile, uid } from "../lib/util.js";
 import { Card, ConfirmButton, Tabs } from "../ui/primitives.jsx";
@@ -277,9 +276,12 @@ export function DataView({ db }) {
             <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.wideLayout !== false} onChange={(e) => db.patchSettings({ wideLayout: e.target.checked })} />
             Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen
           </label>
+          <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
+            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.appBadge !== false} onChange={(e) => db.patchSettings({ appBadge: e.target.checked })} />
+            Zahl am App-Symbol: was heute noch offen ist
+          </label>
         </div>
         <p className="mt-2 text-xs text-slate-500">ECTS-Ziel und Notengewichtung können je nach Prüfungsordnung abweichen. Der Notenschnitt in StudyOS ist ECTS-gewichtet.</p>
-        {ENV && <p className="mt-2 text-xs text-slate-400">Die App ist offline-fähig und speichert lokal auf diesem Gerät. Für ein zweites Gerät exportiere eine Sicherung. Zum Installieren: oben „App installieren“ oder im Browser-Menü „Zum Startbildschirm“ / „App installieren“.</p>}
       </Card>
 
       <BreaksCard db={db} />

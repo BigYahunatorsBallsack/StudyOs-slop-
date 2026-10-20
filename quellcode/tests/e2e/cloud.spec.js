@@ -480,7 +480,7 @@ test('Konflikt: Änderung von einem anderen Gerät überschrieben, „Meine beha
   };
   const rename = async (page, from, to) => {
     await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
-    await page.getByPlaceholder(/Module, Hausaufgaben/).fill(from);
+    await page.getByLabel('Suchbegriff').fill(from);
     await page.getByRole('option', { name: new RegExp(from) }).click();
     await page.getByRole('button', { name: 'Bearbeiten' }).click();
     await page.getByLabel('Titel').fill(to);
@@ -535,7 +535,7 @@ test('Cloud-Sicherung: wöchentlich verschlüsselt, Wiederherstellen holt Gelös
 
   // Notiz löschen (auf allen Geräten), dann aus der Sicherung wiederherstellen
   await A.page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
-  await A.page.getByPlaceholder(/Module, Hausaufgaben/).fill('Wichtige');
+  await A.page.getByLabel('Suchbegriff').fill('Wichtige');
   await A.page.getByRole('option', { name: /Wichtige Notiz/ }).click();
   await A.page.getByRole('button', { name: 'Bearbeiten' }).click();
   const dlg = A.page.getByRole('dialog', { name: /bearbeiten/ });

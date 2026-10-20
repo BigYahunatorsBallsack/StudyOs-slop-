@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { WD_LONG } from "../lib/constants.js";
 import { isActive, streakOf } from "../lib/data.js";
 import { byTime, diffDays, fmtMin, fmtShort, isHeld, iso, isoWeek, nowHM, sum, wdIdx, weekStart } from "../lib/util.js";
-import { Bar, Card } from "../ui/primitives.jsx";
+import { Bar, Card, Icon } from "../ui/primitives.jsx";
+import { SwipeUnder, useSwipe } from "../ui/swipe.jsx";
 import { btnGhost, btnPrimary } from "../ui/styles.js";
 import { nextUp } from "../lib/next.js";
 import { SessionTri } from "../ui/session.jsx";
-import { dueLabel, todoItems } from "../lib/todo.js";
+import { dueLabel, isLate, todoItems } from "../lib/todo.js";
 import { PlaceLinks, WatchProgress } from "../ui/links.jsx";
 import { MensaCard } from "./Mensa.jsx";
 import { mensaOf } from "../lib/mensa.js";
@@ -24,6 +25,7 @@ import { SubtaskProgress } from "../ui/subtasks.jsx";
 import { subProgress } from "../lib/subtasks.js";
 import { offDay } from "../lib/holidays.js";
 import { describeChange, feedChanges } from "../lib/feed.js";
+import { semesterSwitch } from "../lib/curriculum.js";
 
 /* ---------------- Heute ---------------- */
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
@@ -83,6 +85,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const week = weekCard(data, t);
   const off = offDay(t, data.settings);
   const changes = feedChanges(data.sessions, t);
+  const sw = semesterSwitch(db.data, t);
   const longDate = new Date(t + "T00:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "long" });
 
   /* Bereiche der Seite; Reihenfolge und Sichtbarkeit wählt man unter „Heute anpassen“ */
@@ -162,6 +165,15 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       </div>
 
       {notice && <div className="mb-3">{notice}</div>}
+      {sw && (
+        <div className="notice notice-info mb-3">
+          <p>Neues Semester: Semester {sw.from} archivieren und {sw.count ? `die ${sw.count} Module von Semester ${sw.to}` : `Semester ${sw.to}`} aus dem Studienplan übernehmen?</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button className={btnPrimary} onClick={() => db.switchSemester(sw)}>Übernehmen</button>
+            <button className={btnGhost} onClick={() => db.patchSettings({ semesterAsked: sw.key })}>Nicht jetzt</button>
+          </div>
+        </div>
+      )}
       {todayLayout(data.settings).filter((b) => !b.hidden).map((b) => <React.Fragment key={b.id}>{blocks[b.id]}</React.Fragment>)}
 
       <div className="mt-6 text-center">
@@ -238,18 +250,29 @@ function TimelineBlock({ b, db }) {
   );
 }
 
-/* Eine Checkliste für alles Offene; ein Kreis pro Eintrag erledigt ihn */
+/* Eine Checkliste für alles Offene; ein Kreis pro Eintrag erledigt ihn. Nach rechts wischen hakt ab,
+   nach links verschiebt (Abgaben), lange drücken öffnet das Schnellmenü. */
 function TodoList({ db, items }) {
   const [all, setAll] = useState(false);
-  const t = iso();
   const shown = all ? items : items.slice(0, 6);
-  const check = (x, e) => {
+  return (
+    <>
+      <ul className="todo">
+        {shown.map((x) => <TodoRow key={x.kind + x.id} db={db} x={x} />)}
+      </ul>
+      {items.length > 6 && <button className="link-btn mt-2" onClick={() => setAll(!all)}>{all ? "Weniger anzeigen" : `Alle ${items.length} anzeigen`}</button>}
+    </>
+  );
+}
+
+function TodoRow({ db, x }) {
+  const t = iso();
+  const m = x.moduleId ? db.mod(x.moduleId) : null;
+  const late = x.kind !== "cards" && x.due < t;
+  const check = (e) => {
     burst(e?.currentTarget);
-    if (x.kind === "homework") {
-      const prev = x.item.status;
-      db.setHwStatus(x.id, "abgegeben");
-      db.toast(`„${x.item.title}“ abgegeben.`, { label: "Rückgängig", run: () => db.setHwStatus(x.id, prev) });
-    } else if (x.kind === "review") {
+    if (x.kind === "homework") db.hwDone(x.item, true);
+    else if (x.kind === "review") {
       db.toggleSession(x.id, "reviewed");
       db.toast(`${db.mod(x.moduleId)?.name || "Termin"} nachbereitet.`, { label: "Rückgängig", run: () => db.toggleSession(x.id, "reviewed") });
     } else if (x.kind === "register") {
@@ -257,38 +280,49 @@ function TodoList({ db, items }) {
       db.toast("Als angemeldet markiert.", { label: "Rückgängig", run: () => db.patch("exams", x.id, { registered: false }) });
     }
   };
+  const menuKind = x.kind === "homework" ? "homework" : x.kind === "review" ? "session" : x.kind === "register" ? "exam" : null;
+  const { dx, dragging, bind } = useSwipe({
+    onSwipeRight: x.kind === "cards" ? null : () => check(),
+    onSwipeLeft: x.kind === "homework" ? () => db.postpone("homework", x.item) : null,
+    onLongPress: menuKind ? () => db.menu(menuKind, x.item) : null,
+  });
+  let title, meta, open;
+  if (x.kind === "homework") { title = x.item.title; meta = `Abgabe ${dueLabel(x.due, t)}${m ? `, ${m.name}` : ""}`; open = () => db.openForm("homework", x.item); }
+  else if (x.kind === "review") { title = m?.name || "Termin"; meta = `Nachbereiten: ${x.item.type} vom ${fmtShort(x.item.date)}`; open = () => db.openForm("session", x.item); }
+  else if (x.kind === "register") { title = `Zur Prüfung ${m?.name || ""} anmelden`; meta = `Anmeldeschluss ${dueLabel(x.due, t)}`; open = () => db.openForm("exam", x.item); }
+  else { title = `${x.count} ${x.count === 1 ? "Karteikarte" : "Karteikarten"} wiederholen`; meta = "fällig"; open = () => db.goLearn("karten", ""); }
+  const ask = isLate(x, t);
   return (
-    <>
-      <ul className="todo">
-        {shown.map((x) => {
-          const m = x.moduleId ? db.mod(x.moduleId) : null;
-          const late = x.kind !== "cards" && x.due < t;
-          let title, meta, open;
-          if (x.kind === "homework") { title = x.item.title; meta = `Abgabe ${dueLabel(x.due, t)}${m ? `, ${m.name}` : ""}`; open = () => db.openForm("homework", x.item); }
-          else if (x.kind === "review") { title = m?.name || "Termin"; meta = `Nachbereiten: ${x.item.type} vom ${fmtShort(x.item.date)}`; open = () => db.openForm("session", x.item); }
-          else if (x.kind === "register") { title = `Zur Prüfung ${m?.name || ""} anmelden`; meta = `Anmeldeschluss ${dueLabel(x.due, t)}`; open = () => db.openForm("exam", x.item); }
-          else { title = `${x.count} ${x.count === 1 ? "Karteikarte" : "Karteikarten"} wiederholen`; meta = "fällig"; open = () => db.goLearn("karten", ""); }
-          return (
-            <li key={x.kind + x.id} className="todo-row" style={{ "--mod": m?.color }}>
-              {x.kind === "cards"
-                ? <span className="todo-check todo-check-go" aria-hidden="true">›</span>
-                : <button className="todo-check" onClick={(e) => check(x, e)} aria-label={`Erledigt: ${title}`} />}
-              <button className="todo-body" onClick={open}>
-                <span className="row-title block truncate">{title}</span>
-                <span className={`row-meta block truncate ${late ? "todo-late" : ""}`}>{meta}</span>
-                {x.kind === "review" && <WatchProgress s={x.item} color={m?.color} className="mt-0.5" />}
-                {x.kind === "homework" && <SubtaskProgress h={x.item} color={m?.color} className="mt-0.5" />}
-              </button>
-              {x.kind === "review" && /^https:\/\//i.test(m?.liveUrl || "") && (
-                <a className="ext-link shrink-0" href={m.liveUrl} target="_blank" rel="noopener noreferrer">Aufzeichnung<span className="sr-only"> von {m.name} öffnen</span> ↗</a>
-              )}
-              {m && <span className="todo-dot" aria-hidden="true" />}
-            </li>
-          );
-        })}
-      </ul>
-      {items.length > 6 && <button className="link-btn mt-2" onClick={() => setAll(!all)}>{all ? "Weniger anzeigen" : `Alle ${items.length} anzeigen`}</button>}
-    </>
+    <li className={`todo-item ${dragging ? "dragging" : ""}`}>
+      <SwipeUnder dx={dx} rightLabel={x.kind === "homework" ? "Abgegeben" : x.kind === "review" ? "Nachbereitet" : "Erledigt"} leftLabel="Verschieben" />
+      <div className="todo-row" style={{ "--mod": m?.color, transform: dx ? `translateX(${dx}px)` : undefined }} {...bind}>
+        {x.kind === "cards"
+          ? <span className="todo-check todo-check-go" aria-hidden="true">›</span>
+          : <button className="todo-check" onClick={check} aria-label={`Erledigt: ${title}`} />}
+        <div className="todo-body">
+          <button className="block w-full text-left" onClick={open}>
+            <span className="row-title block truncate">{title}</span>
+            <span className={`row-meta block truncate ${late ? "todo-late" : ""}`}>{meta}</span>
+            {x.kind === "review" && <WatchProgress s={x.item} color={m?.color} className="mt-0.5" />}
+            {x.kind === "homework" && <SubtaskProgress h={x.item} color={m?.color} className="mt-0.5" />}
+          </button>
+          {ask && (
+            <div className="todo-ask" role="group" aria-label={`Abgegeben: ${title}?`}>
+              <span className="text-slate-300">Abgegeben?</span>
+              <button className="btn btn-ghost" onClick={check}>Ja</button>
+              <button className="btn btn-ghost" onClick={() => db.postpone("homework", x.item)}>Nein</button>
+            </div>
+          )}
+        </div>
+        {x.kind === "review" && /^https:\/\//i.test(m?.liveUrl || "") && (
+          <a className="ext-link shrink-0" href={m.liveUrl} target="_blank" rel="noopener noreferrer">Aufzeichnung<span className="sr-only"> von {m.name} öffnen</span> ↗</a>
+        )}
+        {(x.kind === "homework" || x.kind === "review") && (
+          <button className="btn btn-ghost btn-icon todo-play" onClick={() => db.focusOn(menuKind, x.item)} aria-label={`Timer starten: ${title}`} title="Timer starten"><Icon name="play" className="h-4 w-4" /></button>
+        )}
+        {m && <span className="todo-dot" aria-hidden="true" />}
+      </div>
+    </li>
   );
 }
 

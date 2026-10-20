@@ -316,7 +316,7 @@ export function CommuteSettings({ db }) {
               {text(c.car, setCar, "to", "Ziel", "Adresse an der Uni")}
               {num(c.car, setCar, "park", "Parken und Fußweg (Min.)", 60)}
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">Auf „Heute“ zwischen Öffis und Auto umschalten. Die Fahrzeit mit Verkehr kommt über deine Supabase-Funktion, dort muss GOOGLE_MAPS_KEY oder TOMTOM_KEY als Secret gesetzt sein (siehe Anleitung). Start und Ziel gehen dafür an Google bzw. TomTom.</p>
+            <p className="mt-2 text-[11px] text-slate-500">Die Fahrzeit mit Verkehr kommt über deine Supabase-Funktion, dort muss GOOGLE_MAPS_KEY oder TOMTOM_KEY als Secret gesetzt sein (siehe Anleitung). Start und Ziel gehen dafür an Google bzw. TomTom.</p>
           </div>
           <label className="mt-4 flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushCommute} onChange={(e) => db.patchSettings({ pushCommute: e.target.checked })} />

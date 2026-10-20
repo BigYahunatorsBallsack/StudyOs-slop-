@@ -234,7 +234,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .tl-live .tl-body { --pxc: var(--mod, var(--accent)); }
 :root[data-theme="retro"] .tl-live .tl-time b { color: var(--accent-2); }
 :root[data-theme="retro"] .todo-check { border-width: 2px; }
-:root[data-theme="retro"] .todo-row + .todo-row { border-top: 2px solid var(--surface-2); }
+:root[data-theme="retro"] .todo-item + .todo-item > .todo-row { border-top: 2px solid var(--surface-2); }
 :root[data-theme="retro"] .tri { background: var(--bg); padding: 2px; --pxc: var(--pxc-soft); }
 :root[data-theme="retro"] .surface .tri, :root[data-theme="retro"] .popover .tri { background: var(--bg); }
 :root[data-theme="retro"] .tri-btn { font-size: .66rem; transition: none; }

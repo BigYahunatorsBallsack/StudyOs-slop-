@@ -112,7 +112,6 @@ export function TimerView({ db, timer: timerIn }) {
             <button className={btnGhost} onClick={timer.reset}>Zurücksetzen</button>
             {timer.mode === "focus" && timer.remaining < total && <button className={btnGhost} onClick={timer.stopAndLog}>Beenden & eintragen</button>}
           </div>
-          <p className="max-w-sm text-center text-xs text-slate-500">Nach einer Fokusphase wird die Lerneinheit mit Modul, Thema und Dauer gleich eingetragen; dazu kannst du in einer Zeile notieren, was du gemacht hast. Der Timer läuft weiter, wenn du den Bereich wechselst.</p>
         </div>
       </Card>
     </div>
@@ -300,7 +299,6 @@ export function CardsView({ db, filter, setFilter }) {
           {q && done > 0 && <p className="mb-2 text-sm text-emerald-300">Sitzung abgeschlossen: {done} Karten gelernt.</p>}
           <p className="text-sm text-slate-300"><span className="font-num text-2xl font-semibold text-slate-100">{due.length}</span> Karten fällig · {pool.length} gesamt</p>
           <button className={`${btnPrimary} mt-3`} disabled={!due.length} onClick={start}>Lernen starten</button>
-          {!pool.length && <p className="mt-2 text-xs text-slate-500">Lege Karten im Modul unter „Karten“ oder hier über „+ Karte“ an.</p>}
         </Card>
       )}
       {!current && weak.length > 0 && <WeakSpots db={db} cards={weak} onPractice={practice} />}

@@ -2,20 +2,33 @@
 import { DONE_HW } from "./constants.js";
 import { addDays, diffDays, fmtShort, isHeld, iso, uid } from "./util.js";
 import { fmtWatch, parseWatch, watchProgress } from "./tum.js";
-import { inBreak } from "./holidays.js";
+import { breaksOf, inBreak } from "./holidays.js";
 
 /* ---------------- Übungsblätter als Serie ---------------- */
 
 /** Zählt die Blattnummer hoch: „Blatt 4“ → „Blatt 5“, „Übungsblatt 04“ → „Übungsblatt 05“; ohne Zahl wird „ 2“, „ 3“ … angehängt. */
 const NUMBER_AFTER_WORD = /(?:blatt|sheet|nr\.?|übung|uebung|aufgabe|hü|ha|woche|tutorium)\s*#?\s*(\d+)/i;
 export function nextTitle(title, step = 1) {
-  /* bevorzugt die Zahl nach „Blatt“, „Sheet“, „Nr.“ usw., sonst die letzte Zahl im Titel */
-  const w = NUMBER_AFTER_WORD.exec(title);
-  const m = w ? { 1: w[1], index: w.index + w[0].length - w[1].length } : /(\d+)(?!.*\d)/.exec(title);
+  const m = titleNumber(title);
   if (!m) return `${title} ${1 + step}`;
-  const n = String(Number(m[1]) + step).padStart(m[1].length, "0");
-  return title.slice(0, m.index) + n + title.slice(m.index + m[1].length);
+  return withNumber(title, Number(m[1]) + step);
 }
+
+/* bevorzugt die Zahl nach „Blatt“, „Sheet“, „Nr.“ usw., sonst die letzte Zahl im Titel */
+function titleNumber(title) {
+  const w = NUMBER_AFTER_WORD.exec(title);
+  return w ? { 1: w[1], index: w.index + w[0].length - w[1].length } : /(\d+)(?!.*\d)/.exec(title);
+}
+
+/** Gleicher Titel mit anderer Blattnummer („Übungsblatt 04“, 7 → „Übungsblatt 07“); ohne Zahl null */
+export function withNumber(title, n) {
+  const m = titleNumber(title);
+  if (!m) return null;
+  return title.slice(0, m.index) + String(n).padStart(m[1].length, "0") + title.slice(m.index + m[1].length);
+}
+
+/** Blattnummer im Titel oder null */
+export const numberOf = (title) => { const m = titleNumber(String(title || "")); return m ? Number(m[1]) : null; };
 
 /** Wöchentliche Blätter vom ersten Blatt bis `until` (Ausgabedatum), höchstens 20. */
 /* Wöchentliche Blatt-Serie; Wochen, deren Abgabe in die vorlesungsfreie Zeit fiele, werden übersprungen (die Nummer zählt ohne Lücke weiter) */
@@ -31,6 +44,33 @@ export function buildHomeworkSeries(base, until, settings = null) {
       ...(Array.isArray(base.subtasks) && { subtasks: i ? base.subtasks.map((s) => ({ ...s, id: uid(), done: false })) : base.subtasks }) });
   }
   return out;
+}
+
+/**
+ * Nach dem Anlegen eines Blatts: Sieht es nach einer wöchentlichen Serie aus (drei Blätter mit fortlaufender Nummer,
+ * je 7 Tage Abstand, noch keine späteren), schlägt StudyOS die restlichen Blätter bis zur vorlesungsfreien Zeit vor.
+ * Einmal je Modul und Titel (settings.seriesAsked).
+ * @returns {null | { key: string, list: any[] }}
+ */
+export function seriesSuggestion(data, h, settings = {}) {
+  if (!h || !h.due || !h.moduleId || h.feedKey || h.seriesId) return null;
+  const n = numberOf(h.title);
+  if (n === null) return null;
+  const stem = (t) => withNumber(t, 0);
+  const key = `${h.moduleId}|${stem(h.title)}`;
+  if ((settings.seriesAsked || []).includes(key)) return null;
+  const same = data.homework.filter((x) => x.id !== h.id && x.moduleId === h.moduleId && x.due && stem(x.title) === stem(h.title));
+  if (same.some((x) => x.due > h.due || numberOf(x.title) > n)) return null;
+  const a = same.find((x) => numberOf(x.title) === n - 1 && diffDays(x.due, h.due) === 7);
+  const b = a && same.find((x) => numberOf(x.title) === n - 2 && diffDays(x.due, a.due) === 7);
+  if (!b) return null;
+  const end = breaksOf(settings).filter((x) => x.from > h.due).sort((x, y) => x.from.localeCompare(y.from))[0];
+  if (!end) return null;
+  const base = { moduleId: h.moduleId, title: nextTitle(h.title), issued: h.issued ? addDays(h.issued, 7) : null, due: addDays(h.due, 7), status: "ausgegeben",
+    ...(h.dueTime && { dueTime: h.dueTime }), ...(h.maxPoints && { maxPoints: h.maxPoints }), created: iso(),
+    ...(Array.isArray(h.subtasks) && h.subtasks.length && { subtasks: h.subtasks.map((x) => ({ ...x, done: false })) }) };
+  const list = buildHomeworkSeries(base, addDays(end.from, -1), settings);
+  return list.length ? { key, list } : null;
 }
 
 /* ---------------- Notenbonus ---------------- */

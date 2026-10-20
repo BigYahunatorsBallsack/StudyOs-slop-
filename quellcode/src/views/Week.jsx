@@ -109,7 +109,6 @@ function MonthGrid({ db, month, onPick }) {
           })}
         </div>
       ))}
-      <p className="mt-3 text-xs text-slate-500">Pink: Prüfung. Punkte in Modulfarbe: Abgaben (blass, wenn erledigt). Die Zahl unten zeigt die Termine des Tages. Gedämpft: Feiertag oder vorlesungsfrei. Ein Tag öffnet seine Woche.</p>
     </div>
   );
 }
@@ -198,7 +197,6 @@ function WeekGrid({ db, days, weekSes }) {
           );
         })}
       </div>
-      <p className="mt-3 text-xs text-slate-500">Gestrichelt: geplante Lernblöcke. Umrandet: stattgefunden, aber noch nicht nachbereitet. Der Streifen unten zeigt, wie viel du besucht oder von der Aufzeichnung angeschaut hast (rot unter einem Drittel, gelb bis 90 %, grün darüber). Zum Abhaken mit der Maus kurz auf einem Termin verweilen bzw. auf dem Handy antippen.</p>
       {cardSession && <SessionPopover s={cardSession} db={db} anchor={hover.card.anchor} onClose={hover.close} onEnter={hover.keep} onLeave={hover.leave} />}
     </div>
   );

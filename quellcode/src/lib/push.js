@@ -10,7 +10,7 @@ export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
   const mod = (id) => data.modules.find((m) => m.id === id)?.name || "";
   const out = [];
-  data.homework.forEach((h) => { if (h.due && h.due >= addDays(today, -1) && !DONE_HW.has(h.status)) out.push({ id: h.id, kind: "homework", title: h.title, module: mod(h.moduleId), date: h.due, ...(h.dueTime ? { time: h.dueTime } : {}) }); });
+  data.homework.forEach((h) => { if (h.due && h.due >= addDays(today, -1) && !h.missed && !DONE_HW.has(h.status)) out.push({ id: h.id, kind: "homework", title: h.title, module: mod(h.moduleId), date: h.due, ...(h.dueTime ? { time: h.dueTime } : {}) }); });
   data.exams.forEach((e) => {
     if (e.date >= today && e.result !== "bestanden") out.push({ id: e.id, kind: "exam", title: "Prüfung", module: mod(e.moduleId), date: e.date, time: e.time || "" });
     if (e.registerBy && !e.registered && e.registerBy >= today) out.push({ id: e.id, kind: "register", title: "Anmeldung", module: mod(e.moduleId), date: e.registerBy });
@@ -46,6 +46,14 @@ export function deadlinesFromData(all, today = iso()) {
     const back = [now ? `${fmtMin(now)} gelernt${prev ? ` (Vorwoche ${fmtMin(prev)})` : ""}` : "diese Woche noch nichts eingetragen", cards ? `${cards} ${cards === 1 ? "Karte" : "Karten"} fällig` : null].filter(Boolean);
     out.push({ id: `weekly-${sunday}`, kind: "weekly", title: "Wochenausblick", date: sunday, body: `Nächste Woche: ${parts.join(", ")}. Rückblick: ${back.join(", ")}.` });
   }
+  /* Morgens: Termine, Abgaben und Prüfungen des Tages und fällige Karten in einer Nachricht (für die nächsten 7 Tage vorab) */
+  if (settings.pushMorning !== false) {
+    const time = /^\d{2}:\d{2}$/.test(settings.morningTime || "") ? settings.morningTime : "07:00";
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(today, i), body = morningBody(data, day, mod);
+      if (body) out.push({ id: `morning-${day}`, kind: "morning", title: "Dein Tag", date: day, time, body });
+    }
+  }
   /* Stundenplan-Abo: geänderte oder ausfallende Termine gleich melden (an alle Geräte, auch wenn es hier entdeckt wurde) */
   if (settings.pushChanges !== false) {
     data.sessions.forEach((s) => {
@@ -69,6 +77,21 @@ export function deadlinesFromData(all, today = iso()) {
     }
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+}
+
+/** Text des Tagesüberblicks oder "" (dann gibt es keine Nachricht) */
+export function morningBody(data, day, mod) {
+  const ses = data.sessions.filter((s) => s.date === day && !s.cancelled && s.start).sort((a, b) => a.start.localeCompare(b.start));
+  const hw = data.homework.filter((h) => h.due === day && !h.missed && !DONE_HW.has(h.status));
+  const ex = data.exams.filter((e) => e.date === day && e.result !== "bestanden");
+  const cards = data.cards.filter((c) => (c.due || "") <= day).length;
+  const parts = [
+    ex.length ? `Prüfung: ${ex.map((e) => `${mod(e.moduleId) || "Prüfung"}${e.time ? ` um ${e.time}` : ""}`).join(", ")}` : "",
+    ses.length ? ses.map((s) => `${s.start} ${mod(s.moduleId) || s.type}`).join(", ") : "",
+    hw.length ? `Abgabe: ${hw.map((h) => `${h.title}${h.dueTime ? ` bis ${h.dueTime}` : ""}`).join(", ")}` : "",
+  ].filter(Boolean);
+  if (!parts.length) return "";
+  return parts.join(". ") + (cards ? `. ${cards} ${cards === 1 ? "Karte" : "Karten"} fällig.` : ".");
 }
 
 export const deadlinesKey = (list) => JSON.stringify(list);

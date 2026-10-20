@@ -3,7 +3,7 @@ import { useCloudSync } from "./cloud/useCloudSync.js";
 import { COLL, COLLS, DATA_VERSION, DONE_HW } from "./lib/constants.js";
 import { buildWeeklySeries } from "./lib/data.js";
 import { ENV } from "./lib/env.js";
-import { diffDays, fmtMin, iso, uid } from "./lib/util.js";
+import { diffDays, fmtMin, fmtShort, iso, uid } from "./lib/util.js";
 import { usePersistence } from "./app/usePersistence.js";
 import { useTheme } from "./app/useTheme.js";
 import { useTimer } from "./app/useTimer.js";
@@ -23,6 +23,12 @@ import { useAmbient } from "./ui/ambient.js";
 import { ambientOf, ambientVolumeOf } from "./lib/ambient.js";
 import { ShortcutHelp, shortcutHandler } from "./ui/shortcuts.jsx";
 import { playSfx, setSfxEnabled } from "./ui/sfx.js";
+import { ItemMenu, PostponeSheet } from "./ui/actions.jsx";
+import { postponeHomework } from "./lib/postpone.js";
+import { openTodayCount } from "./lib/todo.js";
+import { syncNoteCards } from "./lib/cards.js";
+import { pdfText, sheetFromShare } from "./lib/sheet.js";
+import { getLocal as getFile } from "./lib/files.js";
 
 /* Seltener genutzte Bereiche als eigene Dateien (offline über den Service Worker).
    Nach dem Start werden sie im Leerlauf vorgeladen, damit der erste Wechsel nicht auf „Lädt …“ wartet: React zeigt einen
@@ -49,9 +55,9 @@ const Loading = () => <p className="py-3 text-center text-sm text-slate-500" rol
 
 import { mergeModules } from "./lib/modules.js";
 import { saveSessionEdit } from "./lib/series.js";
-import { buildHomeworkSeries, toggleAttended, watchLog } from "./lib/study.js";
+import { buildHomeworkSeries, seriesSuggestion, toggleAttended, watchLog, withoutArchived } from "./lib/study.js";
 import { toggleSubtask } from "./lib/subtasks.js";
-import { applySemester, setupFromPlan } from "./lib/curriculum.js";
+import { applySemester, curriculumOf, setupFromPlan } from "./lib/curriculum.js";
 import { cancelOffDays } from "./lib/holidays.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
@@ -70,6 +76,8 @@ function useMedia(q) {
   return on;
 }
 
+const nav = [["heute", "Heute", "today"], ["module", "Module", "modules"], ["woche", "Woche", "week"], ["lernen", "Lernen", "learn"], ["mehr", "Mehr", "more"]];
+
 /* ---------------- App ---------------- */
 export default function App() {
   const { data, setData, dataRef, ready, loadError, saveState, saveNow, updateReady, installReady, setInstallReady } = usePersistence();
@@ -87,6 +95,7 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(true);
   const [toasts, setToasts] = useState([]);
+  const [menu, setMenu] = useState(null);
   const wide = useMedia("(min-width: 1100px)");
 
   const toast = (text, action, ms = 5000) => {
@@ -130,14 +139,53 @@ export default function App() {
     else if (a === "karten") { setLearnTab("karten"); setTab("lernen"); }
     else if (a === "pruefungen") { setLearnTab("pruefungen"); setTab("lernen"); }
     else if (a === "heute") setTab("heute");
-    else if (a === "geteilt") takeShared().then((msg) => {
+    else if (a === "push") runPushAction(params);
+    else if (a === "geteilt") takeShared().then(async (msg) => {
       if (!msg) return;
+      if (await sheetIn(msg)) return;
       const note = { ...sharedNote(msg, iso()), id: uid() };
       saveEntity("note", note, true);
       toast(note.files.length ? `Als Notiz mit ${note.files.length} ${note.files.length === 1 ? "Anhang" : "Anhängen"} gespeichert.` : "Als Notiz gespeichert.");
       setTimeout(() => openForm("note", note, false), 0);
     });
   }, [ready]);
+
+  /* Knöpfe in Push-Benachrichtigungen (siehe server/reminders.js) */
+  const runPushAction = (params) => {
+    const d = dataRef.current, id = params.get("id"), what = params.get("tun");
+    setTab("heute");
+    if (what === "abgegeben" || what === "verschieben") {
+      const h = d.homework.find((x) => x.id === id);
+      if (!h) return;
+      if (what === "abgegeben") db.hwDone(h, true); else setMenu({ mode: "postpone", kind: "homework", item: h });
+    } else if (what === "nachbereitet") {
+      const day = params.get("tag") || iso();
+      const ids = d.sessions.filter((s) => s.date === day && !s.cancelled && !s.reviewed && (s.date < iso() || (s.end || s.start || "") <= new Date().toTimeString().slice(0, 5))).map((s) => s.id);
+      if (!ids.length) return;
+      withUndo(`${ids.length} ${ids.length === 1 ? "Termin" : "Termine"} nachbereitet.`, (x) => ({ ...x, sessions: x.sessions.map((s) => (ids.includes(s.id) ? { ...s, reviewed: true, reviewedAt: iso() } : s)) }));
+    } else if (what === "timer") {
+      const b = (d.blocks || []).find((x) => x.id === id);
+      if (b) db.focus({ moduleId: b.moduleId || "", kind: b.kind, blockId: b.id, note: b.title });
+    } else if (what === "angemeldet") {
+      if (d.exams.some((e) => e.id === id)) { patch("exams", id, { registered: true }); toast("Als angemeldet markiert.", { label: "Rückgängig", run: () => patch("exams", id, { registered: false }) }); }
+    }
+  };
+
+  /* Geteiltes Übungsblatt (PDF) wird gleich eine Abgabe mit Anhang; danach öffnet sich das Formular zum Prüfen */
+  const sheetIn = async (msg) => {
+    const pdf = (msg.files || []).find((f) => /pdf/i.test(f.type || "") || /\.pdf$/i.test(f.name || ""));
+    if (!pdf || (msg.files || []).length > 2) return false;
+    let text = "";
+    try { const blob = await getFile(pdf.id); if (blob) text = await pdfText(new Uint8Array(await blob.arrayBuffer())); } catch { text = ""; }
+    const s = sheetFromShare({ name: pdf.name, text, title: msg.title }, dataRef.current);
+    if (!s) return false;
+    const files = sharedNote(msg, iso()).files;
+    const hw = { id: uid(), moduleId: s.moduleId, title: s.title, issued: iso(), due: s.due, status: "ausgegeben", files, ...(s.dueTime && { dueTime: s.dueTime }), ...(s.subtasks.length && { subtasks: s.subtasks }) };
+    saveEntity("homework", hw, true);
+    toast(`Abgabe „${hw.title}“ angelegt${s.guessedDue ? ", Frist bitte prüfen" : ""}.`, { label: "Rückgängig", run: () => removeEntity("homework", hw.id) }, 8000);
+    setTimeout(() => openForm("homework", dataRef.current.homework.find((x) => x.id === hw.id) || hw, false), 0);
+    return true;
+  };
 
   /* Tastenkürzel (Desktop): siehe ui/shortcuts.jsx; Aktionen über eine Ref, damit der Handler stabil bleibt */
   const [helpOpen, setHelpOpen] = useState(false);
@@ -207,7 +255,27 @@ export default function App() {
       if (old.due !== item.due || (old.dueTime || "") !== (item.dueTime || "")) locked.add("due");
       item.locked = [...locked];
     }
-    if (kind === "note") item.updated = iso();
+    if (kind === "note") {
+      item.updated = iso();
+      /* Zeilen „Frage :: Antwort“ und Lückentexte werden gleich Karteikarten */
+      const r = syncNoteCards(d.cards, item, iso(), uid);
+      if (r.added || r.updated || r.removed) {
+        d.cards = r.cards;
+        const parts = [r.added && `${r.added} neu`, r.updated && `${r.updated} geändert`, r.removed && `${r.removed} entfernt`].filter(Boolean).join(", ");
+        setTimeout(() => toast(`Karteikarten aus „${item.title || "Notiz"}“: ${parts}.`), 0);
+      }
+    }
+    /* Drittes Blatt im Wochentakt: einmal anbieten, die übrigen bis Semesterende anzulegen */
+    if (kind === "homework" && isNew) {
+      const sug = seriesSuggestion(d, item, d.settings);
+      if (sug) {
+        d.settings = { ...d.settings, seriesAsked: [...(d.settings.seriesAsked || []), sug.key].slice(-100) };
+        const last = sug.list[sug.list.length - 1];
+        setTimeout(() => toast(`Sieht nach einer Serie aus. ${sug.list.length} weitere Blätter bis ${fmtShort(last.due)} anlegen?`, { label: "Anlegen", run: () => {
+          withUndo(`${sug.list.length} Blätter angelegt.`, (x) => ({ ...x, homework: [...x.homework, ...sug.list] }));
+        } }, 15000), 0);
+      }
+    }
     if (kind === "session" && !isNew) {
       const r = saveSessionEdit(d.sessions, item, !!extra.applySeries);
       if (r.count) setTimeout(() => toast(`Auch ${r.count} folgende ${r.count === 1 ? "Termin" : "Termine"} geändert.`), 0);
@@ -247,7 +315,7 @@ export default function App() {
   /* Fokusphase gleich als Lerneinheit speichern, dann nur noch nach einer Zeile Lernnotiz fragen */
   const logFocus = (init) => {
     const id = uid();
-    saveEntity("log", { ...init, id, note: "" }, true);
+    saveEntity("log", { ...init, id, note: init.note || "" }, true);
     if (form) toast("Fokusphase eingetragen.", { label: "Notiz", run: () => setFocusNoteId(id) }, 15000);
     else setFocusNoteId(id);
   };
@@ -307,6 +375,38 @@ export default function App() {
     list.length === 1 ? `Abzeichen freigeschaltet: „${list[0].title}“` : `${list.length} Abzeichen freigeschaltet: ${list.map((b) => `„${b.title}“`).join(", ")}`,
     { label: "Ansehen", run: () => { setMoreTab("erfolge"); setTab("mehr"); } }, 8000); } });
 
+  /* Zahl am App-Symbol (installierte App): was heute noch offen ist */
+  useEffect(() => {
+    if (!ready || typeof navigator === "undefined" || !("setAppBadge" in navigator)) return;
+    const n = data.settings.appBadge === false ? 0 : openTodayCount(withoutArchived(data));
+    try { Promise.resolve(n ? navigator.setAppBadge(n) : navigator.clearAppBadge?.()).catch(() => {}); } catch { /* ohne Berechtigung egal */ }
+  }, [ready, data]);
+
+  /* Am Handy seitlich wischen wechselt den Bereich (nicht auf Zeilen mit eigener Wischgeste, Feldern oder seitlich scrollenden Leisten) */
+  const mainRef = useRef(null);
+  const tabRef = useRef(tab); tabRef.current = tab;
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el || !window.matchMedia?.("(pointer: coarse)").matches) return undefined;
+    let st = null;
+    const scrollsX = (n) => { for (; n && n !== el; n = n.parentElement) { if (n.scrollWidth > n.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(n).overflowX)) return true; } return false; };
+    const start = (e) => {
+      const t = e.touches[0];
+      st = e.touches.length === 1 && !e.target.closest(".swipe, .todo-item, input, textarea, select, [role=slider], .occ-stage, .no-tabswipe") && !scrollsX(e.target) ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+    };
+    const end = (e) => {
+      if (!st) return;
+      const t = e.changedTouches[0], dx = t.clientX - st.x, dy = t.clientY - st.y, quick = Date.now() - st.at < 700;
+      st = null;
+      if (!quick || Math.abs(dx) < 70 || Math.abs(dx) < 2.2 * Math.abs(dy) || document.querySelector('[role="dialog"]')) return;
+      const order = nav.map((x) => x[0]), i = order.indexOf(tabRef.current), j = i + (dx < 0 ? 1 : -1);
+      if (i >= 0 && j >= 0 && j < order.length) goTab(order[j]);
+    };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchend", end, { passive: true });
+    return () => { el.removeEventListener("touchstart", start); el.removeEventListener("touchend", end); };
+  }, [ready]);
+
   const db = {
     data, getData: () => dataRef.current, mod: (id) => modMap[id], openForm, patch, change, toast, env: ENV, saveState, updateReady,
     toggleSession: (id, key) => (key === "attended" ? change((d) => toggleAttended(d, id))
@@ -339,6 +439,16 @@ export default function App() {
       const next = name ? { ...res.data, settings: { ...res.data.settings, name } } : res.data;
       withUndo(`Eingerichtet: ${res.added} ${res.added === 1 ? "Modul" : "Module"} angelegt.`, () => next);
     },
+    /* Neues Semester: altes archivieren, nächstes aus dem Studienplan als „belegt“ übernehmen */
+    switchSemester: (sw) => {
+      const plan = curriculumOf(dataRef.current);
+      if (!plan) return;
+      withUndo(`Semester ${sw.from} archiviert, Semester ${sw.to} übernommen.`, (d) => {
+        const archived = { ...d, modules: d.modules.map((m) => ((Number(m.semester) || 0) === sw.from ? { ...m, archived: true } : m)) };
+        const res = applySemester(archived, plan, sw.to, "belegt").data;
+        return { ...res, settings: { ...res.settings, semesterAsked: sw.key } };
+      });
+    },
     archiveSemester: (sem, on) => withUndo(on ? `Semester ${sem} archiviert.` : `Semester ${sem} zurückgeholt.`, (d) => ({ ...d, modules: d.modules.map((m) => ((m.semester || 0) === sem ? { ...m, archived: on } : m)) })),
     mergeModules: (targetId, sourceIds) => {
       const name = modMap[targetId]?.name || "Modul";
@@ -362,17 +472,56 @@ export default function App() {
     focus: (opts) => { timerApi.focus(opts); setLearnTab("timer"); setTab("lernen"); },
     goLearn: (sub, mid) => { setLearnTab(sub); if (mid !== undefined) setCardFilter(mid); setTab("lernen"); },
     goMore: (sub) => { setMoreTab(sub); setTab("mehr"); },
+    goTab, openQuick: () => setQuickOpen(true), openWhatNow: () => { setTab("heute"); setWhatNowOpen(true); }, openHelp: () => setHelpOpen(true),
+    remove: removeEntity,
+    /* Schnellmenü (lange drücken) und Verschieben (nach links wischen) */
+    menu: (kind, item) => setMenu({ mode: "menu", kind, item }),
+    postpone: (kind, item) => setMenu({ mode: "postpone", kind, item }),
+    moveTo: (kind, item, date) => {
+      if (kind === "homework") {
+        const prev = { due: item.due, missed: !!item.missed, ...(item.feedKey && { locked: item.locked || [] }) };
+        patch("homework", item.id, postponeHomework(item, date));
+        toast(`„${item.title}“ auf ${fmtShort(date)} verschoben.`, { label: "Rückgängig", run: () => patch("homework", item.id, prev) });
+      } else {
+        patch("blocks", item.id, { date });
+        toast(`„${item.title}“ auf ${fmtShort(date)} verschoben.`, { label: "Rückgängig", run: () => patch("blocks", item.id, { date: item.date }) });
+      }
+    },
+    hwDone: (h, on) => {
+      const prev = h.status;
+      db.setHwStatus(h.id, on ? "abgegeben" : "in Arbeit");
+      toast(on ? `„${h.title}“ abgegeben.` : `„${h.title}“ wieder offen.`, { label: "Rückgängig", run: () => db.setHwStatus(h.id, prev) });
+    },
+    hwMissed: (h) => {
+      patch("homework", h.id, { missed: true });
+      toast(`„${h.title}“ als nicht abgegeben markiert.`, { label: "Rückgängig", run: () => patch("homework", h.id, { missed: false }) });
+    },
+    /* ▶ an einem Eintrag: Timer mit Modul und Art; die Zeit landet als Lerneinheit mit dem Titel als Notiz */
+    focusOn: (kind, item) => {
+      if (kind === "homework") db.focus({ moduleId: item.moduleId || "", kind: "Übung/Hausaufgabe", note: item.title });
+      else if (kind === "session") db.focus({ moduleId: item.moduleId || "", kind: "Nacharbeiten", note: `${item.type} vom ${fmtShort(item.date)}` });
+    },
   };
 
+  const runCommand = (a) => {
+    if (a.type === "form") openForm(a.kind, a.kind === "log" ? { date: iso() } : null, true);
+    else if (a.type === "quick") setQuickOpen(true);
+    else if (a.type === "timer") { if (a.moduleId) db.focus({ moduleId: a.moduleId }); else db.goLearn("timer"); }
+    else if (a.type === "whatNow") db.openWhatNow();
+    else if (a.type === "learn") db.goLearn(a.sub, a.sub === "karten" ? "" : undefined);
+    else if (a.type === "tab") goTab(a.tab);
+    else if (a.type === "more") db.goMore(a.sub);
+    else if (a.type === "help") setHelpOpen(true);
+  };
   const openResult = (r) => {
     setSearchOpen(false);
+    if (r.kind === "command") { runCommand(r.act); return; }
     if (r.kind === "module") db.goModule(r.item.id);
     else if (r.kind === "note") setNoteView(r.item.id);
     else if (r.kind === "exam") db.goLearn("pruefungen");
     else openForm(r.kind, r.item);
   };
 
-  const nav = [["heute", "Heute", "today"], ["module", "Module", "modules"], ["woche", "Woche", "week"], ["lernen", "Lernen", "learn"], ["mehr", "Mehr", "more"]];
   const backupAge = data.meta?.lastBackup ? diffDays(data.meta.lastBackup.slice(0, 10), iso()) : null;
   const hasData = data.modules.length + data.logs.length + data.notes.length > 0;
   const noteObj = noteView ? data.notes.find((n) => n.id === noteView) : null;
@@ -432,7 +581,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className={`pb-nav mx-auto px-4 pt-3 ${split && tab === "heute" ? "main-wide" : "max-w-3xl"}`}>
+      <main ref={mainRef} className={`pb-nav mx-auto px-4 pt-3 ${split && tab === "heute" ? "main-wide" : "max-w-3xl"}`}>
         {loadError && (
           <div role="alert" className="notice notice-danger mb-4">
             Die gespeicherten Daten konnten nicht geladen werden ({loadError}). Automatisches Speichern ist pausiert, damit nichts überschrieben wird. Lade die App neu oder stelle eine Sicherung unter Mehr → Daten wieder her.
@@ -485,6 +634,8 @@ export default function App() {
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       {shareIn && <ShareImport db={db} token={shareIn.token} keyStr={shareIn.key} onClose={() => { setShareIn(null); setLearnTab("karten"); setTab("lernen"); }} />}
       </Suspense>
+      {menu?.mode === "menu" && <ItemMenu db={db} kind={menu.kind} item={menu.item} onClose={() => setMenu(null)} />}
+      {menu?.mode === "postpone" && <PostponeSheet db={db} kind={menu.kind} item={menu.item} onClose={() => setMenu(null)} />}
       {quickOpen && <QuickAdd db={db} onClose={() => setQuickOpen(false)} />}
       <TimerTitle timer={timer} />
       <Toasts items={toasts} onClose={closeToast} />

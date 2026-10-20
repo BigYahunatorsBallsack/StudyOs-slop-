@@ -28,6 +28,17 @@ const RULES = {
   /* Stundenplan geändert: sofort, höchstens 2 Stunden verspätet */
   change: [[0, (x) => x.time, "Stundenplan geändert", (x) => `${x.title}: ${x.body || "geändert"}`, 2 * 3600000]],
   block: [[0, (x) => minus(x.time, 10), "Gleich: Lernblock", (x) => `${x.time} ${x.title}${x.module ? ` (${x.module})` : ""}`, 20 * 60000]],
+  /* Tagesüberblick zur gewählten Uhrzeit, höchstens 2 Stunden verspätet */
+  morning: [[0, (x) => x.time || "07:00", "Dein Tag", (x) => x.body || x.title, 2 * 3600000]],
+};
+
+/* Knöpfe in der Benachrichtigung: öffnen die App mit der Aktion (?aktion=push&tun=…) */
+const act = (action, title, q) => ({ action, title, url: `./?aktion=push&${q}` });
+const ACTIONS = {
+  homework: (x) => [act("done", "Abgegeben", `tun=abgegeben&id=${encodeURIComponent(x.id)}`), act("later", "Verschieben", `tun=verschieben&id=${encodeURIComponent(x.id)}`)],
+  review: (x) => [act("reviewed", "Alles nachbereitet", `tun=nachbereitet&tag=${x.date}`)],
+  block: (x) => [act("timer", "Timer starten", `tun=timer&id=${encodeURIComponent(x.id)}`)],
+  register: (x) => [act("registered", "Angemeldet", `tun=angemeldet&id=${encodeURIComponent(x.id)}`)],
 };
 const minus = (hm, n) => { const [h, m] = String(hm || "00:00").split(":").map(Number); const t = Math.max(0, h * 60 + m - n); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
 export const MAX_LATE_MS = 12 * 3600 * 1000; /* verpasste Erinnerungen höchstens 12 h später nachholen */
@@ -37,7 +48,7 @@ export const MAX_LATE_MS = 12 * 3600 * 1000; /* verpasste Erinnerungen höchsten
  * @param {Record<string, string>} [sent] bereits verschickt: Schlüssel → ISO-Zeit
  * @param {Date} [now]
  * @param {string} [tz]
- * @returns {Array<{ key: string, title: string, body: string, tag: string, url: string }>}
+ * @returns {Array<{ key: string, title: string, body: string, tag: string, url: string, actions?: Array<{ action: string, title: string, url: string }> }>}
  */
 export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europe/Berlin") {
   const out = [];
@@ -49,7 +60,8 @@ export function dueReminders(deadlines, sent = {}, now = new Date(), tz = "Europ
       const at = zonedInstant(addDays(x.date, -before), time, tz);
       const key = `${x.kind}:${x.id}:${x.date}:${x.kind === "block" ? x.time + ":" : ""}${i}`;
       if (sent[key] || at > now || now.getTime() - at.getTime() > maxLate) return;
-      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: x.kind === "homework" || x.kind === "review" || x.kind === "weekly" || x.kind === "block" || x.kind === "change" ? "./?aktion=heute" : "./?aktion=pruefungen" });
+      out.push({ key, title, body: body(x), tag: `${x.kind}-${x.id}`, url: ["homework", "review", "weekly", "block", "change", "morning"].includes(x.kind) ? "./?aktion=heute" : "./?aktion=pruefungen",
+        ...(ACTIONS[x.kind] && { actions: ACTIONS[x.kind](x) }) });
     });
   }
   return out;

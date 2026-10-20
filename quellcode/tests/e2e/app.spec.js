@@ -1264,3 +1264,68 @@ test('Notizen verlinken: [[Titel]] öffnet die andere Notiz, dort steht „Verli
   await other.getByRole('button', { name: 'Rekursion' }).click();
   await expect(page.getByRole('dialog', { name: 'Rekursion' })).toBeVisible();
 });
+
+test('Heute: Abgegeben? bei überfälliger Abgabe, Verschieben, Schnellmenü, Timer am Eintrag', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ homework: [
+    { id: 'late', moduleId: 'ds', title: 'Blatt 2', issued: day(-9), due: day(-2), status: 'ausgegeben' },
+    { id: 'soon', moduleId: 'ds', title: 'Blatt 3', issued: day(-2), due: day(2), status: 'ausgegeben' },
+  ] }));
+  await page.reload();
+  const late = page.locator('.todo-item', { hasText: 'Blatt 2' });
+  await expect(late.getByRole('group', { name: 'Abgegeben: Blatt 2?' })).toBeVisible();
+  await late.getByRole('button', { name: 'Nein' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Blatt 2 verschieben' });
+  await sheet.getByRole('button', { name: 'Nicht abgegeben, aus der Liste nehmen' }).click();
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 2' })).toHaveCount(0);
+  await expect.poll(async () => (await stored(page)).homework.find((h) => h.id === 'late').missed).toBe(true);
+
+  /* Rechtsklick öffnet das Schnellmenü, Verschieben auf morgen */
+  await page.locator('.todo-item', { hasText: 'Blatt 3' }).locator('.todo-row').click({ button: 'right' });
+  await page.getByRole('dialog', { name: 'Blatt 3' }).getByRole('button', { name: 'Verschieben …' }).click();
+  await page.getByRole('dialog', { name: 'Blatt 3 verschieben' }).getByRole('button', { name: /Morgen/ }).click();
+  await expect(page.getByText(/„Blatt 3“ auf .* verschoben\./)).toBeVisible();
+  const tomorrow = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('sv-SE'); });
+  await expect.poll(async () => (await stored(page)).homework.find((h) => h.id === 'soon').due).toBe(tomorrow);
+
+  /* ▶ startet den Timer für die Abgabe */
+  await page.getByRole('button', { name: 'Timer starten: Blatt 3' }).click();
+  await expect(page.getByRole('tab', { name: 'Timer' })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('Suche als Befehlszeile und Karteikarten direkt beim Speichern der Notiz', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, () => ({}));
+  await page.reload();
+  await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  await page.getByLabel('Suchbegriff').fill('neue notiz');
+  await page.keyboard.press('Enter');
+  const form = page.getByRole('dialog', { name: /Notiz/ });
+  await choose(form.getByLabel('Modul'), 'ds');
+  await form.getByLabel('Titel').fill('Bäume');
+  await form.getByLabel('Inhalt').fill('Was ist ein Blatt? :: Knoten mit Grad 1');
+  await form.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Karteikarten aus „Bäume“: 1 neu.')).toBeVisible();
+  await expect.poll(async () => (await stored(page)).cards.map((c) => c.front)).toEqual(['Was ist ein Blatt?']);
+});
+
+test('Wischen am Handy: seitlich wechselt den Bereich, nach links auf einer Abgabe verschiebt', async ({ page }) => {
+  await page.goto('./');
+  await seed(page, (day) => ({ homework: [{ id: 'h', moduleId: 'ds', title: 'Blatt 1', due: day(0), status: 'ausgegeben' }] }));
+  await page.reload();
+  const cdp = await page.context().newCDPSession(page);
+  const swipe = async (x1, y, x2) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x1, y }] });
+    for (let i = 1; i <= 5; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x1 + (x2 - x1) * i / 5, y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  await expect(page.locator('.todo-item', { hasText: 'Blatt 1' })).toBeVisible();
+  await swipe(300, 150, 100);
+  await expect(nav(page, 'Module')).toHaveAttribute('aria-current', 'page');
+  await swipe(100, 150, 300);
+  await expect(nav(page, 'Heute')).toHaveAttribute('aria-current', 'page');
+  const b = await page.locator('.todo-item', { hasText: 'Blatt 1' }).locator('.todo-row').boundingBox();
+  await swipe(b.x + b.width - 20, b.y + b.height / 2, b.x + 20);
+  await expect(page.getByRole('dialog', { name: 'Blatt 1 verschieben' })).toBeVisible();
+  await expect(nav(page, 'Heute')).toHaveAttribute('aria-current', 'page');
+});
