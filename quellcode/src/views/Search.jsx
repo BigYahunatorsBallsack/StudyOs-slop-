@@ -10,6 +10,7 @@ import { cardsFromNote } from "../lib/cards.js";
 import { matchCommands } from "../lib/commands.js";
 import { readRecent, recentResults, rememberOpened } from "../lib/recent.js";
 import { toggleTask } from "../lib/notes.js";
+import { NoteToc } from "../ui/toc.jsx";
 
 export function SearchModal({ data, db, onPick, onClose }) {
   const [q, setQ] = useState("");
@@ -62,9 +63,10 @@ export function NoteViewer({ note, db, onClose, onEdit }) {
   return (
     <Modal title={note.title || "Notiz"} onClose={onClose}>
       <p className="mb-3 text-xs text-slate-500">{note.pinned && <span className="pin-mark mr-1"><Icon name="pin" className="mark-icon" />Angeheftet ·</span>}{m?.name || "Allgemein"}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""} · zuletzt bearbeitet {fmt(note.updated)}</p>
+      <NoteToc text={note.text} idPrefix={`nv-${note.id}`} />
       <div ref={body}>
         <WikiCtx.Provider value={wiki}>
-          {note.text ? <Markdown text={note.text} onToggleTask={toggle} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
+          {note.text ? <Markdown text={note.text} onToggleTask={toggle} idPrefix={`nv-${note.id}`} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
         </WikiCtx.Provider>
       </div>
       {db.cardFromText && <SelectionCardButton within={body} onMake={(t) => db.cardFromText(t, note.moduleId)} />}

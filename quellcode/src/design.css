@@ -113,6 +113,31 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .subtasks-list label { display: flex; align-items: center; gap: .55rem; min-height: 2rem; width: 100%; font-size: .875rem; cursor: pointer; color: var(--text-2); }
 .subtasks-list label.is-done span { text-decoration: line-through; color: var(--muted); }
 .subtask-editor { display: grid; gap: .5rem; }
+.subtask-by { margin-left: auto; flex-shrink: 0; font-style: normal; font-size: .75rem; color: var(--muted); }
+.subtask-who { width: 6.5rem; flex-shrink: 0; }
+
+/* ---- Gruppenabgabe ---- */
+.partner-input { display: grid; gap: .45rem; }
+.partner-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+.partner-chip { color: var(--text); padding-right: .35rem; }
+.partner-remove { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 999px; font-size: .65rem; color: var(--muted); }
+@media (hover: hover) { .partner-remove:hover { color: var(--text); background: var(--surface); } }
+.partner-suggest { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+/* ---- Links pro Modul ---- */
+.link-editor { display: grid; gap: .5rem; }
+.link-editor-list { display: grid; gap: .35rem; }
+.link-editor-list li { display: flex; align-items: center; gap: .4rem; }
+.link-editor-name { width: 7.5rem; flex-shrink: 0; }
+
+/* ---- Inhaltsverzeichnis einer Notiz ---- */
+.note-toc { margin-bottom: .75rem; border-radius: 10px; background: var(--surface-2); padding: .15rem .6rem; }
+.note-toc-toggle { display: flex; align-items: center; gap: .5rem; width: 100%; min-height: 2rem; text-align: left; font-size: .8rem; font-weight: 600; color: var(--text-2); }
+.note-toc-toggle .subtasks-caret { margin-left: auto; }
+.note-toc-list { display: grid; gap: .1rem; padding-bottom: .4rem; }
+.note-toc-link { display: block; width: 100%; min-height: 1.9rem; text-align: left; font-size: .85rem; color: var(--accent-text, var(--accent)); border-radius: 6px; }
+@media (hover: hover) { .note-toc-link:hover { text-decoration: underline; text-underline-offset: 2px; } }
+.md [id][tabindex="-1"]:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
 
 /* ---- Kennzahlen ---- */

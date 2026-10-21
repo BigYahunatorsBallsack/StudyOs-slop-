@@ -1,6 +1,9 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Links pro Modul:** Im Modul-Formular beliebig viele Links eintragen (Moodle-Kurs, Artemis, Zulip, Skript …). Sie stehen als Knopfzeile oben auf der Modulseite und öffnen in einem neuen Tab. Bekannte Seiten bekommen ihren Namen von selbst, „https://“ darf fehlen. Aufzeichnungs-Link und der Artemis-Kurs aus dem Artemis-Abo erscheinen dort ebenfalls, ohne dass du sie noch einmal einträgst.
+- **Gruppenabgaben:** An einer Abgabe lassen sich Partner eintragen; die Zeile zeigt dann dezent „mit Max“. Bei Teilaufgaben wählst du, wer sie macht (ich oder ein Partner), aufgeklappt steht die Person daneben. Das Team merkt sich jedes Modul: Beim nächsten Blatt ist es schon eingetragen, frühere Partner stehen zum Antippen bereit.
+- **Inhaltsverzeichnis für lange Notizen:** Ab drei Überschriften zeigt die Notiz oben ein einklappbares Verzeichnis. Antippen springt zur Überschrift, bei „Bewegung aus“ ohne Scrollen.
 - **Schnelleingabe vervollständigt Module:** Beim Tippen schlägt die Schnelleingabe passende Module vor; antippen oder Tab übernimmt den vollen Namen. Die Vorschau zeigt weiter Art, Modul, Datum, Uhrzeit und Teilaufgaben, bei Lernzeit auch die Art der Lerneinheit.
 - **Letzte Eingaben als Vorlage:** Unter dem leeren Feld stehen deine letzten 5 Schnelleingaben (auf diesem Gerät). Antippen füllt das Feld und markiert das Datum, sodass du nur das neue tippst.
 - **Lernzeit nachtragen per Schnelleingabe:** „1h DS gestern“, „45 min Karten Analysis“ oder „90min Lernen LinAlg Mo“ legt eine Lerneinheit beim Modul an. Ein Wochentag meint dabei den letzten, „Karten“ wird zur Art „Karteikarten“, und Abkürzungen wie „LinAlg“ werden erkannt.

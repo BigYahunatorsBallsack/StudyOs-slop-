@@ -68,6 +68,7 @@ import { addTrash, purgeTrash, restoreTrash, trashEntry } from "./lib/trash.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
 import { LiveLeft } from "./ui/dayview.jsx";
+import { lastPartners } from "./lib/partners.js";
 
 /* Trifft eine Media-Query zu? Folgt Änderungen (Fenster breiter oder schmaler ziehen). */
 function useMedia(q) {
@@ -266,6 +267,8 @@ export default function App() {
       if (kind === "log" && !item.at && item.date === iso()) item.at = new Date(Date.now() - (Number(item.minutes) || 0) * 60000).toTimeString().slice(0, 5);
       if (kind === "topic" && (item.order === null || item.order === undefined)) item.order = d.topics.filter((x) => x.moduleId === item.moduleId).length + 1;
     }
+    /* Blatt ohne Formular (Schnelleingabe, PDF): das Team vom letzten Blatt des Moduls übernehmen */
+    if (kind === "homework" && isNew && !Array.isArray(item.partners)) { const p = lastPartners(d, item.moduleId); if (p.length) item.partners = p; }
     if (kind === "homework") item.doneAt = DONE_HW.has(item.status) ? item.doneAt || iso() : null;
     if (kind === "homework" && Array.isArray(item.subtasks)) {
       const subs = item.subtasks.map((x) => ({ ...x, title: String(x.title || "").trim() })).filter((x) => x.title);

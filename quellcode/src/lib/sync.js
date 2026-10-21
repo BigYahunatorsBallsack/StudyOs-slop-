@@ -46,10 +46,10 @@ function groupOf(c) {
 }
 const groupFields = (c) => (g) => GROUPS[c]?.[g] || [g];
 
-/* Listen, deren Elemente eine eigene id tragen (Teilaufgaben einer Abgabe), werden pro Element zusammengeführt:
+/* Listen, deren Elemente eine eigene id tragen (Teilaufgaben einer Abgabe, Links eines Moduls), werden pro Element zusammengeführt:
    Für Stempel und Zusammenführen gilt jedes Element als eigenes Feld "liste:id", die Reihenfolge als "liste#".
    Die ganze Liste bleibt zusätzlich als Feld erhalten, damit ältere App-Versionen sie wie bisher als ein Feld behandeln. */
-const LISTS = { homework: ["subtasks"] };
+const LISTS = { homework: ["subtasks"], modules: ["links"] };
 function flatten(c) {
   const lists = LISTS[c];
   if (!lists) return (x) => x;

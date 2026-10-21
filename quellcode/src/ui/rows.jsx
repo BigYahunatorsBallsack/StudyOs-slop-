@@ -14,6 +14,7 @@ import { WatchProgress } from "./links.jsx";
 import { SubtaskChecklist } from "./subtasks.jsx";
 import { Select } from "./select.jsx";
 import { SelectRow, SelectToggle } from "./selection.jsx";
+import { withText } from "../lib/partners.js";
 
 /* ---------------- Zeilen ---------------- */
 export function SessionRow({ s, db, showDate }) {
@@ -95,7 +96,7 @@ export function HomeworkRow({ h, db }) {
       <div className="flex items-start gap-3">
         <button onClick={() => db.openForm("homework", h)} className="row-main min-w-0 flex-1">
           <p className={`row-title truncate ${done ? "line-through" : ""}`}>{h.title}</p>
-          <p className="row-meta truncate">{m?.name}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}{typical ? <span title={`Median deiner Timer-Zeit für ${typical.count} erledigte Blätter`}> · {fmtTypical(typical.minutes)}</span> : null}</p>
+          <p className="row-meta truncate">{m?.name}{h.partners?.length ? ` · ${withText(h.partners)}` : ""}{h.files?.length ? ` · ${h.files.length} ${h.files.length === 1 ? "Anhang" : "Anhänge"}` : ""}{typical ? <span title={`Median deiner Timer-Zeit für ${typical.count} erledigte Blätter`}> · {fmtTypical(typical.minutes)}</span> : null}</p>
           <p className={`text-xs font-semibold ${dl.cls}`}>{h.missed && !done ? "nicht abgegeben, " : ""}{dl.text}{h.status === "bewertet" && h.maxPoints ? `, ${h.points ?? 0} von ${h.maxPoints} Punkten` : ""}</p>
         </button>
         {!done && <button className="btn btn-ghost btn-icon shrink-0" onClick={() => db.focusOn("homework", h)} aria-label={`Timer starten: ${h.title}`} title="Timer starten"><Icon name="play" className="h-4 w-4" /></button>}
