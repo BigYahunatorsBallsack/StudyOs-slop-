@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { addReviewMinutes, allTags, cardsToCsv, hasCloze, parseCardsCsv, parseTags, renderCloze, reviewGap, schedule, splitReviewTime } from "../lib/cards.js";
+import { addReviewMinutes, allTags, cardsToCsv, deviceTag, hasCloze, parseCardsCsv, parseTags, renderCloze, reviewGap, schedule, splitReviewTime } from "../lib/cards.js";
 import { WD_LONG } from "../lib/constants.js";
 import { moduleStats } from "../lib/data.js";
 import { modOpts } from "../lib/forms.js";
@@ -206,7 +206,7 @@ function useReviewTime(db, timer) {
     if (!mods.length) return;
     const date = iso(), now = Date.now();
     const at = (m) => new Date(now - add[m] * 60000).toTimeString().slice(0, 5);
-    dbRef.current.change((d) => ({ ...d, logs: mods.reduce((logs, m) => addReviewMinutes(logs, m, add[m], { date, at: at(m), newId: uid }), d.logs) }));
+    dbRef.current.change((d) => ({ ...d, logs: mods.reduce((logs, m) => addReviewMinutes(logs, m, add[m], { date, at: at(m), newId: uid, dev: deviceTag() }), d.logs) }));
     s.total += mods.reduce((n, m) => n + add[m], 0);
     setLogged(s.total);
   };
@@ -276,7 +276,8 @@ export function CardsView({ db, timer, filter, setFilter }) {
     if (res !== "aborted") setCsvMsg(`${textCards.length} Karten exportiert.`);
   };
   const due = pool.filter((c) => c.due <= t);
-  const q = queue ? queue.filter((id) => data.cards.some((c) => c.id === id)) : null;
+  /* Karten, die es noch gibt (einmal als Set statt je Karte die ganze Liste durchsuchen) */
+  const q = queue ? (() => { const ids = new Set(data.cards.map((c) => c.id)); return queue.filter((id) => ids.has(id)); })() : null;
   const current = q && q.length ? data.cards.find((c) => c.id === q[0]) : null;
 
   const weak = weakCards(pool);

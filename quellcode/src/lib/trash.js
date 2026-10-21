@@ -12,6 +12,7 @@ export const TRASH_DAYS = 30;
 const MAX_ENTRIES = 200;
 
 const titleOf = (x) => String(x.title || x.name || x.front || x.type || "Eintrag").slice(0, 80);
+const plain = (v) => v === null || typeof v !== "object";
 
 /** Was zwischen `before` und `after` gelöscht wurde, als Papierkorb-Eintrag (null, wenn nichts fehlt) */
 export function trashEntry(before, after, { label = "", at = new Date().toISOString() } = {}) {
@@ -27,7 +28,8 @@ export function trashEntry(before, after, { label = "", at = new Date().toISOStr
       const y = next.get(x.id);
       if (!y || y === x) continue;
       const fields = {};
-      for (const k of Object.keys(x)) if (k !== "updated" && k !== "fu" && x[k] !== y[k] && typeof x[k] !== "object") fields[k] = [x[k], y[k]];
+      /* auch Felder, die erst beim Löschen dazukamen (z. B. ein übernommenes Häkchen beim Aufräumen) */
+      for (const k of new Set([...Object.keys(x), ...Object.keys(y)])) if (k !== "updated" && k !== "fu" && x[k] !== y[k] && plain(k in x ? x[k] : y[k])) fields[k] = [x[k], y[k]];
       if (Object.keys(fields).length) diffs.push({ id: x.id, fields });
     }
     if (diffs.length) changed[c] = diffs;

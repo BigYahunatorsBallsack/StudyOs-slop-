@@ -40,7 +40,16 @@ export const fmtMin = (m) => { m = Math.round(m || 0); if (m < 60) return `${m} 
 /** Stunden kurz: unter 10 h mit einer Nachkommastelle („2,5 h“), sonst gerundet („14 h“). */
 export const fmtH = (h) => (h < 10 ? h.toFixed(1).replace(".", ",") : Math.round(h)) + " h";
 
-export const isoWeek = (s) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
+/** ISO-Kalenderwoche mit ISO-Jahr eines Datums „JJJJ-MM-TT“ (Woche ab Montag, Woche 1 enthält den 4. Januar); in UTC gerechnet */
+export function isoYearWeek(s) {
+  const d = new Date(s + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7)); /* Donnerstag derselben Woche */
+  const year = d.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  return { year, week: 1 + Math.round(((d.getTime() - jan4.getTime()) / 86400000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7) };
+}
+
+export const isoWeek = (s) => isoYearWeek(s).week;
 
 export const parseDec = (v) => { if (v === null || v === undefined) return null; const s = String(v).trim().replace(",", "."); if (s === "") return null; const n = Number(s); return Number.isFinite(n) ? n : NaN; };
 

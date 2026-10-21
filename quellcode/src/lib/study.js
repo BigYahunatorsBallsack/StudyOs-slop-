@@ -1,6 +1,7 @@
 /* Studienalltag: Übungsblatt-Serien, Notenbonus-Prognose, Workload nach ECTS, Archiv */
 import { DONE_HW } from "./constants.js";
-import { addDays, diffDays, fmtShort, isHeld, iso, uid } from "./util.js";
+import { isOpenHw } from "./data.js";
+import { addDays, diffDays, fmtMin, fmtShort, isHeld, iso, nowHM, uid } from "./util.js";
 import { fmtWatch, parseWatch, watchProgress } from "./tum.js";
 import { breaksOf, inBreak } from "./holidays.js";
 
@@ -151,7 +152,6 @@ export function workloadOverview(data, today = iso()) {
 
 /* ---------------- Besuch und Aufzeichnung als Lernzeit ---------------- */
 
-const nowHM = () => new Date().toTimeString().slice(0, 5);
 const sum0 = (list) => list.reduce((n, l) => n + (Number(l.minutes) || 0), 0);
 /** Länge eines Termins in Minuten (ohne Beginn/Ende 90) – mehr zählt ein Termin nie. */
 export const sessionLength = (s) => minutesOf(s) || 90;
@@ -223,11 +223,25 @@ export function markAttended(data, ids, today = iso()) {
  * Gibt dasselbe Objekt zurück, wenn nichts zu tun ist.
  */
 export function reconcileAllSessionLogs(data) {
-  const linked = new Set(data.logs.filter((l) => l.sessionId && (l.kind === "Aufzeichnung" || l.kind === "Besucht")).map((l) => l.sessionId));
+  /* Läuft nach jeder Änderung: die verknüpften Einheiten einmal je Termin gruppieren, statt für jeden Termin alle Einheiten zu durchsuchen */
+  const linked = new Map();
+  for (const l of data.logs) {
+    if (!l.sessionId || (l.kind !== "Aufzeichnung" && l.kind !== "Besucht")) continue;
+    if (!linked.has(l.sessionId)) linked.set(l.sessionId, []);
+    linked.get(l.sessionId).push(l);
+  }
   if (!linked.size) return data;
-  let logs = data.logs;
-  data.sessions.forEach((s) => { if (linked.has(s.id)) logs = reconcileSessionLogs(logs, s, iso(), { add: false }).logs; });
-  return logs.length === data.logs.length && logs.every((l, i) => l === data.logs[i]) ? data : { ...data, logs };
+  const today = iso(), repl = new Map(); /* Einheit → gekürzte Fassung oder null (fällt weg) */
+  for (const s of data.sessions) {
+    const own = linked.get(s.id);
+    if (!own) continue;
+    const next = reconcileSessionLogs(own, s, today, { add: false }).logs;
+    if (next.length === own.length && next.every((l, i) => l === own[i])) continue;
+    const byId = new Map(next.map((l) => [l.id, l]));
+    for (const l of own) repl.set(l, byId.get(l.id) || null);
+  }
+  if (!repl.size) return data;
+  return { ...data, logs: data.logs.flatMap((l) => (!repl.has(l) ? [l] : repl.get(l) ? [repl.get(l)] : [])) };
 }
 
 /** Wie weit ein Termin wahrgenommen ist: besucht = 100 %, sonst der Anteil der angeschauten Aufzeichnung; null ohne beides. */
@@ -288,7 +302,7 @@ export function typicalSheetTime(data, moduleId) {
 }
 
 /** Kurz für die Zeile einer Abgabe: „meist ~4 h“, „meist ~1 h 30 min“ */
-export const fmtTypical = (m) => { const h = Math.floor(m / 60), r = m % 60; return `meist ~${h ? `${h} h` : ""}${h && r ? " " : ""}${r ? `${r} min` : ""}`; };
+export const fmtTypical = (m) => `meist ~${fmtMin(m)}`;
 
 /* ---------------- Mehrere Abgaben am selben Tag ---------------- */
 
@@ -298,7 +312,7 @@ export const fmtTypical = (m) => { const h = Math.floor(m / 60), r = m % 60; ret
  */
 export function crowdedDueDays(homework, today = iso(), { days = 7, min = 3 } = {}) {
   const end = addDays(today, days - 1), by = new Map();
-  homework.filter((h) => h.due && h.due >= today && h.due <= end && !DONE_HW.has(h.status) && !h.deleted).forEach((h) => { if (!by.has(h.due)) by.set(h.due, []); by.get(h.due).push(h); });
+  homework.filter((h) => h.due && h.due >= today && h.due <= end && isOpenHw(h) && !h.deleted).forEach((h) => { if (!by.has(h.due)) by.set(h.due, []); by.get(h.due).push(h); });
   return [...by].filter(([, l]) => l.length >= min).sort((a, b) => a[0].localeCompare(b[0])).map(([date, items]) => ({ date, items }));
 }
 

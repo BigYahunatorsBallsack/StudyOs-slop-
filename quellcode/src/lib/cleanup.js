@@ -74,23 +74,42 @@ export function findCleanup(data) {
   };
 }
 
-/** Entfernt doppelte Termine; Notizen und Lerneinheiten der entfernten zeigen danach auf den behaltenen Termin. */
+/* Häkchen der entfernten Doppel gehen auf den behaltenen Eintrag über (samt Zeitpunkt), damit nichts verloren geht */
+function carryFlags(keep, removed, flags) {
+  const p = {};
+  for (const [flag, at] of flags) {
+    if (keep[flag]) continue;
+    const src = removed.find((x) => x[flag]);
+    if (src) { p[flag] = src[flag]; if (at && src[at]) p[at] = src[at]; }
+  }
+  return Object.keys(p).length ? { ...keep, ...p } : keep;
+}
+const SESSION_FLAGS = [["attended", "attendedAt"], ["reviewed", "reviewedAt"], ["prepared", ""], ["watchedTo", ""]];
+
+/** Entfernt doppelte Termine; Notizen und Lerneinheiten der entfernten zeigen danach auf den behaltenen Termin,
+    der auch ihre Häkchen (besucht, nachbereitet, vorbereitet) übernimmt. */
 export function removeDuplicateSessions(data, groups = duplicateSessions(data)) {
-  const to = new Map();
-  for (const g of groups) for (const x of g.remove) to.set(x.id, g.keep.id);
+  const to = new Map(), kept = new Map();
+  for (const g of groups) {
+    for (const x of g.remove) to.set(x.id, g.keep.id);
+    const k = carryFlags(g.keep, g.remove, SESSION_FLAGS);
+    if (k !== g.keep) kept.set(k.id, k);
+  }
   if (!to.size) return data;
   const re = (list) => list.map((x) => (to.has(x.sessionId) ? { ...x, sessionId: to.get(x.sessionId) } : x));
   const usedNotes = (data.notes || []).some((n) => to.has(n.sessionId)), usedLogs = (data.logs || []).some((l) => to.has(l.sessionId));
   return {
-    ...data, sessions: data.sessions.filter((s) => !to.has(s.id)),
+    ...data, sessions: data.sessions.filter((s) => !to.has(s.id)).map((s) => kept.get(s.id) || s),
     ...(usedNotes && { notes: re(data.notes) }), ...(usedLogs && { logs: re(data.logs) }),
   };
 }
 
-/** Entfernt doppelte Karteikarten (die meistgelernte bleibt) */
+/** Entfernt doppelte Karteikarten (die meistgelernte bleibt und übernimmt die Markierung „schwer“) */
 export function removeDuplicateCards(data, groups = duplicateCards(data)) {
   const gone = new Set(groups.flatMap((g) => g.remove.map((x) => x.id)));
-  return gone.size ? { ...data, cards: data.cards.filter((c) => !gone.has(c.id)) } : data;
+  if (!gone.size) return data;
+  const kept = new Map(groups.map((g) => carryFlags(g.keep, g.remove, [["hard", ""]])).map((c) => [c.id, c]));
+  return { ...data, cards: data.cards.filter((c) => !gone.has(c.id)).map((c) => kept.get(c.id) || c) };
 }
 
 /** Entfernt leere Notizen */

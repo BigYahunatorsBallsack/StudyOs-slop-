@@ -12,6 +12,18 @@ export const TUM_LECTURES = [
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const weeksBetween = (a, b) => Math.round((new Date(b + "T12:00:00").getTime() - new Date(a + "T12:00:00").getTime()) / (7 * 86400000));
+/* Nur so lange Ferien trennen zwei Semester; kürzere (Weihnachten, Pfingsten) liegen in der Vorlesungszeit und zählen dort als freie Wochen */
+const SEMESTER_BREAK_WEEKS = 4;
+
+/* Semesterferien nach Beginn sortiert; überlappende oder aneinanderstoßende Zeiträume zusammengefasst */
+function semesterBreaks(settings) {
+  const out = [];
+  for (const b of breaksOf(settings).slice().sort((x, y) => (x.from < y.from ? -1 : 1))) {
+    const last = out[out.length - 1];
+    if (last && b.from <= addDays(last.to, 1)) { if (b.to > last.to) last.to = b.to; } else out.push({ from: b.from, to: b.to });
+  }
+  return out.filter((b) => weeksBetween(b.from, addDays(b.to, 1)) >= SEMESTER_BREAK_WEEKS);
+}
 
 /**
  * Bekannte Vorlesungszeiten. `to` ist null, wenn nur der Beginn bekannt ist.
@@ -22,7 +34,7 @@ export function lecturePeriods(data = {}) {
   const settings = data.settings || {};
   /** @type {Array<{ from: string, to: string | null }>} */
   const out = isTum(settings) && settings.tumBreaks !== false ? [...TUM_LECTURES] : [];
-  const brk = breaksOf(settings).slice().sort((a, b) => (a.from < b.from ? -1 : 1));
+  const brk = semesterBreaks(settings);
   const inside = (d) => out.some((p) => p.from <= d && (!p.to || d <= p.to));
   /* Lücke zwischen zwei Ferien, die nach einem Semester aussieht (6 bis 22 Wochen) */
   for (let i = 1; i < brk.length; i++) {

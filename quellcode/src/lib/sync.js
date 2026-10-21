@@ -41,6 +41,12 @@ const GROUPS = {
   blocks: { done: ["done", "doneAt"] },
 };
 const META = new Set(["id", "updated", "fu"]);
+
+/* Einstellungen, die nur wachsen (gelöschte Abo-Prüfungen, schon gestellte Serien-Fragen, abgelehnte Zusammenlegungen):
+   Beim Zusammenführen zählen die Einträge beider Geräte, sonst käme etwas wieder, das auf einem Gerät weggeklickt wurde.
+   Höchstlänge wie beim Anhängen in App.jsx (abgelehnte Zusammenlegungen ohne Grenze). */
+const APPEND_ONLY = [["examsDismissed", 200], ["seriesAsked", 100], ["mergeDismissed", Infinity]];
+
 function groupOf(c) {
   const byField = new Map();
   for (const [g, fields] of Object.entries(GROUPS[c] || {})) for (const f of fields) byField.set(f, g);
@@ -230,6 +236,15 @@ export function mergeData(local, remote, now = nowIso()) {
   const lm = local.meta || {}, rm = remote.meta || {};
   const s = mergeFields(local.settings || {}, lm.settingsUpdated || EPOCH, lm.settingsFu, remote.settings || {}, rm.settingsUpdated || EPOCH, rm.settingsFu, (k) => k, (g) => [g]);
   out.settings = s.values;
+  for (const [k, max] of APPEND_ONLY) {
+    const a = local.settings?.[k], b = remote.settings?.[k];
+    if (!Array.isArray(a) && !Array.isArray(b)) continue;
+    /* erst die Liste, die gewonnen hat, dann was nur das andere Gerät kennt: auf beiden Geräten dasselbe Ergebnis */
+    const win = Array.isArray(out.settings[k]) ? out.settings[k] : [];
+    const lose = (canonical(win) === canonical(a) ? b : a) || [];
+    const extra = lose.filter((x) => !win.some((y) => same(x, y)));
+    if (extra.length) out.settings = { ...out.settings, [k]: [...win, ...extra].slice(-max) };
+  }
   out.meta = { ...local.meta, settingsUpdated: s.updated };
   if (Object.keys(s.fu).length > 1 || lm.settingsFu || rm.settingsFu) out.meta.settingsFu = s.fu;
   else delete out.meta.settingsFu;

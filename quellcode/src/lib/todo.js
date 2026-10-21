@@ -1,7 +1,7 @@
 /* „Zu erledigen“ auf Heute: Abgaben, Nachbereitungen, Anmeldefristen und fällige Karten in einer Liste,
    sortiert nach Dringlichkeit (Tage bis zur Frist; Nachbereitung sollte innerhalb von 2 Tagen passieren). */
 import { DONE_HW } from "./constants.js";
-import { isActive } from "./data.js";
+import { isActive, isOpenHw } from "./data.js";
 import { addDays, dayOf, diffDays, isHeld, iso, sum } from "./util.js";
 
 export const REVIEW_WITHIN_DAYS = 2;
@@ -9,7 +9,7 @@ export const REVIEW_WITHIN_DAYS = 2;
 export function todoItems(data, today = iso()) {
   const out = [];
   data.homework.forEach((h) => {
-    if (DONE_HW.has(h.status) || h.missed || !h.due || h.due > addDays(today, 7)) return;
+    if (!isOpenHw(h) || !h.due || h.due > addDays(today, 7)) return;
     out.push({ kind: "homework", id: h.id, item: h, moduleId: h.moduleId, due: h.due, score: diffDays(today, h.due) });
   });
   data.sessions.forEach((s) => {

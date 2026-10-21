@@ -1,7 +1,7 @@
 /* Motivation: Erfolge (Abzeichen), Wochenkarte am Sonntag, Lernziele pro Modul, Schwachstellen bei Karteikarten,
    Sonne und Mond über der Skyline. Alles wird aus den Daten berechnet, nichts davon wird gespeichert. */
 import { DONE_HW } from "./constants.js";
-import { addDays, iso, sum, weekStart } from "./util.js";
+import { addDays, iso, sum, wdIdx, weekStart } from "./util.js";
 
 /** Längste Serie aufeinanderfolgender Lerntage (nicht nur die aktuelle). */
 export function bestStreak(logs) {
@@ -68,7 +68,7 @@ export function periodStats(data, from, to) {
  * Mit Vergleich zur Woche davor; null, wenn in der Woche nichts passiert ist.
  */
 export function weekCard(data, today = iso()) {
-  const wd = (new Date(today + "T00:00:00").getDay() + 6) % 7;
+  const wd = wdIdx(today);
   if (wd !== 6 && wd !== 0) return null;
   const from = wd === 6 ? weekStart(today) : addDays(weekStart(today), -7);
   const to = addDays(from, 6);
