@@ -6,7 +6,7 @@ import { breakOf, breaksOf, isTum } from "./holidays.js";
 
 /* Vorlesungszeit an der TUM laut tum.de („Termine und Fristen“), passend zu TUM_BREAKS */
 export const TUM_LECTURES = [
-  { from: "2026-10-19", to: "2027-02-05" },
+  { from: "2026-10-12", to: "2027-02-05" },
   { from: "2027-04-12", to: "2027-07-16" },
 ];
 

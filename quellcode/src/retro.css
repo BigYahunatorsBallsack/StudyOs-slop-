@@ -338,6 +338,11 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .ev.ev-block { background: var(--bg); filter: none; }
 :root[data-theme="retro"] .allday .ad-hw { background: var(--surface-3); box-shadow: inset 2px 0 0 0 var(--mod); }
 :root[data-theme="retro"] .allday .ad-exam { background: var(--danger); color: var(--on-module); }
+:root[data-theme="retro"] .allday .ad-uni { background: var(--surface-3); box-shadow: inset 2px 0 0 0 var(--mod); }
+:root[data-theme="retro"] .sembar-week { border-radius: 0; }
+:root[data-theme="retro"] .sembar-vl { font-family: var(--font-num); font-size: 1.15rem; font-weight: 400; line-height: .9; }
+:root[data-theme="retro"] .sembar-week.current { background: var(--surface-2); box-shadow: 0 -2px 0 0 var(--accent), 0 2px 0 0 var(--accent), -2px 0 0 0 var(--accent), 2px 0 0 0 var(--accent); }
+:root[data-theme="retro"] .sembar-week.current.has-exam { box-shadow: 0 -2px 0 0 var(--accent), 0 2px 0 0 var(--accent), -2px 0 0 0 var(--accent), 2px 0 0 0 var(--accent), inset 0 0 0 2px var(--danger); }
 
 /* ---- Fortschritt, Code ---- */
 :root[data-theme="retro"] .bar { background: var(--surface-3); height: .6rem; }

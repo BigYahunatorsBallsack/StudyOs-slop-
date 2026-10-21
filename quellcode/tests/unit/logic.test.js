@@ -114,7 +114,7 @@ describe("ICS", () => {
   });
   it("exportiert gültige Termine mit Escaping", () => {
     const d = { ...emptyData(), modules: [{ id: "m", name: "Lineare Algebra, Teil 1" }], homework: [{ id: "h", moduleId: "m", title: "Blatt; 3", due: "2026-11-02", status: "ausgegeben" }] };
-    const out = buildICS(d);
+    const out = buildICS(d, { uni: false }); /* ohne die TUM-Semestertermine */
     expect(out).toContain("SUMMARY:Abgabe: Blatt\\; 3 (Lineare Algebra\\, Teil 1)");
     expect(out.split("\r\n").filter((l) => l === "BEGIN:VEVENT")).toHaveLength(1);
     expect(out.endsWith("END:VCALENDAR\r\n")).toBe(true);
