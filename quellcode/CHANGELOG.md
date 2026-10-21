@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **StudyOS startet schneller:** Mit einem vollen Semester (knapp 400 Termine, 200 Notizen, 640 Karteikarten) steht „Heute“ auf einem typischen Handy jetzt etwa ein Fünftel früher da: nach rund 1,0 statt 1,2 Sekunden, beim allerersten Öffnen über mobiles Netz nach rund 1,7 statt 2,1 Sekunden. Deine Daten werden schon gelesen, während die App lädt, und erscheinen ohne leeren Zwischenschritt; die Pixel-Schriften und Programmteile kommen gleich mit der Seite, Abzeichen und Cloud-Anmeldung werden erst nach dem ersten Bild geprüft.
 - **Einstellungen übersichtlich gegliedert:** Mehr → Daten & Einstellungen zeigt jetzt Gruppen: Darstellung & Klang, Benachrichtigungen, Studium, Kalender & Abos, Weg zur Uni, Cloud & Sync, Sicherung & Daten, Papierkorb und Zurücksetzen. Am Handy klappt eine Gruppe beim Antippen auf, am PC steht die Liste links und die offene Gruppe rechts. Alle Push-Arten stehen gesammelt unter Benachrichtigungen; die zuletzt geöffnete Gruppe merkt sich das Gerät.
 - **Einstellungen durchsuchen:** Das Suchfeld oben auf der Seite findet Einstellungen nach Namen und Stichwörtern („Push“, „Mensa“, „Export“), öffnet die passende Gruppe und markiert die Stelle. Auch Strg + K findet Einstellungen und springt direkt hin.
 - **Was ist neu:** Nach einem Update zeigt StudyOS einmal eine kleine Karte mit den neuen Punkten, wegklickbar mit ✕; beim allerersten Start nicht. Unter Mehr → „Was ist neu“ steht die Liste jederzeit.

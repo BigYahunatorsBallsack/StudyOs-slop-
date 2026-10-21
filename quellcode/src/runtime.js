@@ -71,6 +71,16 @@ function localRead() {
     return parsed ? { id: 'current', updated: '1970-01-01T00:00:00.000Z', payload: parsed } : null;
   } catch { return null; }
 }
+/* Nur der Zeitstempel des Spiegels, ohne die ganzen Daten zu parsen (localWrite schreibt id, updated, payload in dieser
+   Reihenfolge). null: kein Spiegel; '': unbekannt, dann wird er vollständig gelesen. */
+function localStamp() {
+  try {
+    const raw = localStorage.getItem(RECOVERY_KEY);
+    if (!raw) return null;
+    const m = /^\{"id":"current","updated":"([^"\\]+)"/.exec(raw.slice(0, 100));
+    return m ? m[1] : '';
+  } catch { return ''; }
+}
 let mirrorOk = true; /* false, wenn der localStorage-Spiegel (ca. 5 MB) voll ist */
 function localWrite(row) {
   try { localStorage.setItem(RECOVERY_KEY, JSON.stringify(row)); mirrorOk = true; return true; }
@@ -114,10 +124,15 @@ async function snapshot(label, payload, fixedId) {
 }
 
 async function load() {
-  const mirror = localRead();
+  const stamp = localStamp();
+  let mirror;
+  const readMirror = () => (mirror === undefined ? (mirror = stamp === null ? null : localRead()) : mirror);
   try {
     const db = await openDb();
     const row = await txRequest(db, 'app', 'readonly', (s) => s.get('current'));
+    /* Spiegel und Datenbank haben denselben Stand: nicht noch einmal parsen und neu schreiben (spart beim Start Zeit) */
+    if (row && row.payload && stamp && stamp === String(row.updated || '')) { storageMode = 'idb'; return row.payload; }
+    readMirror();
     if (mirror && (!row || String(mirror.updated) > String(row.updated || ''))) {
       storageMode = 'local';
       try { await txRequest(db, 'app', 'readwrite', (s) => s.put({ id: 'current', updated: mirror.updated, payload: mirror.payload })); storageMode = 'idb'; }
@@ -138,7 +153,7 @@ async function load() {
     storageMode = 'idb';
     return null;
   } catch (err) {
-    if (mirror) { storageMode = 'local'; return mirror.payload; }
+    if (readMirror()) { storageMode = 'local'; return mirror.payload; }
     storageMode = 'local';
     throw err;
   }
@@ -268,13 +283,27 @@ async function requestPersistentStorage() {
   if (!isInstalled() || !navigator.storage || !navigator.storage.persist) return;
   try { await navigator.storage.persist(); } catch { /* browser may decline persistent storage */ }
 }
+/* Offline-Dienst und dauerhafter Speicher haben Zeit: erst, wenn der Browser nach dem ersten Bild Luft hat */
 export function startRuntime() {
-  registerSW();
-  requestPersistentStorage();
+  const later = () => { registerSW(); requestPersistentStorage(); };
+  if (window.requestIdleCallback) window.requestIdleCallback(later, { timeout: 3000 }); else setTimeout(later, 1500);
+}
+
+/* Gespeicherten Stand gleich beim Laden des Skripts anfordern: Die Datenbank liest, während React startet.
+   entry.jsx zeigt die App erst, wenn er da ist, und usePersistence übernimmt ihn ohne Zwischenbild. */
+let initial = null;
+function initialLoad() {
+  if (!initial) {
+    const box = { done: false, value: null, error: null };
+    box.promise = load().then((value) => { box.value = value; }, (error) => { box.error = error; }).then(() => { box.done = true; });
+    initial = box;
+  }
+  return initial;
 }
 
 const runtimeApi = {
   load,
+  initialLoad,
   save,
   saveSync,
   snapshot,
@@ -284,4 +313,4 @@ const runtimeApi = {
   storageInfo,
   pwa: { isInstalled, isInstallable: () => !!installPrompt, onInstallable, install, onUpdate, applyUpdate },
 };
-if (typeof window !== 'undefined') window.STUDYOS_ENV = runtimeApi;
+if (typeof window !== 'undefined') { window.STUDYOS_ENV = runtimeApi; initialLoad(); }

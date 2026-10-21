@@ -3,10 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { emptyData, migrate } from "../lib/data.js";
 import { ENV } from "../lib/env.js";
 
+const errText = (e) => String((e && e.message) || e);
+
 export function usePersistence() {
-  const [data, setData] = useState(emptyData);
-  const [ready, setReady] = useState(!ENV);
-  const [loadError, setLoadError] = useState("");
+  /* Hat runtime.js den Stand schon gelesen (entry.jsx wartet darauf), gilt er gleich im ersten Bild */
+  const [boot] = useState(() => { const b = ENV && ENV.initialLoad(); return b && b.done ? b : null; });
+  const [data, setData] = useState(() => (boot && boot.value ? migrate(boot.value) : emptyData()));
+  const [ready, setReady] = useState(!ENV || !!boot);
+  const [loadError, setLoadError] = useState(() => (boot && boot.error ? errText(boot.error) : ""));
   const [saveState, setSaveState] = useState(ENV ? "saved" : "memory");
   const [updateReady, setUpdateReady] = useState(false);
   const [installReady, setInstallReady] = useState(!!(ENV && ENV.pwa && ENV.pwa.isInstallable && ENV.pwa.isInstallable()));
@@ -19,25 +23,33 @@ export function usePersistence() {
   useEffect(() => {
     if (!ENV) return;
     let alive = true;
-    ENV.load()
-      .then((stored) => {
-        if (!alive) return;
-        if (stored) {
-          const d = migrate(stored);
-          const sessionKeys = (items) => JSON.stringify((items || []).map((s) => [s.id, s.date, s.seriesId]));
-          loadedRef.current = d; setData(d);
-          if (sessionKeys(d.sessions) !== sessionKeys(stored.sessions)) {
-            setSaveState("saving");
-            ENV.save(d).then(() => { if (alive) { loadedRef.current = d; setSaveState("saved"); } }).catch(() => { if (alive) setSaveState("error"); });
-          }
-        } else {
-          /* Noch nichts gespeichert: der leere Anfangsstand gilt als gespeichert, damit beim Schließen
-             nichts Leeres über Daten geschrieben wird, die inzwischen anderswo angelegt wurden */
-          loadedRef.current = dataRef.current;
+    /* d: der übernommene, migrierte Stand */
+    const take = (stored, d) => {
+      if (stored) {
+        const sessionKeys = (items) => JSON.stringify((items || []).map((s) => [s.id, s.date, s.seriesId]));
+        loadedRef.current = d;
+        if (sessionKeys(d.sessions) !== sessionKeys(stored.sessions)) {
+          setSaveState("saving");
+          ENV.save(d).then(() => { if (alive) { loadedRef.current = d; setSaveState("saved"); } }).catch(() => { if (alive) setSaveState("error"); });
         }
+      } else {
+        /* Noch nichts gespeichert: der leere Anfangsstand gilt als gespeichert, damit beim Schließen
+           nichts Leeres über Daten geschrieben wird, die inzwischen anderswo angelegt wurden */
+        loadedRef.current = dataRef.current;
+      }
+    };
+    if (boot) { if (!boot.error) take(boot.value, dataRef.current); }
+    else {
+      const b = ENV.initialLoad();
+      b.promise.then(() => {
+        if (!alive) return;
+        if (b.error) { setLoadError(errText(b.error)); setReady(true); return; }
+        const d = b.value ? migrate(b.value) : null;
+        if (d) setData(d);
+        take(b.value, d);
         setReady(true);
-      })
-      .catch((e) => { if (alive) { setLoadError(String((e && e.message) || e)); setReady(true); } });
+      });
+    }
     const offExt = ENV.onExternalChange ? ENV.onExternalChange((stored) => { const d = migrate(stored); loadedRef.current = d; setData(d); }) : null;
     const offUpd = ENV.pwa && ENV.pwa.onUpdate ? ENV.pwa.onUpdate(() => setUpdateReady(true)) : null;
     const offInstall = ENV.pwa && ENV.pwa.onInstallable ? ENV.pwa.onInstallable((v) => setInstallReady(v)) : null;
