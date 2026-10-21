@@ -743,7 +743,7 @@ test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({
   await page.reload();
   await nav(page, 'Woche').click();
   await page.getByRole('tab', { name: 'Raster' }).click();
-  await expect(page.locator('.grid-day')).toHaveText(['Mo19', 'Di20', 'Mi21', 'Do22', 'Fr23', 'Sa24']);
+  await expect(page.locator('.grid-day')).toHaveText(['Mo19', 'Di20', 'Mi212h2 h Termine', 'Do22', 'Fr23', 'Sa24']);
   await expect(page.getByRole('button', { name: /Abgabe Blatt 3/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

@@ -420,6 +420,66 @@ test('Heimweg nach Zorneding nach dem letzten Termin: Bus 230 nach Haar, S6 nach
   await A.context.close();
 });
 
+test('Abfahrt in der Kopfzeile: aus dem Zwischenspeicher, antippen öffnet „Weg zur Uni“, abschaltbar', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const NOW = new Date('2026-10-20T06:30:00+02:00'); /* Dienstag früh, Vorlesung um 9:15 */
+  const t = (hm, delay = 0) => { const d = new Date(NOW); d.setHours(Number(hm.slice(0, 2)), Number(hm.slice(3)), 0, 0); return d.getTime() + delay * 60000; };
+  const dep = (line, destination, hm, delay = 0) => ({ line, destination, type: line === 'S6' ? 'SBAHN' : 'REGIONAL_BUS', planned: t(hm), time: t(hm, delay), delay, realtime: true, cancelled: false, platform: '' });
+  const asked = [];
+  backend.mvg = (body) => {
+    if (body.kind === 'messages') return [];
+    asked.push(body);
+    if (body.station === 'de:09175:4020') return [dep('S6', 'Leuchtenbergring', '07:32'), dep('S6', 'Leuchtenbergring', '07:52', 3), dep('S6', 'Grafing-Bahnhof', '07:53')];
+    return [dep('230', 'Garching, Forschungszentrum (U)', '07:53'), dep('230', 'Garching, Forschungszentrum (U)', '08:13', 2), dep('230', 'Garching, Forschungszentrum (U)', '08:33')];
+  };
+  const A = await newDevice(browser, backend, { time: NOW });
+  await A.page.evaluate(async () => {
+    const today = new Date().toLocaleDateString('sv-SE');
+    await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '' }, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
+      sessions: [{ id: 'o', moduleId: 'ds', type: 'Tutorium', date: today, start: '08:00', end: '08:45', room: 'Zoom' }, { id: 's', moduleId: 'ds', type: 'Vorlesung', date: today, start: '09:15', end: '10:45', room: 'MI HS 1' }], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await A.page.reload();
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+
+  // Die Kopfzeile nimmt den ersten Termin vor Ort (das Online-Tutorium um 8 zählt nicht)
+  expect(await A.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); /* Kopfzeile läuft nicht über */
+  await nav(A.page, 'Heute').click();
+  const card = A.page.getByRole('region', { name: 'Weg zur Uni' });
+  await expect(card).toBeVisible();
+  const chip = A.page.locator('header .dep-chip');
+  await expect(chip).toHaveText('S6 07:55 (+3)');
+  await expect(chip).toHaveAccessibleName('Weg zur Uni: um 07:50 losgehen, S6 um 07:55 ab Zorneding (3 Min. später), für 09:15 Uhr');
+
+  // Ohne die Karte: solange der Stand frisch ist, keine weitere Abfrage; danach holt die Kopfzeile selbst
+  await A.page.getByRole('button', { name: 'Weg zur Uni', exact: true }).click(); /* Gruppe zuklappen */
+  await nav(A.page, 'Module').click();
+  const n = asked.length;
+  await A.page.clock.fastForward('02:00');
+  await A.page.waitForTimeout(300);
+  expect(asked.length).toBe(n);
+  await expect(chip).toHaveText('S6 07:55 (+3)');
+  await A.page.clock.fastForward('05:00');
+  await expect.poll(() => asked.length).toBeGreaterThan(n);
+
+  // Antippen: „Heute“ mit aufgeklappter Karte
+  await chip.click();
+  await expect(A.page.getByRole('heading', { name: 'Dienstag' })).toBeVisible();
+  await expect(A.page.getByRole('button', { name: 'Weg zur Uni', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(card).toBeVisible();
+
+  // Abschaltbar unter Weg zur Uni
+  await openData(A.page, 'Weg zur Uni');
+  await A.page.getByLabel(/Abfahrt oben in der Kopfzeile/).uncheck();
+  await expect(chip).toHaveCount(0);
+  expect(A.errors).toEqual([]);
+  await A.context.close();
+});
+
 test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in der Cloud', async ({ browser }) => {
   test.setTimeout(60000);
   const backend = createBackend();
