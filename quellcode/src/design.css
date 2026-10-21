@@ -472,6 +472,11 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .daystrip-scale { display: flex; justify-content: space-between; margin-top: .2rem; font-size: .6875rem; color: var(--faint); font-variant-numeric: tabular-nums; }
 .daystrip-gap { margin-top: .1rem; font-size: .8125rem; color: var(--muted); }
 .live-left { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11px; color: var(--muted); white-space: nowrap; }
+/* Abfahrt in der Kopfzeile (Weg zur Uni): klein, kurz, antippbar */
+.dep-chip { flex-shrink: 1; min-width: 3.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 700; color: var(--accent-text); padding: .15rem .45rem; border-radius: 6px; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+/* Am Handy hat die Abfahrt Vorrang vor „Gespeichert“/„Synchronisiert“, damit die Kopfzeile nicht überläuft */
+@media (max-width: 639px) { .appbar:has(.dep-chip) .appbar-saved { display: none; } }
+@media (hover: hover) { .dep-chip:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); } }
 
 /* ---- Prüfungs-Countdown ---- */
 .exam-chips { display: flex; gap: .5rem; overflow-x: auto; scrollbar-width: none; margin-left: -1rem; margin-right: -1rem; padding: 0 1rem; }
@@ -700,3 +705,31 @@ html { overscroll-behavior-x: none; }
 /* Was ist neu: Karte nach einem Update und Liste unter Mehr */
 .whatsnew-list { margin-top: .4rem; padding-left: 1.1rem; list-style: disc; display: flex; flex-direction: column; gap: .2rem; }
 .whatsnew-version { font-size: .75rem; font-weight: 600; color: var(--faint); }
+
+/* ---- Wochensumme im Wochenkopf, Stunden je Tag ---- */
+.space-y-4 > :not([hidden]) ~ .week-sum { margin-top: .4rem; }
+.week-sum { display: flex; flex-wrap: wrap; column-gap: .45rem; row-gap: .1rem; font-size: .75rem; font-weight: 600; color: var(--text-2); }
+.week-sum > span { white-space: nowrap; }
+.week-sum > span + span::before { content: "·"; margin-right: .45rem; color: var(--faint); }
+.grid-sum { display: block; margin-top: .1rem; font-size: .625rem; line-height: 1; font-weight: 600; color: var(--faint); white-space: nowrap; }
+.grid-day.today .grid-sum { color: var(--on-ink); opacity: .75; }
+.day-sum { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+
+/* ---- Modulliste: was als Nächstes ansteht ---- */
+.tile-next { margin-top: .3rem; font-size: .75rem; font-weight: 650; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-next-urgent { color: var(--warn-text); }
+
+/* ---- Punkte pro Blatt: Balken mit Bonuslinie ---- */
+.sheetbars { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 96px; padding-top: 2px; border-bottom: 2px solid var(--line-strong); }
+.sheetbar { position: relative; flex: 1 1 0; min-width: 6px; max-width: 2.5rem; height: 100%; background: var(--surface-2); }
+.sheetbar-open { background: transparent; outline: 2px dashed var(--line-strong); outline-offset: -2px; }
+.sheetbar-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--mod, var(--accent)); }
+.sheetbar-low .sheetbar-fill { background: var(--warn); }
+.sheetbar-need { position: absolute; left: 2px; right: 2px; height: 0; border-top: 2px solid var(--warn); }
+.sheetbars-limit { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dashed var(--text); z-index: 1; pointer-events: none; }
+.sheetbars-limit > span { position: absolute; right: 0; bottom: 2px; font-size: .625rem; font-weight: 700; color: var(--text); background: var(--surface); padding: 0 .2rem; }
+.sheetbars-x { display: flex; gap: 4px; margin-top: .2rem; }
+.sheetbars-x > span { flex: 1 1 0; min-width: 6px; max-width: 2.5rem; text-align: center; font-size: .625rem; color: var(--faint); overflow: hidden; }
+.sheet-table th, .sheet-table td { padding: .2rem .4rem; text-align: left; border-bottom: 1px solid var(--line); }
+.sheet-table thead th { color: var(--muted); font-weight: 600; }
+.sheet-table th[scope=row] { font-weight: 500; }

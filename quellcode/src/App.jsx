@@ -69,7 +69,7 @@ import { cancelOffDays } from "./lib/holidays.js";
 import { addTrash, purgeTrash, restoreTrash, trashEntry } from "./lib/trash.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
-import { LiveLeft } from "./ui/dayview.jsx";
+import { HeaderNow } from "./ui/departure.jsx";
 import { WhatsNewCard } from "./ui/WhatsNew.jsx";
 import { requestSettings } from "./lib/settings.js";
 import { lastPartners } from "./lib/partners.js";
@@ -668,7 +668,7 @@ export default function App() {
           <h1 className="brand">StudyOS</h1>
           <span className="hidden text-xs text-slate-500 sm:inline">{[data.settings.program, data.settings.university].filter(Boolean).join(", ")}</span>
           <div className="ml-auto flex min-w-0 items-center gap-2">
-            <LiveLeft data={data} />
+            <HeaderNow db={db} />
             <TimerBadge timer={timer} onClick={() => db.goLearn("timer")} />
             <SyncDot cloud={cloud} onOpenSettings={() => db.goSettings("cloud")} />
             {saveState === "memory" && dirty && (
@@ -688,7 +688,7 @@ export default function App() {
               </button>
             )}
             {(saveState === "saved" || saveState === "saving") && (
-              <span className="text-[11px] text-slate-500" role="status">{saveState === "saving" ? "Speichert …" : cloud.phase === "ready" && cloud.status === "syncing" ? "Synchronisiert …" : cloud.phase === "ready" && cloud.status === "idle" && cloud.lastSync ? "Synchronisiert" : "Gespeichert"}</span>
+              <span className="appbar-saved text-[11px] text-slate-500" role="status">{saveState === "saving" ? "Speichert …" : cloud.phase === "ready" && cloud.status === "syncing" ? "Synchronisiert …" : cloud.phase === "ready" && cloud.status === "idle" && cloud.lastSync ? "Synchronisiert" : "Gespeichert"}</span>
             )}
             <button onClick={() => setQuickOpen(true)} className="btn btn-ghost btn-icon appbar-plus" aria-label="Schnelleingabe (E)" title="Schnelleingabe (E)">
               <Icon name="plus" />

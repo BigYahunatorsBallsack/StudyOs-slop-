@@ -10,7 +10,8 @@ import { btnGhost, btnPrimary, focusRing } from "../ui/styles.js";
 import { MergeModules } from "./MergeModules.jsx";
 import { CurriculumDialog } from "./Curriculum.jsx";
 import { mergeSuggestions } from "../lib/modules.js";
-import { bonusForecast, recordingBacklog, studyDiary, workload } from "../lib/study.js";
+import { bonusForecast, recordingBacklog, sheetBars, studyDiary, workload } from "../lib/study.js";
+import { MODULE_SORTS, nextUp, readModuleSort, saveModuleSort, sortModules } from "../lib/overview.js";
 import { rememberOpened } from "../lib/recent.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
@@ -25,7 +26,11 @@ export function ModuleList({ db }) {
   const [showArchive, setShowArchive] = useState(false);
   const [plan, setPlan] = useState(false);
   const archived = data.modules.filter((m) => m.archived);
-  const groups = MODULE_STATUS.map((st) => [st, data.modules.filter((m) => m.status === st && !m.archived).sort((a, b) => (a.semester || 0) - (b.semester || 0) || a.name.localeCompare(b.name))]).filter(([, l]) => l.length);
+  /* Sortierung pro Gerät: nach Semester oder nach dem, was als Nächstes fällig ist */
+  const [order, setOrderState] = useState(readModuleSort);
+  const setOrder = (v) => { setOrderState(v); saveModuleSort(v); };
+  const next = new Map(data.modules.filter((m) => !m.archived && m.status !== "bestanden").map((m) => [m.id, nextUp(data, m.id)]));
+  const groups = MODULE_STATUS.map((st) => [st, sortModules(data.modules.filter((m) => m.status === st && !m.archived), order, (m) => next.get(m.id))]).filter(([, l]) => l.length);
   return (
     <div>
       <div className="mb-4 flex items-end justify-between gap-2">
@@ -36,6 +41,7 @@ export function ModuleList({ db }) {
         <button className={btnPrimary} onClick={() => db.openForm("module", null, true)}>Modul anlegen</button>
       </div>
       {data.modules.length === 0 ? <Empty action={<div className="flex flex-wrap justify-center gap-2"><button className={btnPrimary} onClick={() => db.openForm("module", null, true)}>Modul anlegen</button><button className={btnGhost} onClick={() => setPlan(true)}>Aus Studienplan</button></div>}>Noch keine Module.</Empty> : <RingLegend />}
+      {data.modules.length > 1 && <div className="mt-3"><Tabs items={MODULE_SORTS} value={order} onChange={setOrder} label="Sortierung" /></div>}
       {data.modules.length > 0 && <button className="link-btn mt-3 mr-4" onClick={() => setPlan(true)}>Aus Studienplan übernehmen …</button>}
       {plan && <CurriculumDialog db={db} onClose={() => setPlan(false)} />}
       {suggestions.map((g) => (
@@ -74,7 +80,7 @@ export function ModuleList({ db }) {
         <section key={st}>
           <div className="group-head"><h3 className="section-title">{st[0].toUpperCase() + st.slice(1)}<span className="count">{sum(list, (m) => m.ects)} ECTS</span></h3></div>
           <ul className="tiles">
-            {list.map((m) => { const s = moduleStats(data, m.id); return (
+            {list.map((m) => { const s = moduleStats(data, m.id), up = next.get(m.id); return (
               <li key={m.id} className="contents">
                 <button onClick={() => db.goModule(m.id)} className="tile" style={{ "--mod": m.color }}>
                   <div className="flex items-start justify-between gap-2">
@@ -82,6 +88,7 @@ export function ModuleList({ db }) {
                     {m.status === "belegt" && <span aria-hidden="true"><TriRing s={s} size={40} /></span>}
                   </div>
                   <span className="tile-name">{m.name}</span>
+                  {up && <span className={`tile-next font-num ${up.urgent ? "tile-next-urgent" : ""}`} title={up.label}><span className="sr-only">{up.label}</span><span aria-hidden="true">{up.text}</span></span>}
                   <span className="tile-meta">
                     {m.grade ? `Note ${String(m.grade).replace(".", ",")}, ` : ""}{m.ects} ECTS{m.status === "belegt" ? `, ${s.openReviews ? `${s.openReviews} nachzubereiten` : "alles nachbereitet"}` : ""}
                   </span>
@@ -182,6 +189,7 @@ export function ModuleDetail({ db, id, onBack }) {
               <BonusForecast f={bonusForecast(data, id)} />
             </Card>
           )}
+          <SheetPoints s={sheetBars(data, id)} color={m.color} />
           <WorkloadCard w={workload(data, id)} m={m} db={db} />
           <DiaryPreview logs={logs.filter((l) => l.note)} onAll={() => setSub("lernzeit")} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -281,6 +289,49 @@ export function BonusForecast({ f }) {
     impossible: <>Mit den eingetragenen Blättern ist der Bonus nicht mehr erreichbar (nötig wären {Math.round(f.needPct * 100)} % der restlichen Punkte). Stimmen Anzahl und Maximalpunkte der Blätter?</>,
   }[f.state];
   return <p className={`notice mt-2 ${f.state === "reached" || f.state === "ok" ? "notice-ok" : f.state === "tight" ? "notice-warn" : "notice-danger"}`}>{text}</p>;
+}
+
+/* Punkte pro Blatt als Pixel-Balken: erreicht von maximal, Linie für die Bonusgrenze, auf offenen Blättern
+   der Anteil, der noch im Schnitt nötig ist. Für Screenreader eine Zusammenfassung, als Tabelle aufklappbar. */
+export function SheetPoints({ s, color }) {
+  if (!s) return null;
+  const num = (x) => fmtDec(Math.round(x * 10) / 10);
+  const p = (x) => `${Math.round(x * 100)} %`;
+  const ok = (b) => s.limit === null || b.points / b.max >= s.limit;
+  const summary = [
+    s.bars.map((b) => (b.graded ? `${b.title}: ${num(b.points)} von ${num(b.max)}` : `${b.title}: offen, ${num(b.max)} möglich`)).join("; "),
+    s.limit !== null ? `Bonusgrenze ${p(s.limit)}` : "",
+    s.need !== null ? `auf den offenen Blättern im Schnitt ${p(s.need)} nötig` : "",
+  ].filter(Boolean).join(". ");
+  return (
+    <Card title="Punkte pro Blatt">
+      <div className="sheetbars" role="img" aria-label={`Punkte pro Blatt. ${summary}`} style={{ "--mod": color }}>
+        {s.limit !== null && <span className="sheetbars-limit" style={{ bottom: `${s.limit * 100}%` }} aria-hidden="true"><span>{p(s.limit)}</span></span>}
+        {s.bars.map((b) => (
+          <span key={b.id} className={`sheetbar ${b.graded ? (ok(b) ? "sheetbar-ok" : "sheetbar-low") : "sheetbar-open"}`}
+            title={b.graded ? `${b.title}: ${num(b.points)} von ${num(b.max)} Punkten (${p(b.points / b.max)})` : `${b.title}: noch offen, ${num(b.max)} Punkte möglich`}>
+            {b.graded && <span className="sheetbar-fill" style={{ height: `${Math.min(100, (b.points / b.max) * 100)}%` }} />}
+            {!b.graded && s.need !== null && <span className="sheetbar-need" style={{ bottom: `${Math.min(100, s.need * 100)}%` }} />}
+          </span>
+        ))}
+      </div>
+      <div className="sheetbars-x font-num" aria-hidden="true">{s.bars.map((b) => <span key={b.id}>{b.short}</span>)}</div>
+      <p className="mt-2 text-[11px] text-slate-500">
+        Gefüllt: erreichte Punkte, leer: noch offen.{s.limit !== null ? ` Linie: Bonusgrenze ${p(s.limit)}.` : ""}{s.need !== null ? ` Strich auf offenen Blättern: im Schnitt nötig (${p(s.need)}).` : ""}
+      </p>
+      <details className="mt-1 text-xs">
+        <summary className="cursor-pointer text-slate-400">Als Tabelle</summary>
+        <table className="sheet-table mt-2 w-full">
+          <thead><tr><th scope="col">Blatt</th><th scope="col">Punkte</th><th scope="col">Anteil</th></tr></thead>
+          <tbody>
+            {s.bars.map((b) => (
+              <tr key={b.id}><th scope="row">{b.title}</th><td className="font-num">{b.graded ? `${num(b.points)} / ${num(b.max)}` : `– / ${num(b.max)}`}</td><td className="font-num">{b.graded ? p(b.points / b.max) : s.need !== null ? `nötig ${p(s.need)}` : "offen"}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+    </Card>
+  );
 }
 
 /* Arbeitsaufwand nach ECTS: Soll bis heute gegen Lernzeit und besuchte Termine */

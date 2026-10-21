@@ -104,6 +104,33 @@ export function bonusForecast(data, moduleId) {
   return { state, limit, pts, maxTotal, need, remaining: open.length, perSheet: open.length ? need / open.length : null, needPct, currentPct };
 }
 
+/**
+ * Punkte pro Blatt für die Balken auf der Modulseite: bewertete Blätter mit erreichten Punkten, offene mit ihren
+ * Maximalpunkten (fehlende wie in bonusForecast als Schnitt der bekannten). Dazu die Bonusgrenze und der nötige
+ * Anteil auf den offenen Blättern (beides als Anteil 0–1, sonst null).
+ * @returns {{ bars: Array<{ id: string, title: string, short: string, due: string, points: number | null, max: number, graded: boolean }>, limit: number | null, need: number | null } | null}
+ *          null, wenn es nichts zu zeigen gibt (kein Blatt mit Punkten und kein Bonus)
+ */
+export function sheetBars(data, moduleId) {
+  const mod = data.modules.find((m) => m.id === moduleId);
+  const limit = Number(mod?.bonusPct) || 0;
+  const hw = data.homework.filter((h) => h.moduleId === moduleId).sort((a, b) => (a.due || "9").localeCompare(b.due || "9") || String(a.title).localeCompare(String(b.title)));
+  const known = hw.filter((h) => Number(h.maxPoints) > 0);
+  const avgMax = known.length ? known.reduce((s, h) => s + Number(h.maxPoints), 0) / known.length : 0;
+  const graded = (h) => h.status === "bewertet";
+  const withPts = hw.filter((h) => Number(h.maxPoints) > 0 || (graded(h) && h.points !== undefined && h.points !== null && h.points !== ""));
+  if (!withPts.some(graded) && !(limit && known.length)) return null;
+  const bars = (limit ? hw : withPts).map((h, i) => {
+    const max = Number(h.maxPoints) > 0 ? Number(h.maxPoints) : avgMax;
+    const num = String(h.title || "").match(/\d+/);
+    return { id: h.id, title: h.title || `Blatt ${i + 1}`, short: num ? num[0] : String(i + 1), due: h.due || "", points: graded(h) ? Number(h.points) || 0 : null, max, graded: graded(h) };
+  }).filter((b) => b.max > 0);
+  if (!bars.length) return null;
+  const f = limit ? bonusForecast(data, moduleId) : null;
+  const need = f && (f.state === "ok" || f.state === "tight") && Number.isFinite(f.needPct) ? f.needPct : null;
+  return { bars, limit: limit ? limit / 100 : null, need };
+}
+
 /* ---------------- Workload nach ECTS ---------------- */
 
 export const HOURS_PER_ECTS = 30;
