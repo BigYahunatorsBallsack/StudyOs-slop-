@@ -6,7 +6,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   retries: process.env.CI ? 1 : 0,
   use: {
-    baseURL: 'http://localhost:4173/',
+    baseURL: `http://localhost:${process.env.PORT || 4173}/`,
     locale: 'de-DE',
     timezoneId: 'Europe/Berlin',
     acceptDownloads: true,
@@ -20,5 +20,5 @@ export default defineConfig({
     // Screenshot-Vergleich (npm run test:visual); Referenzbilder neu erzeugen mit: npm run test:visual -- --update-snapshots
     { name: 'bilder', testMatch: 'visual/**/*.spec.js', use: { ...devices['Pixel 7'], userAgent: 'Mozilla/5.0 (X11; Linux x86_64) StudyOS-Test' } },
   ],
-  webServer: { command: 'node tests/e2e/server.mjs', url: 'http://localhost:4173/', reuseExistingServer: true },
+  webServer: { command: 'node tests/e2e/server.mjs', url: `http://localhost:${process.env.PORT || 4173}/`, reuseExistingServer: true },
 });

@@ -359,6 +359,67 @@ test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser
   await A.context.close();
 });
 
+test('Heimweg nach Zorneding nach dem letzten Termin: Bus 230 nach Haar, S6 nach Hause; Auto vom Campus', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  /* Montag 15:10, der letzte Termin vor Ort ging bis 15:00 */
+  const NOW = new Date('2026-10-19T15:10:00+02:00');
+  const t = (hm) => { const d = new Date(NOW); d.setHours(Number(hm.slice(0, 2)), Number(hm.slice(3)), 0, 0); return d.getTime(); };
+  const dep = (line, destination, hm, extra = {}) => ({ line, destination, type: /^S/.test(line) ? 'SBAHN' : 'REGIONAL_BUS', planned: t(hm), time: t(hm), delay: 0, realtime: true, cancelled: false, platform: '', ...extra });
+  const asked = [];
+  backend.mvg = (body) => {
+    if (body.kind === 'messages') return [];
+    asked.push(body);
+    if (body.station === 'de:09184:460') return [dep('230', 'Haar (S)', '15:20', { time: t('15:22'), delay: 2 }), dep('230', 'Haar (S)', '15:40'), dep('230', 'Haar (S)', '16:00'), dep('690', 'Eching (S) Ost', '15:25')];
+    if (body.station === 'de:09184:2140') return [dep('S6', 'Tutzing', '16:14'), dep('S6', 'Ebersberg', '16:16', { platform: '2' }), dep('S4', 'Zorneding', '16:36'), dep('S6', 'Grafing-Bahnhof', '16:56')];
+    return [];
+  };
+  const A = await newDevice(browser, backend, { time: NOW });
+  await A.page.evaluate(async () => {
+    const today = new Date().toLocaleDateString('sv-SE');
+    await window.STUDYOS_ENV.save({ version: 3, settings: { university: 'TUM', mensa: '' }, meta: {}, modules: [{ id: 'ds', name: 'Diskrete Strukturen', ects: 8, semester: 1, status: 'belegt', color: '#34d399' }],
+      sessions: [{ id: 's', moduleId: 'ds', type: 'Übung', date: today, start: '13:30', end: '15:00', room: 'MI HS 1' }, { id: 'o', moduleId: 'ds', type: 'Vorlesung', date: today, start: '18:00', end: '19:00', room: 'Zoom' }], homework: [], topics: [], logs: [], notes: [], cards: [], exams: [] });
+  });
+  await A.page.reload();
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+
+  await nav(A.page, 'Heute').click();
+  const card = A.page.getByRole('region', { name: 'Weg zur Uni' });
+  await expect(card.getByText('Heimweg nach Zorneding')).toBeVisible();
+  await expect(card.getByText('Nächste Verbindung: um 16:24 in Zorneding')).toBeVisible();
+  await expect(card.getByRole('tab', { name: 'Heimweg' })).toHaveAttribute('aria-selected', 'true');
+  // Bus 15:22 (+2) → Haar 16:12, 4 Min. Umstieg: S6 16:16 Richtung Ebersberg → Zorneding 16:24
+  await expect(card.getByText('15:22 Abfahrt mit dem Bus 230 in Garching-Forschungszentrum (2 Min. später)')).toBeVisible();
+  await expect(card.getByText('16:12 Ankunft in Haar, dort umsteigen')).toBeVisible();
+  await expect(card.getByText('16:16 Abfahrt mit der S6 in Haar, Gleis 2')).toBeVisible();
+  await expect(card.getByText(/^16:24 voraussichtliche Ankunft in Zorneding/)).toBeVisible();
+  await expect(card.getByText('Tutzing')).toHaveCount(0);
+  await expect(card.getByText('Bus 230, S4 um 16:36')).toBeVisible(); /* danach: 15:40 → Haar 16:30, S4 16:36 */
+  await expect(card.getByLabel('Pünktlich sein für')).toHaveCount(0);
+  expect(asked.find((b) => b.station === 'de:09184:2140')).toMatchObject({ types: 'SBAHN', offset: 45 });
+
+  // Mit dem Auto vom Campus nach Zorneding
+  const drives = [];
+  backend.drive = (body) => { drives.push(body); return { minutes: 38, normal: 35, km: 36.2, provider: 'google' }; };
+  await card.getByRole('tab', { name: 'Auto' }).click();
+  await expect(card.getByText(/38 Min\. mit dem Auto \(36,2 km\)/)).toBeVisible();
+  await expect(card.getByText(/Jetzt losfahren am Campus Garching, 10 Min\. Fußweg zum Auto/)).toBeVisible();
+  expect(drives.at(-1)).toEqual({ from: 'Boltzmannstraße 15, 85748 Garching bei München', to: 'Zorneding' });
+  await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', /origin=Boltzmannstra.*&destination=Zorneding/);
+
+  // Von Hand zurück zum Hinweg
+  await card.getByRole('tab', { name: 'Hinweg' }).click();
+  await expect(card.getByText('Heimweg nach Zorneding')).toHaveCount(0);
+  await expect.poll(() => drives.at(-1)).toEqual({ from: 'Zorneding', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
+  await card.getByRole('tab', { name: 'Öffis' }).click();
+  expect(A.errors).toEqual([]);
+  await A.context.close();
+});
+
 test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in der Cloud', async ({ browser }) => {
   test.setTimeout(60000);
   const backend = createBackend();

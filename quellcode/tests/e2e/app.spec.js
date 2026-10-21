@@ -749,7 +749,7 @@ test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({
 });
 
 test('Woche: Vorlesungswoche, Überschneidungen, Abgabe-Marker, Tagesansicht mit Wischen, Pinch-Zoom', async ({ page }) => {
-  await page.clock.install({ time: new Date('2026-11-04T09:00:00') }); /* Mittwoch, 3. Vorlesungswoche */
+  await page.clock.install({ time: new Date('2026-11-04T09:00:00') }); /* Mittwoch, 4. Vorlesungswoche */
   await page.goto('./');
   await seed(page, () => ({ settings: { university: 'TUM' },
     sessions: [{ id: 'a', moduleId: 'ds', type: 'Vorlesung', date: '2026-11-04', start: '10:00', end: '12:00' },
@@ -760,7 +760,7 @@ test('Woche: Vorlesungswoche, Überschneidungen, Abgabe-Marker, Tagesansicht mit
   await page.reload();
   await nav(page, 'Woche').click();
   await page.getByRole('tab', { name: 'Raster' }).click();
-  await expect(page.getByRole('heading', { name: 'KW 45 · VL-Woche 3 von 15' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'KW 45 · VL-Woche 4 von 16' })).toBeVisible();
   // Vorlesung und Lernblock überschneiden sich, die ausgefallene Übung zählt nicht
   await expect(page.locator('.ev-clash')).toHaveCount(2);
   await expect(page.getByRole('button', { name: /Lernblock Lernen DS.*überschneidet sich mit DS Vorlesung$/ })).toBeVisible();
@@ -1327,6 +1327,38 @@ test('Monatsansicht: Punkte für Abgaben und Prüfungen, ein Tag öffnet seine W
   await grid.getByRole('gridcell', { name: new RegExp(`^${Number(t.slice(8))}\\. ${month}`) }).click();
   await expect(page.getByRole('tab', { name: 'Raster' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.grid-day.today')).toBeVisible();
+});
+
+test('TUM-Semestertermine als Uni-Fristen und Semesterleiste über dem Monat', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-12-01T09:00:00') }); /* Dienstag, Prüfungsanmeldung läuft */
+  await page.goto('./');
+  await seed(page, () => ({ settings: { university: 'TUM' },
+    exams: [{ id: 'e', moduleId: 'ds', date: '2027-02-10', time: '09:00' }],
+    homework: ['2026-12-07', '2026-12-08', '2026-12-10'].map((due, i) => ({ id: 'h' + i, moduleId: 'ds', title: 'Blatt ' + i, due, status: 'ausgegeben' })) }));
+  await page.reload();
+  const fristen = page.locator('.group-fristen');
+  await expect(fristen.getByText('Prüfungsanmeldung WiSe 2026/27 läuft')).toBeVisible();
+  await expect(fristen.getByText(/bis Fr, 15\.01\., in 45 Tagen/)).toBeVisible();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Monat' }).click();
+  const bar = page.getByRole('region', { name: 'Semesterleiste WiSe 2026/27' });
+  await expect(bar.getByText('VL-Woche 8')).toBeVisible();
+  await expect(bar.getByRole('button')).toHaveCount(27);
+  await expect(bar.getByRole('button', { name: /^KW 49, VL-Woche 8, diese Woche$/ })).toHaveClass(/current/);
+  await expect(bar.getByRole('button', { name: /^KW 50, VL-Woche 9, 3 Abgaben$/ })).toHaveClass(/busy/);
+  await expect(bar.getByRole('button', { name: /^KW 53, Weihnachtspause/ })).toHaveClass(/off/);
+  await expect(bar.getByRole('button', { name: /^KW 6, .*1 Prüfung/ })).toHaveClass(/has-exam/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await bar.getByRole('button', { name: /^KW 2, / }).click();
+  await expect(page.getByRole('tab', { name: 'Raster' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: /^KW 2 · VL-Woche 13/ })).toBeVisible();
+  await expect(page.getByText('Prüfungsanmeldung bis')).toBeVisible(); /* Anmeldeschluss am Fr, 15.01., im Raster */
+  // abschaltbar in den Einstellungen
+  await page.reload();
+  await openData(page, 'Studium');
+  await page.getByLabel(/Semestertermine der TUM als Fristen/).uncheck();
+  await nav(page, 'Heute').click();
+  await expect(page.locator('.group-fristen')).toHaveCount(0);
 });
 
 test('Breiter Bildschirm: Heute und Woche nebeneinander, abschaltbar', async ({ page }) => {

@@ -14,6 +14,7 @@ import { bonusForecast, recordingBacklog, studyDiary, workload } from "../lib/st
 import { rememberOpened } from "../lib/recent.js";
 import { isGop } from "../lib/tum.js";
 import { curriculumOf, gopCodes } from "../lib/curriculum.js";
+import { ModuleLinkButtons } from "../ui/modlinks.jsx";
 import { readView, saveView } from "../lib/view.js";
 
 /* ---------------- Module ---------------- */
@@ -130,7 +131,7 @@ export function ModuleDetail({ db, id, onBack }) {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
-        {m.liveUrl && <a className={btnGhost} href={m.liveUrl} target="_blank" rel="noopener noreferrer">Aufzeichnungen ↗</a>}
+        <ModuleLinkButtons m={m} settings={data.settings} className={btnGhost} />
         <button className={btnGhost} onClick={() => db.openForm("module", m)}>Bearbeiten</button>
         <button className={btnGhost} onClick={() => setMerge(true)}>Zusammenführen</button>
       </div>

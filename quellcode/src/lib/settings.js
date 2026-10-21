@@ -10,8 +10,9 @@ export const SETTING_GROUPS = [
   ["kalender", "Kalender & Abos", "Stundenplan-Abo, Moodle, Artemis, ICS"],
   ["weg", "Weg zur Uni", "Öffis, Auto, Campus"],
   ["cloud", "Cloud & Sync", "Anmelden, Abgleich, Cloud-Sicherung"],
+  ["sicherheit", "Sicherheit", "App-Sperre mit Fingerabdruck oder Face ID"],
   ["sicherung", "Sicherung & Daten", "Export, Wiederherstellen, Import"],
-  ["papierkorb", "Papierkorb", "Gelöschtes zurückholen"],
+  ["papierkorb", "Papierkorb & Aufräumen", "Gelöschtes zurückholen, Doppeltes finden"],
   ["zuruecksetzen", "Zurücksetzen", "Beispieldaten, alles löschen"],
 ];
 export const groupTitle = (id) => SETTING_GROUPS.find((g) => g[0] === id)?.[1] || "";
@@ -19,7 +20,7 @@ export const groupTitle = (id) => SETTING_GROUPS.find((g) => g[0] === id)?.[1] |
 /* Suchindex: [id, Gruppe, Bezeichnung, Stichwörter]. Die id steht auf der Seite als data-set="…" */
 /** @type {Array<[string, string, string, string]>} */
 export const SETTINGS = [
-  ["palette", "darstellung", "Farbpalette", "farbe palette synthwave gameboy bernstein cga look theme"],
+  ["palette", "darstellung", "Farbpalette", "farbe palette synthwave gameboy bernstein cga papier hell sonne draußen look theme"],
   ["size", "darstellung", "Schriftgröße", "schrift größe kompakt groß text"],
   ["motion", "darstellung", "Animationen", "animation bewegung pixel neon scan"],
   ["wide", "darstellung", "Heute und Woche nebeneinander", "breit bildschirm pc layout nebeneinander"],
@@ -45,6 +46,7 @@ export const SETTINGS = [
   ["threshold", "studium", "Warnung unter Nachbereitung", "schwelle prozent warnung nachbereitung"],
   ["weekly", "studium", "Wochenziel Lernzeit", "wochenziel stunden lernzeit"],
   ["weeks", "studium", "Semesterwochen", "semester wochen prüfungsphase"],
+  ["tumDates", "studium", "Semestertermine der TUM als Fristen", "uni fristen tum semester rückmeldung semesterbeitrag prüfungsanmeldung vorlesungsbeginn vorlesungsende"],
   ["breaks", "studium", "Feiertage und vorlesungsfreie Zeit", "ferien feiertag vorlesungsfrei semesterferien weihnachten"],
   ["feed", "kalender", "Stundenplan-Abo", "tumonline abo ical kalender stundenplan"],
   ["moodle", "kalender", "Moodle-Abgaben", "moodle abgaben abo"],
@@ -60,7 +62,9 @@ export const SETTINGS = [
   ["storage", "sicherung", "Speicher auf diesem Gerät", "speicher platz mb"],
   ["backupDays", "sicherung", "Erinnerung an Sicherung", "backup erinnerung tage sicherung"],
   ["import", "sicherung", "Sicherung wiederherstellen (Import)", "import backup einspielen zusammenführen ersetzen"],
+  ["applock", "sicherheit", "App-Sperre", "sperre sperren fingerabdruck face id pin passkey schutz"],
   ["trash", "papierkorb", "Papierkorb", "papierkorb gelöscht wiederherstellen leeren"],
+  ["cleanup", "papierkorb", "Aufräumen", "aufräumen doppelt duplikate leere notizen verwaist bereinigen"],
   ["demo", "zuruecksetzen", "Beispieldaten laden", "beispieldaten demo ausprobieren"],
   ["wipe", "zuruecksetzen", "Alle Daten löschen", "löschen zurücksetzen reset alles"],
 ];

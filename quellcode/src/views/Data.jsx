@@ -16,6 +16,10 @@ import { Select } from "../ui/select.jsx";
 import { TUM_BREAKS, offDay } from "../lib/holidays.js";
 import { buzz, canVibrate, hapticsOn, playSfx, setHapticsOn } from "../ui/sfx.js";
 import { TRASH_DAYS, trashOf } from "../lib/trash.js";
+import { TumDatesToggle } from "../ui/TumDatesToggle.jsx";
+import { CleanupCard } from "./Cleanup.jsx";
+import { AppLockCard } from "../ui/AppLock.jsx";
+import { lockAvailable } from "../lib/applock.js";
 import { EVENT, SETTING_GROUPS, matchSettings, readGroup, rememberGroup, takeRequest } from "../lib/settings.js";
 
 /* Am breiten Bildschirm Gruppen links, die offene Gruppe rechts; am Handy klappen die Gruppen untereinander auf */
@@ -45,7 +49,8 @@ const GROUP_VIEWS = {
   weg: ({ db }) => <div data-set="commute"><CommuteSettings db={db} /></div>,
   cloud: ({ db }) => <div data-set="cloud"><CloudCard cloud={db.cloud} settings={db.data.settings} patchSettings={db.patchSettings} onRestore={(d, label) => db.replaceAll(d, `Vor dem Wiederherstellen (Cloud-Sicherung ${label})`)} /></div>,
   sicherung: BackupGroup,
-  papierkorb: ({ db }) => <div data-set="trash"><TrashCard db={db} /></div>,
+  sicherheit: SecurityGroup,
+  papierkorb: ({ db }) => <><div data-set="trash"><TrashCard db={db} /></div><div data-set="cleanup"><CleanupCard db={db} /></div></>,
   zuruecksetzen: ResetGroup,
 };
 
@@ -145,7 +150,7 @@ function AppearanceGroup({ db }) {
           <div data-set="palette">
             <span className="mb-1 block text-xs text-slate-400">Farbpalette</span>
             <Tabs items={RETRO_PALETTES.map(([k, l]) => [k, l])} value={retroPaletteOf(data.settings.retroPalette)} onChange={(v) => db.patchSettings({ retroPalette: v })} label="Farbpalette" />
-            <p className="mt-1.5 text-xs text-slate-400">{{ synthwave: "Neon-Pink und Cyan über einer Stadt bei Nacht.", gameboy: "Vier Grüntöne wie auf dem Game Boy von 1989.", amber: "Bernstein auf Schwarz wie ein altes Terminal.", cga: "Magenta, Cyan und Gelb auf Schwarz wie frühe PC-Spiele." }[retroPaletteOf(data.settings.retroPalette)]} Pixel-Grafiken färben sich mit; die Modulfarben bleiben, wie du sie gewählt hast.</p>
+            <p className="mt-1.5 text-xs text-slate-400">{{ synthwave: "Neon-Pink und Cyan über einer Stadt bei Nacht.", gameboy: "Vier Grüntöne wie auf dem Game Boy von 1989.", amber: "Bernstein auf Schwarz wie ein altes Terminal.", cga: "Magenta, Cyan und Gelb auf Schwarz wie frühe PC-Spiele.", papier: "Dunkle Tinte auf hellem Papier, gut lesbar in der Sonne." }[retroPaletteOf(data.settings.retroPalette)]} Pixel-Grafiken färben sich mit; die Modulfarben bleiben, wie du sie gewählt hast.</p>
           </div>
           <div data-set="size">
             <span className="mb-1 block text-xs text-slate-400">Schriftgröße</span>
@@ -456,6 +461,18 @@ function BackupGroup({ db }) {
   );
 }
 
+/* App-Sperre (nur dieses Gerät); ohne Fingerabdruck, Face ID oder Geräte-PIN ein kurzer Hinweis */
+function SecurityGroup() {
+  const [avail, setAvail] = useState(null);
+  useEffect(() => { let live = true; lockAvailable().then((a) => live && setAvail(a)).catch(() => live && setAvail(false)); return () => { live = false; }; }, []);
+  if (avail === null) return null;
+  return (
+    <div data-set="applock">
+      {avail ? <AppLockCard /> : <Card title="App-Sperre"><p className="text-xs text-slate-400">Auf diesem Gerät nicht verfügbar: Es braucht Fingerabdruck, Face ID oder eine Geräte-PIN im Browser.</p></Card>}
+    </div>
+  );
+}
+
 function ResetGroup({ db }) {
   return (
     <Card title="Ausprobieren & Zurücksetzen">
@@ -566,6 +583,7 @@ function BreaksCard({ db }) {
             <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={st.christmasBreak !== false} onChange={(e) => db.patchSettings({ christmasBreak: e.target.checked })} />
             Weihnachtspause (24.12. bis 6.1.)
           </label>
+          <div data-set="tumDates"><TumDatesToggle db={db} /></div>
         </div>
       )}
       {own.length > 0 && (
@@ -599,7 +617,7 @@ function BreaksCard({ db }) {
 
 const TRASH_KIND = { modules: "Modul", sessions: "Termin", homework: "Abgabe", topics: "Thema", logs: "Lerneinheit", notes: "Notiz", cards: "Karteikarte", exams: "Prüfung", blocks: "Lernblock" };
 
-/* Papierkorb: Gelöschtes der letzten 30 Tage auf diesem Gerät */
+/* Papierkorb: Gelöschtes der letzten 30 Tage (mit Cloud-Sync geräteübergreifend) */
 function TrashCard({ db }) {
   const list = trashOf(db.data);
   const [open, setOpen] = useState(false);
@@ -624,7 +642,7 @@ function TrashCard({ db }) {
             <ConfirmButton label="Papierkorb leeren" confirmLabel="Endgültig löschen?" className={btnGhost} onConfirm={() => db.purgeTrash()} />
           </div>
         </>
-      ) : <p className="text-xs text-slate-500">Leer. Gelöschtes bleibt hier {TRASH_DAYS} Tage, nur auf diesem Gerät.</p>}
+      ) : <p className="text-xs text-slate-500">Leer. Gelöschtes bleibt hier {TRASH_DAYS} Tage, mit Cloud-Sync auf allen Geräten.</p>}
     </Card>
   );
 }

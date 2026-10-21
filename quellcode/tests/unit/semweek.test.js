@@ -21,12 +21,12 @@ const TUM = { settings: { university: "TUM" } };
 
 describe("Kalender- und Vorlesungswoche", () => {
   it("zählt an der TUM die Vorlesungswochen ohne die Weihnachtspause", () => {
-    expect(semWeekLabel("2026-10-20", TUM)).toBe("KW 43 · VL-Woche 1 von 15");
-    expect(semWeekLabel("2026-11-04", TUM)).toBe("KW 45 · VL-Woche 3 von 15");
+    expect(semWeekLabel("2026-10-20", TUM)).toBe("KW 43 · VL-Woche 2 von 16");
+    expect(semWeekLabel("2026-11-04", TUM)).toBe("KW 45 · VL-Woche 4 von 16");
     expect(semWeek("2026-12-30", TUM)).toMatchObject({ week: null, off: true });
     expect(semWeekLabel("2026-12-30", TUM)).toBe("KW 53 · vorlesungsfrei");
-    expect(semWeek("2027-01-05", TUM)).toMatchObject({ week: 11, total: 15 });
-    expect(semWeekLabel("2027-02-04", TUM)).toBe("KW 5 · VL-Woche 15 von 15");
+    expect(semWeek("2027-01-05", TUM)).toMatchObject({ week: 12, total: 16 });
+    expect(semWeekLabel("2027-02-04", TUM)).toBe("KW 5 · VL-Woche 16 von 16");
     expect(semWeekLabel("2027-03-01", TUM)).toBe("KW 9 · vorlesungsfrei");
     expect(semWeekLabel("2027-04-14", TUM)).toBe("KW 15 · VL-Woche 1 von 14");
   });

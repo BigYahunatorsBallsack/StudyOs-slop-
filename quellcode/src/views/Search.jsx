@@ -4,12 +4,13 @@ import { fmt, fmtShort } from "../lib/util.js";
 import { Markdown, SelectionCardButton, WikiCtx } from "../ui/markdown.jsx";
 import { backlinks, findNote } from "../lib/wiki.js";
 import { Dot, Icon, Modal } from "../ui/primitives.jsx";
-import { btnGhost, btnPrimary, focusRing, inputCls } from "../ui/styles.js";
+import { btnGhost, btnPrimary, inputCls } from "../ui/styles.js";
 import { Attachments } from "../ui/Attachments.jsx";
 import { cardsFromNote } from "../lib/cards.js";
 import { matchCommands } from "../lib/commands.js";
 import { readRecent, recentResults, rememberOpened } from "../lib/recent.js";
 import { toggleTask } from "../lib/notes.js";
+import { NoteToc } from "../ui/toc.jsx";
 
 export function SearchModal({ data, db, onPick, onClose }) {
   const [q, setQ] = useState("");
@@ -26,20 +27,21 @@ export function SearchModal({ data, db, onPick, onClose }) {
   return (
     <Modal title="Suchen" onClose={onClose}>
       <label htmlFor="search-q" className="sr-only">Suchbegriff</label>
-      <input id="search-q" className={inputCls} placeholder="Suchen oder Befehl, z. B. „neue Abgabe“, „timer DS“" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} autoComplete="off" />
+      <input id="search-q" className={inputCls} placeholder="Suchen oder Befehl, z. B. „neue Abgabe“, „timer DS“" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} autoComplete="off"
+        role="combobox" aria-expanded={results.length > 0} aria-controls="search-results" aria-autocomplete="list" aria-activedescendant={results[sel] ? `search-opt-${sel}` : undefined} />
       <div className="mt-3">
         {!results.length ? <p className="text-sm text-slate-400">Keine Treffer für „{q}“.</p>
           : (
-            <ul className="space-y-1" role="listbox" aria-label="Suchergebnisse">
+            <ul id="search-results" className="space-y-1" role="listbox" aria-label="Suchergebnisse">
               {results.map((r, i) => { const m = db.mod(r.item.moduleId) || (r.kind === "module" ? r.item : null); return (
-                <li key={r.key || r.kind + r.item.id} role="option" aria-selected={i === sel}>
-                  <button onClick={() => onPick(r)} onMouseEnter={() => setSel(i)} className={`flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left ${focusRing} ${i === sel ? "bg-slate-800" : "hover:bg-slate-800/60"}`}>
+                /* Auswahl mit Pfeiltasten im Suchfeld (Combobox), darum hier kein eigener Knopf in der Option */
+                <li key={r.key || r.kind + r.item.id} id={`search-opt-${i}`} role="option" aria-selected={i === sel}
+                  onClick={() => onPick(r)} onMouseEnter={() => setSel(i)} className={`flex w-full cursor-pointer items-start gap-3 rounded-lg px-3 py-2 text-left ${i === sel ? "bg-slate-800" : "hover:bg-slate-800/60"}`}>
                     <Dot color={m?.color} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm">{r.title}</p>
                       <p className="truncate text-xs text-slate-500">{r.kind === "command" ? r.sub : `${r.label} · ${r.sub}`}</p>
                     </div>
-                  </button>
                 </li>
               ); })}
             </ul>
@@ -62,9 +64,10 @@ export function NoteViewer({ note, db, onClose, onEdit }) {
   return (
     <Modal title={note.title || "Notiz"} onClose={onClose}>
       <p className="mb-3 text-xs text-slate-500">{note.pinned && <span className="pin-mark mr-1"><Icon name="pin" className="mark-icon" />Angeheftet ·</span>}{m?.name || "Allgemein"}{ses ? ` · ${fmtShort(ses.date)} ${ses.type}` : ""} · zuletzt bearbeitet {fmt(note.updated)}</p>
+      <NoteToc text={note.text} idPrefix={`nv-${note.id}`} />
       <div ref={body}>
         <WikiCtx.Provider value={wiki}>
-          {note.text ? <Markdown text={note.text} onToggleTask={toggle} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
+          {note.text ? <Markdown text={note.text} onToggleTask={toggle} idPrefix={`nv-${note.id}`} /> : <p className="text-sm text-slate-500">Diese Notiz ist leer.</p>}
         </WikiCtx.Provider>
       </div>
       {db.cardFromText && <SelectionCardButton within={body} onMake={(t) => db.cardFromText(t, note.moduleId)} />}

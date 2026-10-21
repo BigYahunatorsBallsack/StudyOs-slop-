@@ -522,7 +522,7 @@ function OldExams({ exam, db }) {
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <div className="tri" role="radiogroup" aria-label={`Status ${o.title}`}>
-                  {OLD_STATES.map(([k, l]) => <button key={k} role="radio" aria-checked={(o.status || "offen") === k} aria-pressed={(o.status || "offen") === k} className="tri-btn" onClick={() => upd(o.id, { status: k })}>{l}</button>)}
+                  {OLD_STATES.map(([k, l]) => <button key={k} role="radio" aria-checked={(o.status || "offen") === k} className="tri-btn" onClick={() => upd(o.id, { status: k })}>{l}</button>)}
                 </div>
                 <label className="flex items-center gap-1 text-xs text-slate-400">
                   <input className="field w-16 py-1 text-sm" inputMode="decimal" aria-label={`Punkte ${o.title}`} value={o.points ?? ""} onChange={(ev) => upd(o.id, { points: ev.target.value.replace(",", ".") })} />

@@ -30,6 +30,7 @@ import { describeChange, feedChanges } from "../lib/feed.js";
 import { semesterSwitch } from "../lib/curriculum.js";
 import { blockDone } from "../lib/blocks.js";
 import { DueCrowding, ExamCountdown, RoomLabel } from "../ui/rows.jsx";
+import { UniDatesGroup } from "./UniDates.jsx";
 
 import { QUIET_HIDE, dayStrip, quietDay, tomorrowPreview } from "../lib/dayview.js";
 import { FocusView, TimeStrip, TomorrowCard, useFocusedItem } from "../ui/dayview.jsx";
@@ -180,6 +181,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
         </div>}
       </Group>
     ),
+    fristen: <UniDatesGroup settings={data.settings} today={t} />,
     commute: commuteOf(db.data.settings) && db.cloud?.available && <Group id="commute" title="Weg zur Uni" className="group-card"><CommuteCard db={db} sessions={data.sessions} /></Group>,
     mensa: mensaOf(db.data.settings) && <Group id="mensa" title="Mensa" className="group-card"><MensaCard canteen={mensaOf(db.data.settings)} /></Group>,
   };
