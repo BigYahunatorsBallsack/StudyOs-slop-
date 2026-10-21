@@ -59,6 +59,8 @@
 - **„Erledigt heute“:** Ein zugeklappter Bereich auf „Heute“ zeigt, was du heute abgegeben, besucht, nachbereitet und an Lernblöcken geschafft hast, dazu die Lernzeit. Der Haken dort öffnet einen Eintrag wieder; unter „Heute anpassen“ lässt sich der Bereich verschieben oder ausblenden.
 - **Lesbare Abgabefristen:** Abgaben zeigen „Abgabe morgen 23:59“, „Abgabe heute 14:00“, „Abgabe in 3 Tagen“ oder ab einer Woche „Abgabe Fr, 24.10.“. Bleiben weniger als 24 Stunden, ist die Frist rot.
 
+- **Behoben: Kalender exportieren ohne Abgaben.** Das Abwählen von „Abgaben“ beim Kalender-Export wurde ignoriert; jetzt fehlen sie dann wirklich.
+
 ## 2.11.0
 - **Behoben: Lernzeit eines Termins konnte länger sein als der Termin.** Ein Termin zählt jetzt höchstens so lange, wie er dauert: „Besucht“ zählt die ganze Länge und ersetzt angeschaute Aufzeichnungs-Minuten, „angeschaut bis“ zählt höchstens die Länge. Beim Start räumt die App alte Einträge auf, z. B. Aufzeichnungszeit, die trotz gelöschtem „angeschaut bis“ stehen geblieben war, auch wenn sie per Sync von einem anderen Gerät kommt.
 - **Nach links wischen verschiebt:** Abgaben und Lernblöcke nach links wischen und auf morgen, eine Woche später oder einen anderen Tag legen. Nach rechts hakt weiter ab, jetzt auch in „Zu erledigen“ auf „Heute“.

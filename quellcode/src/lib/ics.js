@@ -68,7 +68,7 @@ export function parseICS(text) {
 export const guessType = (s) => /zentral/i.test(s) ? "Zentralübung" : /tutor/i.test(s) ? "Tutorium" : /übung|uebung|\bUE\b|exercise/i.test(s) ? "Übung" : /praktikum/i.test(s) ? "Praktikum" : "Vorlesung";
 
 /* ICS-Export: Abgaben, Prüfungen und Termine für den Handy-Kalender (mit Erinnerungen) */
-export function buildICS(data, { hw = true, exams = true, sessions = false, uni = true } = {}) {
+export function buildICS(data, { homework = true, hw = homework, exams = true, sessions = false, uni = true } = {}) {
   const esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
   const d8 = (s) => s.replace(/-/g, "");
   const t6 = (s) => (s || "00:00").replace(":", "") + "00";
