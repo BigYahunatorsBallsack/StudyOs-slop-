@@ -24,7 +24,7 @@ export function Icon({ name, className = "h-5 w-5" }) {
 
 export function Toasts({ items, onClose }) {
   return (
-    <div className="toast-pos pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-2 px-4" aria-live="polite">
+    <div className="toast-pos pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-2 px-4" role="status" aria-live="polite">
       {items.map((t) => (
         <div key={t.id} className="toast pointer-events-auto flex w-full max-w-md items-center gap-3 px-4 py-3 text-sm">
           <span className="min-w-0 flex-1">{t.text}</span>
