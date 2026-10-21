@@ -1,9 +1,9 @@
 /* Wochenraster: Uhrzeit aus einer Tipp-Position, Verschieben und Verlängern per Ziehen */
-import { toHM } from "./blocks.js";
+import { toHM, toMin } from "./blocks.js";
 
 export const SNAP = 15;
 const DAY_END = 23 * 60 + 59;
-export const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
+export { toMin };
 export const snap = (min, step = SNAP) => Math.round(min / step) * step;
 
 /**

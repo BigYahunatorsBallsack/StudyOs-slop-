@@ -64,6 +64,9 @@ export function migrate(obj) {
 
 export const isActive = (s) => !s.cancelled;
 
+/** Offene Abgabe: weder abgegeben/bewertet noch als verpasst abgehakt */
+export const isOpenHw = (h) => !DONE_HW.has(h.status) && !h.missed;
+
 export const countsOf = (d) => `${d.modules.length} Module, ${d.sessions.length} Termine, ${d.homework.length} Hausaufgaben, ${d.topics.length} Themen, ${d.logs.length} Lerneinheiten, ${d.notes.length} Notizen, ${d.cards.length} Karten, ${d.exams.length} Prüfungen`;
 
 export function streakOf(logs) {

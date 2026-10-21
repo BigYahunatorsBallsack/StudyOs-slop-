@@ -1,6 +1,6 @@
 /* Semesterleiste: alle Wochen des laufenden Semesters mit Vorlesungswoche, Prüfungen, Abgaben, Ferien und Feiertagen.
    An der TUM gelten die bekannten Semestergrenzen, sonst die Vorlesungszeit (aus Ferien oder Semesterbeginn) plus drei Prüfungswochen. */
-import { DONE_HW } from "./constants.js";
+import { isOpenHw } from "./data.js";
 import { breakOf, holidayOf, isTum } from "./holidays.js";
 import { lecturePeriods, semWeek } from "./semweek.js";
 import { TUM_SEMESTERS, uniDates } from "./tumdates.js";
@@ -42,7 +42,7 @@ export function semesterWeeks(data, span, today = iso()) {
       offLabel: brk ? brk.label : "",
       holidays: work.map(holidayOf).filter(Boolean),
       exams: (data.exams || []).filter((e) => inWeek(e.date) || (e.result === "nicht bestanden" && inWeek(e.retakeDate))).length,
-      hw: (data.homework || []).filter((h) => inWeek(h.due) && !DONE_HW.has(h.status) && !h.missed).length,
+      hw: (data.homework || []).filter((h) => inWeek(h.due) && isOpenHw(h)).length,
       uni: uni.filter((x) => inWeek(x.date)).map((x) => x.title),
       current: mon === weekStart(today),
     });

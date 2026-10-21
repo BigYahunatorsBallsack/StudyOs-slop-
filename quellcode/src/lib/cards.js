@@ -1,5 +1,5 @@
 /* Karteikarten: Wiederholungs-Algorithmus (vereinfachtes SM-2), Lückentext, Tags, CSV */
-import { addDays, iso } from "./util.js";
+import { addDays, iso, uid } from "./util.js";
 
 /* Spaced Repetition mit FSRS-5 (Free Spaced Repetition Scheduler, Standardparameter wie in Anki).
    Jede Karte hat Stabilität S (Tage, nach denen sie mit 90 % Wahrscheinlichkeit noch sitzt) und
@@ -208,15 +208,26 @@ export function splitReviewTime(pending, final = false) {
 }
 
 /**
- * Abfragezeit als Lerneinheit „Karteikarten“ eintragen: je Modul und Tag eine automatische Einheit (auto: "karten"),
+ * Abfragezeit als Lerneinheit „Karteikarten“ eintragen: je Modul, Tag und Gerät eine automatische Einheit (auto: "karten"),
  * weitere Minuten am selben Tag kommen dazu. Von Hand angelegte Einheiten bleiben unberührt.
- * @param {{ date: string, at: string, newId: () => string }} opts
+ * `dev` kennzeichnet das Gerät: Zählten zwei Geräte in dieselbe Einheit, gewänne beim Sync nur eine Minutenzahl.
+ * @param {{ date: string, at: string, newId: () => string, dev?: string }} opts
  */
 export function addReviewMinutes(logs, moduleId, minutes, opts) {
-  const { date, at, newId } = opts;
+  const { date, at, newId, dev = "" } = opts;
   if (!(minutes >= 1)) return logs;
   const mod = moduleId || "";
-  const hit = logs.find((l) => l.auto === "karten" && (l.moduleId || "") === mod && l.date === date);
+  const hit = logs.find((l) => l.auto === "karten" && (l.moduleId || "") === mod && l.date === date && (l.dev || "") === dev);
   if (hit) return logs.map((l) => (l === hit ? { ...l, minutes: (Number(l.minutes) || 0) + minutes } : l));
-  return [...logs, { id: newId(), moduleId: mod, topicId: "", kind: "Karteikarten", auto: "karten", date, at, minutes, note: "Karteikarten abgefragt", created: date }];
+  return [...logs, { id: newId(), moduleId: mod, topicId: "", kind: "Karteikarten", auto: "karten", ...(dev && { dev }), date, at, minutes, note: "Karteikarten abgefragt", created: date }];
+}
+
+/* Kennung dieses Geräts (zufällig, nur lokal gemerkt), z. B. für die automatische Karteikarten-Einheit */
+const DEVICE_KEY = "studyos-geraet";
+export function deviceTag(storage = globalThis.localStorage) {
+  try {
+    let v = storage.getItem(DEVICE_KEY);
+    if (!v) { v = uid(); storage.setItem(DEVICE_KEY, v); }
+    return v;
+  } catch { return ""; }
 }

@@ -1,4 +1,6 @@
 /* Speiseplan der Mensen des Studierendenwerks München über die offene eat-api der TUM-Dev-Gruppe */
+import { isoYearWeek } from "./util.js";
+
 export const CANTEENS = [
   ["mensa-garching", "Mensa Garching"], ["stucafe-boltzmannstr", "StuCafé Boltzmannstraße (Garching)"], ["fmi-bistro", "FMI Bistro (Garching)"], ["stucafe-garching", "StuCafé Garching"],
   ["mensa-arcisstr", "Mensa Arcisstraße"], ["stubistro-arcisstr", "StuBistro Arcisstraße"], ["mensa-leopoldstr", "Mensa Leopoldstraße"], ["mensa-lothstr", "Mensa Lothstraße"],
@@ -7,14 +9,7 @@ export const CANTEENS = [
 export const canteenName = (id) => (CANTEENS.find(([k]) => k === id) || [id, id])[1];
 
 /** ISO-Kalenderwoche und -Jahr eines Datums (YYYY-MM-DD) */
-export function isoWeek(dateStr) {
-  const d = new Date(dateStr + "T12:00:00Z");
-  const day = (d.getUTCDay() + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - day + 3); /* Donnerstag derselben Woche */
-  const year = d.getUTCFullYear();
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  return { year, week: 1 + Math.round(((d.getTime() - jan4.getTime()) / 86400000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7) };
-}
+export const isoWeek = isoYearWeek;
 
 export const menuUrl = (canteen, dateStr) => { const { year, week } = isoWeek(dateStr); return `https://tum-dev.github.io/eat-api/${canteen}/${year}/${String(week).padStart(2, "0")}.json`; };
 

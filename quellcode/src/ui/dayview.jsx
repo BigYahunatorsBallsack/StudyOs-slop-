@@ -4,7 +4,7 @@ import { dueInfo } from "../lib/data.js";
 import { FOCUS_EVENT, gapText, getFocus, liveSession, nextGap, resolveFocus, setFocus } from "../lib/dayview.js";
 import { blockDone, toMin } from "../lib/blocks.js";
 import { shortName } from "../lib/modules.js";
-import { fmtShort, iso, nowHM } from "../lib/util.js";
+import { fmtMin, fmtShort, iso, nowHM } from "../lib/util.js";
 import { focusTimer } from "./actions.jsx";
 import { burst } from "./pixel.jsx";
 
@@ -109,6 +109,5 @@ export function LiveLeft({ data }) {
   if (!live) return null;
   const m = (data.modules || []).find((x) => x.id === live.s.moduleId);
   const name = m ? shortName(m.name) : live.s.type;
-  const left = live.left < 60 ? `${live.left} min` : `${Math.floor(live.left / 60)} h ${live.left % 60} min`;
-  return <span className="live-left font-num" title={`${m?.name || live.s.type} läuft bis ${live.s.end}`}>{name} · noch {left}</span>;
+  return <span className="live-left font-num" title={`${m?.name || live.s.type} läuft bis ${live.s.end}`}>{name} · noch {fmtMin(live.left)}</span>;
 }

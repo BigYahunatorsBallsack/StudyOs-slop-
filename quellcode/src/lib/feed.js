@@ -3,7 +3,7 @@
    wiedererkannt wird. Eigene Häkchen (vorbereitet, besucht, nachbereitet) bleiben dabei erhalten. */
 import { guessType } from "./ics.js";
 import { pickColor } from "./colors.js";
-import { addDays, iso, uid as newId } from "./util.js";
+import { addDays, fmt, iso, uid as newId } from "./util.js";
 import { baseName } from "./modules.js";
 
 export const SKIP = "__skip";
@@ -75,7 +75,7 @@ export function describeChange(s) {
   const c = s.change || {}, was = c.was || {}, parts = [];
   if (s.cancelled && !c.wasCancelled) parts.push("fällt aus");
   if (!s.cancelled && c.wasCancelled) parts.push("findet wieder statt");
-  if ("date" in was) parts.push(`verschoben vom ${was.date.split("-").reverse().join(".")}`);
+  if ("date" in was) parts.push(`verschoben vom ${fmt(was.date)}`);
   if ("start" in was || "end" in was) parts.push(`Zeit: ${was.start ?? s.start}–${was.end ?? s.end} → ${s.start}–${s.end}`);
   if ("room" in was) parts.push(`Raum: ${was.room || "ohne"} → ${s.room || "ohne"}`);
   return parts.join(", ") || "geändert";
