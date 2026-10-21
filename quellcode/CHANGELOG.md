@@ -58,7 +58,6 @@
 - **Countdown bis zur Prüfung:** Ist die nächste Prüfung weniger als vier Wochen entfernt, zeigen „Heute“ und die Modulseite groß „noch 12 Tage“, „morgen“ oder „heute“.
 - **„Erledigt heute“:** Ein zugeklappter Bereich auf „Heute“ zeigt, was du heute abgegeben, besucht, nachbereitet und an Lernblöcken geschafft hast, dazu die Lernzeit. Der Haken dort öffnet einen Eintrag wieder; unter „Heute anpassen“ lässt sich der Bereich verschieben oder ausblenden.
 - **Lesbare Abgabefristen:** Abgaben zeigen „Abgabe morgen 23:59“, „Abgabe heute 14:00“, „Abgabe in 3 Tagen“ oder ab einer Woche „Abgabe Fr, 24.10.“. Bleiben weniger als 24 Stunden, ist die Frist rot.
-
 - **Behoben: Kalender exportieren ohne Abgaben.** Das Abwählen von „Abgaben“ beim Kalender-Export wurde ignoriert; jetzt fehlen sie dann wirklich.
 
 ## 2.11.0
