@@ -14,6 +14,9 @@ export function motionOff() {
 let stack = null;
 function getStack() {
   if (stack || typeof window === "undefined" || !window.history?.pushState) return stack;
+  /* Zurück über die eigenen Einträge darf die Seite nicht scrollen: Der Browser stellte sonst die alte Position her,
+     und das Scrollen schlösse z. B. eine gerade geöffnete Termin-Karte */
+  try { window.history.scrollRestoration = "manual"; } catch { /* egal */ }
   stack = createBackStack({
     history: window.history,
     target: window,

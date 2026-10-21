@@ -23,7 +23,7 @@ const depthOf = (state) => (state && typeof state[KEY] === "number" ? state[KEY]
 export function createBackStack({ history, target, defer = (f) => { setTimeout(f, 0); }, timer = setTimeout, clearTimer = clearTimeout,
   activated = () => true, onActivate = (f) => { void f; } }) {
   /* base: Tiefe des Eintrags, auf dem die App gestartet ist (nach einem Neuladen können darunter alte Einträge liegen) */
-  let base = depthOf(history.state), have = base, pending = null, pendingTimer = 0, scheduled = false, seq = 0, waiting = false;
+  let base = depthOf(history.state), have = base, pending = null, late = null, pendingTimer = 0, scheduled = false, seq = 0, waiting = false;
   let layers = [];
   const ordered = () => layers.slice().sort((a, b) => a.level - b.level || a.seq - b.seq);
 
@@ -41,16 +41,29 @@ export function createBackStack({ history, target, defer = (f) => { setTimeout(f
     } else if (want < have) {
       pending = want;
       history.go(want - have);
-      /* falls kein popstate kommt (z. B. Verlauf schon am Anfang): nicht ewig warten */
-      pendingTimer = timer(() => { pending = null; have = depthOf(history.state); if (have < base) base = have; schedule(); }, 800);
+      waitPop(10);
     }
+  };
+  /* Auf das popstate des eigenen Zurück warten. Unter Last kann es über eine Sekunde dauern; käme es nach dem Aufgeben
+     als „Zurück des Nutzers“ an, schlösse es die nächste Ebene (z. B. die gerade geöffnete Termin-Karte). Darum nur
+     aufgeben, wenn nach 10 s noch nichts kam (Verlauf schon am Anfang), und ein verspätetes popstate trotzdem als eigenes zählen. */
+  const waitPop = (tries) => {
+    pendingTimer = timer(() => {
+      if (pending === null) return;
+      const d = depthOf(history.state);
+      if (d !== pending && tries > 0) { waitPop(tries - 1); return; }
+      late = pending; pending = null;
+      have = d; if (have < base) base = have;
+      schedule();
+    }, 1000);
   };
   const schedule = () => { if (!scheduled) { scheduled = true; defer(sync); } };
 
   const onPop = (e) => {
     const d = depthOf(e.state);
-    const mine = pending !== null && d === pending;
+    const mine = (pending !== null && d === pending) || (late !== null && d === late);
     if (pending !== null) { clearTimer(pendingTimer); pending = null; }
+    late = null;
     have = d;
     if (d < base) base = d;
     if (!mine) {

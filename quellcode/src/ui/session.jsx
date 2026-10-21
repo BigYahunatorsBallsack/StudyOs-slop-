@@ -67,7 +67,7 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note 
   return (
     <div ref={ref} className="popover" role="dialog" aria-label={`${m?.name || "Termin"}, ${s.type}`} style={{ left: pos.left, top: pos.top, "--mod": m?.color }}
       /* Nur die Maus: Ein Finger „verlässt“ die Karte nach jedem Antippen, sonst schlösse sie sich nach dem ersten Haken */
-      onPointerEnter={(e) => { if (e.pointerType === "mouse") onEnter(); }} onPointerLeave={(e) => { if (e.pointerType === "mouse") onLeave(); }}>
+      onPointerEnter={(e) => { if (isMouse(e)) onEnter(); }} onPointerLeave={(e) => { if (isMouse(e)) onLeave(); }}>
       <p className="popover-title">{m?.name || "Ohne Modul"}</p>
       <p className="row-meta mt-0.5">{s.type}, {fmtShort(s.date)}, {s.start}–{s.end}</p>
       {s.room && <p className="row-meta">{s.room}</p>}
@@ -102,13 +102,13 @@ export function useHoverCard({ openDelay = 350, closeDelay = 220 } = {}) {
     /** Props für den Auslöser (einen Termin-Knopf) */
     trigger: (id, onActivate) => ({
       onPointerEnter: (e) => {
-        if (e.pointerType !== "mouse") return;
+        if (!isMouse(e)) return;
         clear("close");
         const el = e.currentTarget;
         clear("open");
         timers.current.open = setTimeout(() => setCard({ id, anchor: el.getBoundingClientRect() }), card ? 0 : openDelay);
       },
-      onPointerLeave: (e) => { if (e.pointerType === "mouse") { clear("open"); clear("close"); timers.current.close = setTimeout(() => setCard(null), closeDelay); } },
+      onPointerLeave: (e) => { if (isMouse(e)) { clear("open"); clear("close"); timers.current.close = setTimeout(() => setCard(null), closeDelay); } },
       onFocus: (e) => { if (e.currentTarget.matches(":focus-visible")) open(id, e.currentTarget); },
       onClick: (e) => {
         /* Touch: erst die Karte; Maus/Tastatur: wie bisher das Formular */
@@ -119,4 +119,12 @@ export function useHoverCard({ openDelay = 350, closeDelay = 220 } = {}) {
     }),
   };
 }
+/* Zuletzt benutzte Zeigerart (Maus, Finger, Stift). Nach dem Antippen meldet Chrome bei Änderungen am Layout teils
+   Maus-Ein- und -Austritte an der alten Stelle, ohne dass eine Maus bewegt wurde; die dürfen die angetippte Karte nicht
+   schließen. Erst echte Mausbewegung zählt wieder als Maus. */
 const lastPointer = { current: "mouse" };
+if (typeof document !== "undefined") {
+  document.addEventListener("pointerdown", (e) => { lastPointer.current = e.pointerType; }, true);
+  document.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && (e.movementX || e.movementY)) lastPointer.current = "mouse"; }, true);
+}
+const isMouse = (e) => e.pointerType === "mouse" && lastPointer.current === "mouse";

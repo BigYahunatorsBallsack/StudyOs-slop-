@@ -24,6 +24,7 @@ function setup(opts = {}) {
   const s = createBackStack({ history: h, target: h, defer: (f) => tasks.push(f), timer: () => 0, clearTimer: () => {}, ...opts });
   /* alles abarbeiten, bis Ruhe ist: Abgleich und Navigation im Wechsel */
   const settle = () => { for (let i = 0; i < 20 && (tasks.length || h.queue.length); i++) { while (tasks.length) tasks.shift()(); h.flushNav(); } };
+  settle.tasksOnly = () => { while (tasks.length) tasks.shift()(); };
   return { h, s, settle };
 }
 
@@ -114,6 +115,27 @@ describe("Zurück-Geste schließt Fenster (lib/backstack.js)", () => {
     expect(h.entries.length).toBe(2);
     off(); settle(); /* spätes Abmelden ändert nichts mehr */
     expect(h.index).toBe(0);
+  });
+
+  it("kommt das eigene Zurück unter Last spät an, schließt es nicht die gerade geöffnete Ebene", () => {
+    const timers = [];
+    const { h, s, settle } = setup({ timer: (f) => { timers.push(f); return timers.length; } });
+    const log = [];
+    s.add(LEVEL.BEREICH, () => log.push("bereich"));
+    const off = s.add(LEVEL.FENSTER, () => log.push("formular"));
+    settle();
+    off();
+    /* nur den Abgleich laufen lassen, die Navigation (history.go) hängt noch */
+    const tasks = () => { for (let i = 0; i < 5; i++) settle.tasksOnly(); };
+    tasks();
+    s.add(LEVEL.FENSTER, () => log.push("karte"));
+    tasks();
+    for (let i = 0; i < 3; i++) timers.shift()(); /* drei Sekunden ohne popstate */
+    tasks();
+    h.flushNav(); settle();
+    expect(log).toEqual([]);
+    expect(s.size()).toBe(2);
+    expect(h.state).toEqual({ studyosBack: 2 }); /* der Eintrag der Karte steht */
   });
 
   it("ohne bisherige Interaktion wird mit dem Eintrag gewartet (Chrome überspringt ihn sonst)", () => {
