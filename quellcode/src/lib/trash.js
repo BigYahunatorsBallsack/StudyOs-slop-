@@ -1,5 +1,8 @@
 /* Papierkorb: Gelöschtes bleibt 30 Tage wiederherstellbar.
-   Liegt in `meta.trash` und damit nur auf diesem Gerät (der Cloud-Sync lädt `meta` nicht hoch, siehe forCloud).
+   Liegt in `meta.trash`; der Cloud-Sync lädt ihn mit hoch (verschlüsselt, siehe forCloud) und führt die Papierkörbe
+   beider Geräte nach id zusammen (mergeTrash). Wiederhergestellte oder endgültig gelöschte Papierkorb-Einträge
+   bekommen einen Grabstein `{ c: "trash", id, at }` in `data.deleted` (setzt stampChanges), damit das andere Gerät
+   sie nicht wieder einbringt. Wiederhergestellte Einträge gelten als neu angelegt und gewinnen so gegen ihre Grabsteine.
    Ein Eintrag merkt sich die entfernten Einträge jeder Sammlung und die Felder, die beim Löschen an anderen
    Einträgen geändert wurden (z. B. Lerneinheiten, die ihr Modul verloren haben). */
 import { COLLS } from "./constants.js";
@@ -33,10 +36,28 @@ export function trashEntry(before, after, { label = "", at = new Date().toISOStr
   return { id: uid(), at, label: label || titleOf(first), named: !!label, coll: firstColl, count, removed, changed };
 }
 
+export const TRASH_TOMB = "trash"; /* Sammlung der Grabsteine für Papierkorb-Einträge in data.deleted */
+const valid = (t) => t && typeof t === "object" && typeof t.id === "string" && typeof t.at === "string";
+
 /** Papierkorb ohne abgelaufene Einträge, neueste zuerst */
 export function pruneTrash(list = [], now = new Date()) {
   const limit = new Date(now.getTime() - TRASH_DAYS * 86400000).toISOString();
-  return list.filter((t) => t && t.at >= limit).sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX_ENTRIES);
+  return (Array.isArray(list) ? list : []).filter((t) => valid(t) && t.at >= limit).sort((a, b) => b.at.localeCompare(a.at) || a.id.localeCompare(b.id)).slice(0, MAX_ENTRIES);
+}
+
+/** Papierkörbe zweier Geräte nach id zusammenführen; Einträge mit Grabstein (wiederhergestellt/gelöscht) fallen weg.
+    `gone`: Set der ids aus den Grabsteinen. Ein Eintrag ändert sich nach dem Anlegen nicht mehr, gleiche id = gleicher Inhalt. */
+export function mergeTrash(a = [], b = [], gone = new Set(), now = new Date()) {
+  const by = new Map();
+  for (const t of [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])]) if (valid(t) && !gone.has(t.id) && !by.has(t.id)) by.set(t.id, t);
+  return pruneTrash([...by.values()], now);
+}
+
+/** ids, die seit `prev` aus dem Papierkorb verschwunden sind (für Grabsteine) */
+export function trashRemoved(prev = [], next = []) {
+  if (prev === next) return [];
+  const keep = new Set((next || []).map((t) => t && t.id));
+  return (prev || []).filter((t) => t && t.id && !keep.has(t.id)).map((t) => t.id);
 }
 
 /** Legt einen Eintrag in den Papierkorb von `data` */

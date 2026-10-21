@@ -23,13 +23,19 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }) => { expect(pageErrors.get(page), 'Konsolenfehler').toEqual([]); });
 
 const nav = (page, name) => page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('button', { name });
-async function openData(page) {
+/* Daten & Einstellungen öffnen, optional mit aufgeklappter Gruppe */
+async function openData(page, group) {
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  if (group) await openGroup(page, group);
+}
+async function openGroup(page, group) {
+  const t = page.locator('.settings-toggle', { hasText: new RegExp('^' + group) });
+  if ((await t.getAttribute('aria-expanded')) !== 'true') await t.click();
 }
 async function loadDemo(page) {
   await page.goto('./');
-  await openData(page);
+  await openData(page, 'Zurücksetzen');
   await page.getByRole('button', { name: 'Beispieldaten laden' }).click();
   await page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
 }
@@ -66,7 +72,7 @@ test('Daten bleiben nach dem Neuladen erhalten, Änderungen tragen Zeitstempel',
 
 test('verschlüsselte Sicherung: Export, falsche und richtige Passphrase, Zusammenführen auf zweitem Gerät', async ({ page, browser }) => {
   await loadDemo(page);
-  await openData(page);
+  await openData(page, 'Sicherung');
   await page.getByLabel('Mit Passphrase verschlüsseln (AES-256)').check();
   await page.getByLabel('Passphrase', { exact: true }).fill('korrekt-pferd');
   await page.getByLabel('Passphrase wiederholen').fill('korrekt-pferd');
@@ -84,7 +90,7 @@ test('verschlüsselte Sicherung: Export, falsche und richtige Passphrase, Zusamm
   await b.goto('./?aktion=notiz');
   await b.getByLabel('Titel').fill('Nur auf Gerät B');
   await b.getByRole('button', { name: 'Speichern' }).click();
-  await openData(b);
+  await openData(b, 'Sicherung');
   const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'backup.json');
   writeFileSync(file, text);
   await b.locator('input[type=file][accept^=".json"]').setInputFiles(file);
@@ -105,12 +111,14 @@ test('verschlüsselte Sicherung: Export, falsche und richtige Passphrase, Zusamm
 
 test('Zusammenführen nach "Alle Daten löschen" erklärt, warum nichts zurückkommt', async ({ page }) => {
   await loadDemo(page);
-  await openData(page);
+  await openData(page, 'Sicherung');
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Als Datei herunterladen' }).click()]);
   const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'backup.json');
   writeFileSync(file, readFileSync(await download.path(), 'utf8'));
+  await openGroup(page, 'Zurücksetzen');
   await page.getByRole('button', { name: 'Alle Daten löschen' }).click();
   await page.getByRole('button', { name: 'Wirklich alles löschen?' }).click();
+  await openGroup(page, 'Sicherung');
   await page.locator('input[type=file][accept^=".json"]').setInputFiles(file);
   await page.getByRole('button', { name: 'Zusammenführen' }).click();
   await expect(page.getByText(/später gelöscht/)).toBeVisible();
@@ -174,7 +182,7 @@ test('Prüfung: Anmeldeschluss erscheint als Frist, Lernplan zeigt Minuten und f
 
 test('Hochschule und Studiengang im Kopf', async ({ page }) => {
   await loadDemo(page);
-  await openData(page);
+  await openData(page, 'Studium');
   await page.getByLabel('Hochschule').fill('LMU');
   await page.getByLabel('Studiengang', { exact: true }).fill('Informatik');
   await page.reload();
@@ -204,7 +212,7 @@ test('Timer läuft nach dem Neuladen weiter, ohne die App ständig neu zu render
 
 test('ICS-Import mit mehreren Wochentagen', async ({ page }) => {
   await loadDemo(page);
-  await openData(page);
+  await openData(page, 'Kalender');
   const file = join(mkdtempSync(join(tmpdir(), 'studyos-')), 'plan.ics');
   writeFileSync(file, 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Algorithmen Vorlesung\r\nDTSTART:20261019T100000\r\nDTEND:20261019T113000\r\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=4\r\nEXDATE:20261021T100000\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n');
   await page.locator('input[type=file][accept^=".ics"]').setInputFiles(file);
@@ -741,7 +749,7 @@ test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({
 });
 
 test('Woche: Vorlesungswoche, Überschneidungen, Abgabe-Marker, Tagesansicht mit Wischen, Pinch-Zoom', async ({ page }) => {
-  await page.clock.install({ time: new Date('2026-11-04T09:00:00') }); /* Mittwoch, 3. Vorlesungswoche */
+  await page.clock.install({ time: new Date('2026-11-04T09:00:00') }); /* Mittwoch, 4. Vorlesungswoche */
   await page.goto('./');
   await seed(page, () => ({ settings: { university: 'TUM' },
     sessions: [{ id: 'a', moduleId: 'ds', type: 'Vorlesung', date: '2026-11-04', start: '10:00', end: '12:00' },
@@ -752,7 +760,7 @@ test('Woche: Vorlesungswoche, Überschneidungen, Abgabe-Marker, Tagesansicht mit
   await page.reload();
   await nav(page, 'Woche').click();
   await page.getByRole('tab', { name: 'Raster' }).click();
-  await expect(page.getByRole('heading', { name: 'KW 45 · VL-Woche 3 von 15' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'KW 45 · VL-Woche 4 von 16' })).toBeVisible();
   // Vorlesung und Lernblock überschneiden sich, die ausgefallene Übung zählt nicht
   await expect(page.locator('.ev-clash')).toHaveCount(2);
   await expect(page.getByRole('button', { name: /Lernblock Lernen DS.*überschneidet sich mit DS Vorlesung$/ })).toBeVisible();
@@ -892,7 +900,7 @@ test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; R
   await page.getByRole('button', { name: /^Zu erledigen/ }).click();
   await expect(page.locator('.todo-row').first()).toBeVisible();
   // Retro: drei Animationsvarianten plus Aus; im Retro-Theme schließt sich ein Abschnitt erst nach seiner Animation
-  await openData(page);
+  await openData(page, 'Darstellung');
   await expect(page.locator('html')).toHaveAttribute('data-motion', 'pixel');
   for (const [name, key] of [['Neon', 'neon'], ['Scan', 'scan'], ['Aus', 'off'], ['Pixel', 'pixel']]) {
     await page.getByRole('tablist', { name: 'Retro-Animationen' }).getByRole('tab', { name }).click();
@@ -1090,14 +1098,14 @@ test('Auswahlfelder und Kästchen im Pixel-Stil: Tastatur, Screenreader-Rollen, 
   await page.mouse.click(5, 5);
   await expect(page.getByRole('listbox')).toHaveCount(0);
   // Kästchen sind eigene Pixel-Kästchen, aber weiter echte Checkboxen
-  await openData(page);
+  await openData(page, 'Darstellung');
   const box = page.getByRole('checkbox').first();
   expect(await box.evaluate((el) => getComputedStyle(el).appearance)).toBe('none');
 });
 
 test('Farbpalette und Schriftgröße: wählen, bleibt nach Neuladen, Normal setzt zurück', async ({ page }) => {
   await page.goto('./');
-  await openData(page);
+  await openData(page, 'Darstellung');
   const html = page.locator('html');
   await page.getByRole('tablist', { name: 'Farbpalette' }).getByRole('tab', { name: 'Gameboy' }).click();
   await expect(html).toHaveAttribute('data-palette', 'gameboy');
@@ -1109,7 +1117,7 @@ test('Farbpalette und Schriftgröße: wählen, bleibt nach Neuladen, Normal setz
   await page.reload();
   await expect(html).toHaveAttribute('data-palette', 'gameboy');
   await expect(html).toHaveAttribute('data-size', 'large');
-  await openData(page);
+  await openData(page, 'Darstellung');
   await page.getByRole('tablist', { name: 'Farbpalette' }).getByRole('tab', { name: 'Synthwave' }).click();
   await page.getByRole('tablist', { name: 'Schriftgröße' }).getByRole('tab', { name: 'Normal' }).click();
   await expect(html).not.toHaveAttribute('data-palette', /./);
@@ -1321,6 +1329,38 @@ test('Monatsansicht: Punkte für Abgaben und Prüfungen, ein Tag öffnet seine W
   await expect(page.locator('.grid-day.today')).toBeVisible();
 });
 
+test('TUM-Semestertermine als Uni-Fristen und Semesterleiste über dem Monat', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-12-01T09:00:00') }); /* Dienstag, Prüfungsanmeldung läuft */
+  await page.goto('./');
+  await seed(page, () => ({ settings: { university: 'TUM' },
+    exams: [{ id: 'e', moduleId: 'ds', date: '2027-02-10', time: '09:00' }],
+    homework: ['2026-12-07', '2026-12-08', '2026-12-10'].map((due, i) => ({ id: 'h' + i, moduleId: 'ds', title: 'Blatt ' + i, due, status: 'ausgegeben' })) }));
+  await page.reload();
+  const fristen = page.locator('.group-fristen');
+  await expect(fristen.getByText('Prüfungsanmeldung WiSe 2026/27 läuft')).toBeVisible();
+  await expect(fristen.getByText(/bis Fr, 15\.01\., in 45 Tagen/)).toBeVisible();
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Monat' }).click();
+  const bar = page.getByRole('region', { name: 'Semesterleiste WiSe 2026/27' });
+  await expect(bar.getByText('VL-Woche 8')).toBeVisible();
+  await expect(bar.getByRole('button')).toHaveCount(27);
+  await expect(bar.getByRole('button', { name: /^KW 49, VL-Woche 8, diese Woche$/ })).toHaveClass(/current/);
+  await expect(bar.getByRole('button', { name: /^KW 50, VL-Woche 9, 3 Abgaben$/ })).toHaveClass(/busy/);
+  await expect(bar.getByRole('button', { name: /^KW 53, Weihnachtspause/ })).toHaveClass(/off/);
+  await expect(bar.getByRole('button', { name: /^KW 6, .*1 Prüfung/ })).toHaveClass(/has-exam/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await bar.getByRole('button', { name: /^KW 2, / }).click();
+  await expect(page.getByRole('tab', { name: 'Raster' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: /^KW 2 · VL-Woche 13/ })).toBeVisible();
+  await expect(page.getByText('Prüfungsanmeldung bis')).toBeVisible(); /* Anmeldeschluss am Fr, 15.01., im Raster */
+  // abschaltbar in den Einstellungen
+  await page.reload();
+  await openData(page, 'Studium');
+  await page.getByLabel(/Semestertermine der TUM als Fristen/).uncheck();
+  await nav(page, 'Heute').click();
+  await expect(page.locator('.group-fristen')).toHaveCount(0);
+});
+
 test('Breiter Bildschirm: Heute und Woche nebeneinander, abschaltbar', async ({ page }) => {
   await onWeekday(page);
   await page.setViewportSize({ width: 1400, height: 900 });
@@ -1332,7 +1372,7 @@ test('Breiter Bildschirm: Heute und Woche nebeneinander, abschaltbar', async ({ 
   const [a, b] = await Promise.all([page.locator('.split-main').boundingBox(), side.boundingBox()]);
   expect(b.x).toBeGreaterThan(a.x + a.width - 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await openData(page);
+  await openData(page, 'Darstellung');
   await page.getByLabel('Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen').uncheck();
   await nav(page, 'Heute').click();
   await expect(side).toHaveCount(0);
@@ -1544,6 +1584,7 @@ test('Mehrfachauswahl und Papierkorb: zwei Abgaben löschen und zurückholen, me
   await expect.poll(async () => (await stored(page)).homework.map((h) => h.title)).toEqual(['Blatt 3']);
 
   await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  await openGroup(page, 'Papierkorb');
   const trash = page.locator('section', { has: page.getByRole('heading', { name: /^Papierkorb/ }) });
   await expect(trash).toContainText('2 Abgaben');
   await trash.getByRole('button', { name: 'Wiederherstellen' }).click();
@@ -1727,6 +1768,7 @@ test('Strg + K zeigt zuletzt Geöffnetes; Vibration beim Abhaken abschaltbar', a
   /* Vibration: Voreinstellung an, nur auf diesem Gerät */
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  await openGroup(page, 'Darstellung');
   const vib = page.getByLabel('Kurz vibrieren beim Abhaken (nur dieses Gerät)');
   await expect(vib).toBeChecked();
   await vib.uncheck();
@@ -1868,4 +1910,63 @@ test('Lernzeit-Kalender, gemerkte Ansicht nach Neustart, Speichern unten im Form
   await expect(save).toBeInViewport();
   const box = await save.boundingBox(), vh = page.viewportSize().height;
   expect(box.y + box.height).toBeGreaterThan(vh - 120);
+});
+
+test('Einstellungen: Gruppen aufklappen und merken, Suche und Strg + K springen hin', async ({ page }) => {
+  await page.goto('./');
+  await openData(page);
+  const toggle = (name) => page.locator('.settings-toggle', { hasText: new RegExp('^' + name) });
+  /* am Handy zuerst nur die Übersicht */
+  await expect(toggle('Darstellung')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('tablist', { name: 'Farbpalette' })).toHaveCount(0);
+  await toggle('Darstellung').click();
+  await expect(page.getByRole('tablist', { name: 'Farbpalette' })).toBeVisible();
+  /* eine andere Gruppe schließt die erste */
+  await toggle('Studium').click();
+  await expect(page.getByLabel('Hochschule')).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Farbpalette' })).toHaveCount(0);
+  await page.reload();
+  await openData(page);
+  await expect(toggle('Studium')).toHaveAttribute('aria-expanded', 'true');
+  /* Suche auf der Seite */
+  await page.getByLabel('Einstellungen durchsuchen').fill('schriftgr');
+  const hits = page.getByRole('list', { name: 'Passende Einstellungen' });
+  await hits.getByRole('button', { name: /Schriftgröße/ }).click();
+  await expect(toggle('Darstellung')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('[data-set="size"]')).toHaveClass(/settings-hit/);
+  await page.getByLabel('Einstellungen durchsuchen').fill('losgehen');
+  await page.keyboard.press('Enter');
+  await expect(toggle('Benachrichtigungen')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText('Pushes zum Losgehen gibt es, sobald „Weg zur Uni“ eingeschaltet ist.')).toBeVisible();
+  await page.getByLabel('Einstellungen durchsuchen').fill('xyzzy');
+  await expect(page.getByText('Keine Einstellung zu „xyzzy“.')).toBeVisible();
+  await page.getByLabel('Einstellungen durchsuchen').fill('');
+  /* Strg + K: von „Heute“ direkt zur Mensa-Auswahl */
+  await nav(page, 'Heute').click();
+  await page.getByRole('button', { name: 'Suchen (Strg + K)' }).click();
+  await page.getByLabel('Suchbegriff').fill('mensa');
+  await page.getByRole('option', { name: /Mensa auf „Heute“.*Einstellung · Studium/ }).click();
+  await expect(toggle('Studium')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByLabel('Mensa auf „Heute“')).toBeVisible();
+  await expect(page.locator('[data-set="mensa"]')).toHaveClass(/settings-hit/);
+});
+
+test('Was ist neu: nicht beim ersten Start, einmal nach einem Update, jederzeit unter Mehr', async ({ page }) => {
+  await loadDemo(page);
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Was ist neu' })).toHaveCount(0);
+  /* so tun, als wäre nur ein älterer Punkt bekannt */
+  await page.evaluate(() => localStorage.setItem('studyos-neu-gesehen', JSON.stringify(['Etwas Altes'])));
+  await page.reload();
+  const card = page.getByRole('region', { name: 'Was ist neu' });
+  await expect(card).toContainText('Neu in StudyOS');
+  await expect(card.getByRole('listitem').first()).toBeVisible();
+  await card.getByRole('button', { name: 'Was ist neu schließen' }).click();
+  await expect(card).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Was ist neu' })).toHaveCount(0);
+  await nav(page, 'Mehr').click();
+  await page.getByRole('tab', { name: 'Was ist neu' }).click();
+  await expect(page.getByRole('heading', { name: 'Zuletzt dazugekommen' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Version \d/ }).first()).toBeVisible();
 });

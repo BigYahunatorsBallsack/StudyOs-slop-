@@ -26,6 +26,8 @@ function run(mode, fn) {
 export const putLocal = (id, blob) => run("readwrite", (s) => s.put(blob, id));
 export const getLocal = (id) => run("readonly", (s) => s.get(id)).catch(() => null);
 export const removeLocal = (id) => run("readwrite", (s) => s.delete(id)).catch(() => {});
+/** ids aller lokal gespeicherten Dateien (für Aufräumen) */
+export const listLocal = () => run("readonly", (s) => s.getAllKeys()).then((k) => (k || []).map(String)).catch(() => []);
 
 /** Verschlüsselt Bytes: 12 Byte IV + Chiffrat */
 export async function sealBytes(key, bytes) {

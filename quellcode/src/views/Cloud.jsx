@@ -73,10 +73,8 @@ export function CloudCard({ cloud, settings = {}, patchSettings, onRestore }) {
             <ConfirmButton label="Abmelden" confirmLabel="Auf diesem Gerät abmelden?" className={btnGhost} onConfirm={cloud.signOut} />
             <ConfirmButton label="Cloud-Daten löschen" confirmLabel="Cloud-Kopie wirklich löschen?" onConfirm={cloud.deleteCloud} />
           </div>
-          <Reminders cloud={cloud} settings={settings} patchSettings={patchSettings} />
+          <p className="mt-2 text-[11px] text-slate-500">Abmelden lässt die Daten auf diesem Gerät. „Cloud-Daten löschen“ entfernt nur die Kopie in der Cloud; danach kannst du mit einer neuen Passphrase neu hochladen. Achtung: „Alle Daten löschen“ unter „Zurücksetzen“ wird bei aktivem Sync auf allen Geräten wirksam.</p>
           {patchSettings && <CloudBackups cloud={cloud} settings={settings} patchSettings={patchSettings} onRestore={onRestore} />}
-          {patchSettings && <CalendarFeed cloud={cloud} settings={settings} patchSettings={patchSettings} />}
-          <p className="mt-2 text-[11px] text-slate-500">Abmelden lässt die Daten auf diesem Gerät. „Cloud-Daten löschen“ entfernt nur die Kopie in der Cloud; danach kannst du mit einer neuen Passphrase neu hochladen. Achtung: „Alle Daten löschen“ unten wird bei aktivem Sync auf allen Geräten wirksam.</p>
         </>
       )}
     </Card>
@@ -99,7 +97,7 @@ function CloudBackups({ cloud, settings, patchSettings, onRestore }) {
     catch (e) { setErr(e.message || "Die Sicherung ließ sich nicht öffnen."); } finally { setBusy(""); }
   };
   return (
-    <div className="mt-4 border-t border-slate-800 pt-4">
+    <div className="mt-4 border-t border-slate-800 pt-4" data-set="cloudBackup">
       <h3 className="section-title">Cloud-Sicherung</h3>
       <p className="mt-1 text-xs text-slate-400">Einmal pro Woche ein verschlüsselter Schnappschuss deiner Daten im privaten Cloud-Speicher, die letzten 8 Wochen bleiben erhalten. Hilft, wenn etwas versehentlich auf allen Geräten gelöscht wurde.</p>
       <label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={on} onChange={(e) => patchSettings({ cloudBackup: e.target.checked })} /> Jede Woche automatisch sichern</label>
@@ -121,13 +119,12 @@ function CloudBackups({ cloud, settings, patchSettings, onRestore }) {
   );
 }
 
-/* Push-Erinnerungen für Abgaben, Prüfungen und Anmeldeschlüsse */
-function Reminders({ cloud, settings, patchSettings }) {
+/* Push-Erinnerungen für Abgaben, Prüfungen und Anmeldeschlüsse (unter Benachrichtigungen; braucht Cloud-Sync) */
+export function Reminders({ cloud, settings, patchSettings }) {
   const on = cloud.pushDevice === "on";
   return (
-    <div className="mt-4 border-t border-slate-800 pt-4">
-      <h3 className="section-title">Erinnerungen</h3>
-      <p className="mt-1 text-xs text-slate-400">
+    <Card title="Erinnerungen">
+      <p className="text-xs text-slate-400" data-set="push">
         Push-Nachricht am Vorabend und am Morgen einer Abgabe, eine Woche und einen Tag vor Prüfungen sowie vor Anmeldeschlüssen. Dafür liegen Titel und Datum dieser Fristen unverschlüsselt bei Supabase; alles andere bleibt verschlüsselt.
       </p>
       {cloud.pushBlocker && !on ? (
@@ -146,26 +143,27 @@ function Reminders({ cloud, settings, patchSettings }) {
       )}
       {on && patchSettings && (
         <div className="mt-3 space-y-2 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2" data-set="pushMorning">
             <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushMorning !== false} onChange={(e) => patchSettings({ pushMorning: e.target.checked })} /> Morgens der Tag im Überblick um</label>
             <label className="sr-only" htmlFor="push-morning">Uhrzeit für den Tagesüberblick</label>
             <input id="push-morning" type="time" className="field py-1 text-sm" value={settings.morningTime || "07:00"} disabled={settings.pushMorning === false} onChange={(e) => e.target.value && patchSettings({ morningTime: e.target.value })} />
           </div>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushReviews !== false} onChange={(e) => patchSettings({ pushReviews: e.target.checked })} /> Um 20 Uhr, wenn heutige Termine noch nicht nachbereitet sind</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushAttended !== false} onChange={(e) => patchSettings({ pushAttended: e.target.checked })} /> Um 19 Uhr „Heute besucht?“ mit Knopf „Alle besucht“, wenn heutige Termine noch nicht abgehakt sind</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushChanges !== false} onChange={(e) => patchSettings({ pushChanges: e.target.checked })} /> Wenn sich im Stundenplan-Abo ein Raum oder eine Uhrzeit ändert oder etwas ausfällt</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushBlocks !== false} onChange={(e) => patchSettings({ pushBlocks: e.target.checked })} /> 10 Minuten vor einem geplanten Lernblock</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.pushWeekly !== false} onChange={(e) => patchSettings({ pushWeekly: e.target.checked })} /> Sonntags um 18 Uhr Rückblick (Lernzeit, fällige Karten) und Ausblick auf die nächste Woche</label>
+          <label className="flex items-center gap-2" data-set="pushReviews"><input type="checkbox" checked={settings.pushReviews !== false} onChange={(e) => patchSettings({ pushReviews: e.target.checked })} /> Um 20 Uhr, wenn heutige Termine noch nicht nachbereitet sind</label>
+          <label className="flex items-center gap-2" data-set="pushAttended"><input type="checkbox" checked={settings.pushAttended !== false} onChange={(e) => patchSettings({ pushAttended: e.target.checked })} /> Um 19 Uhr „Heute besucht?“ mit Knopf „Alle besucht“, wenn heutige Termine noch nicht abgehakt sind</label>
+          <label className="flex items-center gap-2" data-set="pushChanges"><input type="checkbox" checked={settings.pushChanges !== false} onChange={(e) => patchSettings({ pushChanges: e.target.checked })} /> Wenn sich im Stundenplan-Abo ein Raum oder eine Uhrzeit ändert oder etwas ausfällt</label>
+          <label className="flex items-center gap-2" data-set="pushBlocks"><input type="checkbox" checked={settings.pushBlocks !== false} onChange={(e) => patchSettings({ pushBlocks: e.target.checked })} /> 10 Minuten vor einem geplanten Lernblock</label>
+          <label className="flex items-center gap-2" data-set="pushWeekly"><input type="checkbox" checked={settings.pushWeekly !== false} onChange={(e) => patchSettings({ pushWeekly: e.target.checked })} /> Sonntags um 18 Uhr Rückblick (Lernzeit, fällige Karten) und Ausblick auf die nächste Woche</label>
         </div>
       )}
+      {cloud.error && <p role="alert" className="mt-2 text-xs text-rose-400">{cloud.error}</p>}
       {cloud.pushStep && <p role="status" className="mt-2 text-xs text-slate-400">{cloud.pushStep}</p>}
       {cloud.pushMsg && <p role="status" className="mt-2 text-xs text-emerald-300">{cloud.pushMsg}</p>}
-    </div>
+    </Card>
   );
 }
 
-/* Fristen als Kalender-Abo für Google/Apple-Kalender */
-function CalendarFeed({ cloud, settings, patchSettings }) {
+/* Fristen als Kalender-Abo für Google/Apple-Kalender (unter Kalender & Abos; braucht Cloud-Sync) */
+export function CalendarFeed({ cloud, settings, patchSettings }) {
   const token = settings.calToken || "";
   const [msg, setMsg] = useState(""), [err, setErr] = useState("");
   const url = token ? cloud.calUrl(token) : "";
@@ -183,9 +181,8 @@ function CalendarFeed({ cloud, settings, patchSettings }) {
   };
   const copy = async () => { try { await navigator.clipboard.writeText(url); setMsg("Link kopiert."); } catch { setMsg("Bitte den Link markieren und kopieren."); } };
   return (
-    <div className="mt-4 border-t border-slate-800 pt-4">
-      <h3 className="section-title">Fristen im Handy-Kalender</h3>
-      <p className="mt-1 text-xs text-slate-400">Abgaben, Prüfungen und Anmeldeschlüsse als Kalender-Abo für Google Kalender, Apple Kalender oder Outlook. Es nutzt dieselben unverschlüsselten Fristen wie die Erinnerungen. Wer den Link kennt, sieht sie; du kannst ihn jederzeit widerrufen.</p>
+    <Card title="Fristen im Handy-Kalender">
+      <p className="text-xs text-slate-400">Abgaben, Prüfungen und Anmeldeschlüsse als Kalender-Abo für Google Kalender, Apple Kalender oder Outlook. Es nutzt dieselben unverschlüsselten Fristen wie die Erinnerungen. Wer den Link kennt, sieht sie; du kannst ihn jederzeit widerrufen.</p>
       {!token ? (
         <button className="btn btn-ghost mt-3" onClick={create} disabled={cloud.busy}>Kalender-Link erstellen</button>
       ) : (
@@ -201,6 +198,6 @@ function CalendarFeed({ cloud, settings, patchSettings }) {
       )}
       {err && <p role="alert" className="mt-2 text-xs text-rose-400">{err}</p>}
       {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
-    </div>
+    </Card>
   );
 }

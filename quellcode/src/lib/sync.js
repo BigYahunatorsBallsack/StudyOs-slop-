@@ -2,8 +2,10 @@
    Jeder Eintrag trägt `updated` (jüngste Änderung) und, sobald er einmal bearbeitet wurde, `fu` mit den
    Zeitstempeln der einzelnen Felder ("*" = alle nicht aufgeführten Felder). Zusammengeführt wird pro Feld.
    Zeitstempel kommen aus einer hybriden Uhr: Geräteuhr plus Versatz zur Serverzeit, und nie älter als der
-   Stand, der gerade bearbeitet wird. Löschungen landen als Grabsteine in `data.deleted`. */
+   Stand, der gerade bearbeitet wird. Löschungen landen als Grabsteine in `data.deleted`, ebenso wiederhergestellte
+   oder endgültig gelöschte Papierkorb-Einträge (Sammlung "trash", siehe trash.js). */
 import { COLLS, DATA_VERSION } from "./constants.js";
+import { TRASH_TOMB, mergeTrash, trashRemoved } from "./trash.js";
 
 export const EPOCH = "1970-01-01T00:00:00.000Z";
 const KEEP_DAYS = 365; /* so lange bleiben Grabsteine erhalten */
@@ -46,10 +48,10 @@ function groupOf(c) {
 }
 const groupFields = (c) => (g) => GROUPS[c]?.[g] || [g];
 
-/* Listen, deren Elemente eine eigene id tragen (Teilaufgaben einer Abgabe), werden pro Element zusammengeführt:
+/* Listen, deren Elemente eine eigene id tragen (Teilaufgaben einer Abgabe, Links eines Moduls), werden pro Element zusammengeführt:
    Für Stempel und Zusammenführen gilt jedes Element als eigenes Feld "liste:id", die Reihenfolge als "liste#".
    Die ganze Liste bleibt zusätzlich als Feld erhalten, damit ältere App-Versionen sie wie bisher als ein Feld behandeln. */
-const LISTS = { homework: ["subtasks"] };
+const LISTS = { homework: ["subtasks"], modules: ["links"] };
 function flatten(c) {
   const lists = LISTS[c];
   if (!lists) return (x) => x;
@@ -163,6 +165,8 @@ export function stampChanges(prev, next, now = nowIso()) {
       changed = true;
     }
   }
+  /* aus dem Papierkorb verschwunden (wiederhergestellt, endgültig gelöscht, abgelaufen): Grabstein, damit das andere Gerät ihn nicht zurückbringt */
+  for (const id of trashRemoved(prev.meta?.trash, next.meta?.trash)) { tombs.set(`${TRASH_TOMB}:${id}`, { c: TRASH_TOMB, id, at: now }); changed = true; }
   if (!changed) return next;
   out.deleted = pruneTombs(tombs, now);
   return out;
@@ -230,6 +234,8 @@ export function mergeData(local, remote, now = nowIso()) {
   if (Object.keys(s.fu).length > 1 || lm.settingsFu || rm.settingsFu) out.meta.settingsFu = s.fu;
   else delete out.meta.settingsFu;
   out.meta.lastBackup = [local.meta?.lastBackup, remote.meta?.lastBackup].filter(Boolean).sort().pop() || null;
+  /* Papierkorb beider Geräte nach id vereinen, ohne Einträge mit Grabstein */
+  if (lm.trash || rm.trash) out.meta.trash = mergeTrash(lm.trash, rm.trash, new Set([...tombs.values()].filter((t) => t.c === TRASH_TOMB).map((t) => t.id)), new Date(now));
   out.deleted = pruneTombs(tombs, now);
   return { data: out, stats };
 }

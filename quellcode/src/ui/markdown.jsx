@@ -74,8 +74,9 @@ function TaskItem({ text, done, onToggle, k }) {
   return <li className={`md-task ${done ? "md-task-done" : ""}`}>{box}<span className="min-w-0 flex-1">{mdInline(text, k)}</span></li>;
 }
 
-/** onToggleTask(zeile): Kästchen „- [ ]“ antippbar machen; zeile ist die Zeilennummer im Text (ab 0). */
-export function Markdown({ text, onToggleTask }) {
+/** onToggleTask(zeile): Kästchen „- [ ]“ antippbar machen; zeile ist die Zeilennummer im Text (ab 0).
+    idPrefix: Überschriften bekommen die id „präfix-zeile“ (Sprungziel fürs Inhaltsverzeichnis). */
+export function Markdown({ text, onToggleTask, idPrefix }) {
   const src = String(text || "");
   const x = useExtras(needsExtras(src));
   const lines = src.split("\n"); const blocks = []; let i = 0;
@@ -93,7 +94,7 @@ export function Markdown({ text, onToggleTask }) {
       blocks.push(<MathTex key={i} tex={buf.join("\n").trim()} display />); continue;
     }
     const h = /^(#{1,3})\s+(.*)$/.exec(ln);
-    if (h) { const T = "h" + h[1].length; blocks.push(<T key={i}>{mdInline(h[2], "h" + i)}</T>); i++; continue; }
+    if (h) { const T = "h" + h[1].length; blocks.push(<T key={i} id={idPrefix ? `${idPrefix}-${i}` : undefined} tabIndex={idPrefix ? -1 : undefined}>{mdInline(h[2], "h" + i)}</T>); i++; continue; }
     if (/^\s*[-*]\s+/.test(ln) || /^\s*\d+[.)]\s+/.test(ln)) {
       const ordered = /^\s*\d+[.)]\s+/.test(ln); const items = [];
       while (i < lines.length && (ordered ? /^\s*\d+[.)]\s+/ : /^\s*[-*]\s+/).test(lines[i])) { items.push({ text: lines[i].replace(/^\s*([-*]|\d+[.)])\s+/, ""), line: i }); i++; }

@@ -3,6 +3,8 @@ import { addDays, byOrder, byTime, dayOf, fmtShort, iso } from "./util.js";
 import { hasCloze } from "./cards.js";
 import { pickColor } from "./colors.js";
 import { parseWatch } from "./tum.js";
+import { cleanLinks, linksError } from "./modlinks.js";
+import { cleanPartners, fixAssignees } from "./partners.js";
 
 /* ---------------- Formulardefinitionen ---------------- */
 export const opt = (arr) => arr.map((x) => (typeof x === "string" ? { value: x, label: x } : x));
@@ -38,11 +40,12 @@ export function formDef(kind, d) {
       { k: "expectedGrade", l: "Erwartete Note (für die Prognose)", t: "decimal", min: 1, max: 5, ph: "z. B. 2,3", half: true },
       { k: "weeklyGoal", l: "Lernziel pro Woche in Stunden (optional)", t: "decimal", min: 0, max: 80, ph: "z. B. 4", half: true },
       { k: "liveUrl", l: "Aufzeichnungen (TUM-Live-Link)", t: "url", ph: "https://live.rbg.tum.de/…", half: true },
+      { k: "links", l: "Links (optional)", t: "links", hint: "Moodle-Kurs, Artemis, Zulip, Skript … Bekannte Seiten bekommen ihren Namen von selbst; der Artemis-Kurs aus dem Abo steht schon da." },
       { k: "gop", l: "Zählt zur Grundlagenprüfung (GOP)", t: "checkbox" },
       { k: "semesterStart", l: "Semesterbeginn (optional)", t: "date", half: true, hint: "Für die Workload-Ampel; sonst zählt der erste Termin." },
       { k: "color", l: "Farbe", t: "color", def: () => pickColor(d.modules) },
       { k: "archived", l: "Archiviert (abgeschlossen, wird in Heute, Woche-Vorschlägen und Erinnerungen ausgeblendet)", t: "checkbox", editOnly: true },
-    ], validate: (v) => (v.liveUrl && !/^https:\/\/\S+$/i.test(v.liveUrl) ? "Der Aufzeichnungs-Link muss mit https:// beginnen." : "") };
+    ], validate: (v) => (v.liveUrl && !/^https:\/\/\S+$/i.test(v.liveUrl) ? "Der Aufzeichnungs-Link muss mit https:// beginnen." : linksError(v.links)), prepare: (out) => ({ ...out, links: cleanLinks(out.links) }) };
     case "session": return { title: "Lehrveranstaltung", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },
       { k: "type", l: "Art", t: "select", opts: opt(SESSION_TYPES), def: "Vorlesung", half: true },
@@ -62,12 +65,14 @@ export function formDef(kind, d) {
       { k: "due", l: "Abgabe", t: "date", req: true, half: true },
       { k: "dueTime", l: "Uhrzeit (optional)", t: "time", half: true },
       { k: "status", l: "Status", t: "select", opts: opt(HW_STATUS), def: "ausgegeben" },
+      { k: "partners", l: "Partner (optional)", t: "people", hint: "Für Gruppen: Namen mit Enter oder Komma. Beim nächsten Blatt im Modul schon eingetragen." },
       { k: "subtasks", l: "Teilaufgaben (optional)", t: "subtasks", hint: "Mit Enter hinzufügen. „a-d“ oder „Aufgabe 1-4“ legt mehrere auf einmal an." },
       { k: "points", l: "Erreichte Punkte", t: "decimal", min: 0, half: true },
       { k: "maxPoints", l: "Maximale Punkte", t: "decimal", min: 0, half: true },
       { k: "feedback", l: "Feedback / Notizen", t: "textarea", rows: 3 },
       { k: "repeatUntil", l: "Jede Woche ein neues Blatt bis (optional)", t: "date", createOnly: true, hint: "Legt die Folgeblätter gleich mit an und zählt den Titel hoch: Blatt 1, Blatt 2, …" },
-    ], validate: (v) => (v.repeatUntil && v.repeatUntil < (v.issued || v.due) ? "Das Enddatum der Serie liegt vor dem ersten Blatt." : v.issued && v.due && v.due < v.issued ? "Die Abgabe liegt vor dem Ausgabedatum." : v.points !== null && v.points !== "" && v.maxPoints !== null && v.maxPoints !== "" && Number(v.points) > Number(v.maxPoints) ? "Erreichte Punkte dürfen nicht über den maximalen Punkten liegen." : "") };
+    ], validate: (v) => (v.repeatUntil && v.repeatUntil < (v.issued || v.due) ? "Das Enddatum der Serie liegt vor dem ersten Blatt." : v.issued && v.due && v.due < v.issued ? "Die Abgabe liegt vor dem Ausgabedatum." : v.points !== null && v.points !== "" && v.maxPoints !== null && v.maxPoints !== "" && Number(v.points) > Number(v.maxPoints) ? "Erreichte Punkte dürfen nicht über den maximalen Punkten liegen." : ""),
+      prepare: (out) => { const partners = cleanPartners(out.partners); return { ...out, partners, subtasks: fixAssignees(out.subtasks, partners) }; } };
     case "topic": return { title: "Thema / Kapitel", fields: [
       { k: "moduleId", l: "Modul", t: "select", req: true, opts: () => modOpts(d) },
       { k: "title", l: "Titel", t: "text", req: true, ph: "z. B. Kap. 3: Vektorräume" },

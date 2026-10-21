@@ -1,6 +1,8 @@
 /* Teilaufgaben einer Abgabe: Fortschrittsbalken, Abhaken in der Liste und Bearbeiten im Formular. */
 import React, { useState } from "react";
 import { MAX_SUBTASKS, newSubtasks, subProgress } from "../lib/subtasks.js";
+import { cleanPartners } from "../lib/partners.js";
+import { Select } from "./select.jsx";
 
 /** Schmaler Balken mit „2/3“, als span, weil er teils in einem Knopf steht. */
 export function SubtaskProgress({ h, color, className = "" }) {
@@ -19,7 +21,7 @@ export function SubtaskChecklist({ h, db, color }) {
   const [open, setOpen] = useState(false);
   const p = subProgress(h);
   if (!p.total) return null;
-  const listId = `sub-${h.id}`;
+  const listId = `sub-${h.id}`, team = cleanPartners(h.partners).length > 0;
   return (
     <div className="subtasks">
       <button type="button" className="subtasks-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
@@ -34,6 +36,7 @@ export function SubtaskChecklist({ h, db, color }) {
               <label className={s.done ? "is-done" : ""}>
                 <input type="checkbox" checked={!!s.done} onChange={() => db.toggleSubtask(h.id, s.id)} />
                 <span>{s.title}</span>
+                {team && <em className="subtask-by">{s.by || "ich"}</em>}
               </label>
             </li>
           ))}
@@ -44,8 +47,8 @@ export function SubtaskChecklist({ h, db, color }) {
 }
 
 /** Formularfeld: Teilaufgaben anlegen, umbenennen, abhaken und entfernen. */
-export function SubtaskEditor({ id, value, onChange }) {
-  const list = Array.isArray(value) ? value : [];
+export function SubtaskEditor({ id, value, onChange, partners }) {
+  const list = Array.isArray(value) ? value : [], team = cleanPartners(partners);
   const [draft, setDraft] = useState("");
   const add = () => { if (!draft.trim()) return; onChange(newSubtasks(draft, list)); setDraft(""); };
   const set = (sid, p) => onChange(list.map((s) => (s.id === sid ? { ...s, ...p } : s)));
@@ -57,6 +60,12 @@ export function SubtaskEditor({ id, value, onChange }) {
             <li key={s.id}>
               <input type="checkbox" checked={!!s.done} onChange={(e) => set(s.id, { done: e.target.checked })} aria-label={`${s.title || `Teilaufgabe ${i + 1}`} erledigt`} />
               <input className="field min-w-0 flex-1 py-1.5 text-sm" value={s.title} onChange={(e) => set(s.id, { title: e.target.value })} aria-label={`Teilaufgabe ${i + 1}`} />
+              {team.length > 0 && (
+                <Select className="field subtask-who py-1.5 text-xs" value={team.includes(s.by) ? s.by : ""} onChange={(e) => set(s.id, { by: e.target.value })} aria-label={`Zuständig für ${s.title || `Teilaufgabe ${i + 1}`}`}>
+                  <option value="">ich</option>
+                  {team.map((p) => <option key={p} value={p}>{p}</option>)}
+                </Select>
+              )}
               <button type="button" className="btn btn-ghost btn-icon" onClick={() => onChange(list.filter((x) => x.id !== s.id))} aria-label={`${s.title || `Teilaufgabe ${i + 1}`} entfernen`}>✕</button>
             </li>
           ))}

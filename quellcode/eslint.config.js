@@ -8,7 +8,7 @@ export default [
   {
     files: ['src/**/*.{js,jsx}'],
     plugins: { react },
-    languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.browser, __APP_VERSION__: 'readonly' }, parserOptions: { ecmaFeatures: { jsx: true } } },
+    languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.browser, __APP_VERSION__: 'readonly', __WHATS_NEW__: 'readonly' }, parserOptions: { ecmaFeatures: { jsx: true } } },
     rules: {
       'no-undef': 'error',
       'react/jsx-uses-vars': 'error',

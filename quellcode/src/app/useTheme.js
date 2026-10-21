@@ -7,7 +7,7 @@ const OLD = { arcade: "pixel", crt: "neon", glitch: "scan" };
 export const retroMotionOf = (v) => (RETRO_MOTIONS.includes(v) ? v : OLD[v] || "pixel");
 
 /* Farbpaletten: Name, Beschriftung, Hintergrund (für die Browser-Leiste) */
-export const RETRO_PALETTES = [["synthwave", "Synthwave", "#0d0221"], ["gameboy", "Gameboy", "#0b2a0b"], ["amber", "Bernstein", "#140b00"], ["cga", "CGA", "#000000"]];
+export const RETRO_PALETTES = [["synthwave", "Synthwave", "#0d0221"], ["gameboy", "Gameboy", "#0b2a0b"], ["amber", "Bernstein", "#140b00"], ["cga", "CGA", "#000000"], ["papier", "Papier", "#f3ead3"]];
 export const retroPaletteOf = (v) => (RETRO_PALETTES.some(([k]) => k === v) ? v : "synthwave");
 
 /* Schriftgröße: skaliert über die Grundschrift alles, was in rem gesetzt ist (Text, Abstände, Knöpfe) */
@@ -25,6 +25,9 @@ function applyPalette(p) {
   if (p === "synthwave") delete root.dataset.palette; else root.dataset.palette = p;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", RETRO_PALETTES.find(([k]) => k === p)[2]);
+  /* iOS-Statusleiste: auf hellem Papier dunkle Schrift (greift dort erst beim nächsten Start der Web-App) */
+  const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (bar) bar.setAttribute("content", p === "papier" ? "default" : "black-translucent");
 }
 if (typeof document !== "undefined") {
   try {

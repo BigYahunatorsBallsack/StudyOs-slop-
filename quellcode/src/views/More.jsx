@@ -8,6 +8,7 @@ import { DueCrowding, HomeworkRow } from "../ui/rows.jsx";
 import { SelectToggle } from "../ui/selection.jsx";
 import { btnPrimary, focusRing, inputBase, inputFlex } from "../ui/styles.js";
 import { DataView } from "./Data.jsx";
+import { WhatsNewList } from "../ui/WhatsNew.jsx";
 import { gopStatus, gradeForecast } from "../lib/tum.js";
 import { achievements } from "../lib/progress.js";
 import { effortVsGrade, gradeTimeline, learningRhythm, minutesBySemester, semesterCalendar, semesterOf } from "../lib/stats.js";
@@ -18,12 +19,13 @@ export function More({ db, sub, setSub }) {
   return (
     <div className="space-y-4">
       <h2 className="page-title mb-1">Mehr</h2>
-      <Tabs items={[["rueckblick", "Wochenrückblick"], ["erfolge", "Erfolge"], ["hausaufgaben", "Alle Hausaufgaben"], ["studium", "Studienfortschritt"], ["daten", "Daten & Einstellungen"]]} value={sub} onChange={setSub} label="Weitere Bereiche" />
+      <Tabs items={[["rueckblick", "Wochenrückblick"], ["erfolge", "Erfolge"], ["hausaufgaben", "Alle Hausaufgaben"], ["studium", "Studienfortschritt"], ["daten", "Daten & Einstellungen"], ["neu", "Was ist neu"]]} value={sub} onChange={setSub} label="Weitere Bereiche" />
       {sub === "rueckblick" && <Review db={db} />}
       {sub === "erfolge" && <Achievements data={db.data} />}
       {sub === "hausaufgaben" && <HomeworkAll db={db} />}
       {sub === "studium" && <Progress db={db} />}
       {sub === "daten" && <DataView db={db} />}
+      {sub === "neu" && <WhatsNewList />}
     </div>
   );
 }

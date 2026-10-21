@@ -18,7 +18,7 @@ export function WhatNowDialog({ db, onClose }) {
     <Modal title="Was jetzt?" onClose={onClose}>
       <p className="text-sm text-slate-400">Wie viel Zeit hast du?</p>
       <div className="seg mt-2" role="radiogroup" aria-label="Verfügbare Zeit">
-        {TIMES.map((n) => <button key={n} role="radio" aria-checked={mins === n} className="seg-item" aria-selected={mins === n} onClick={() => pick(n)}>{n} min</button>)}
+        {TIMES.map((n) => <button key={n} role="radio" aria-checked={mins === n} className="seg-item" onClick={() => pick(n)}>{n} min</button>)}
       </div>
       {!list.length ? <p className="mt-4 text-sm text-slate-300">Gerade ist nichts offen. Gönn dir eine Pause, oder lies schon mal in die nächste Vorlesung rein.</p> : (
         <>

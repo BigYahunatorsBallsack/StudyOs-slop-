@@ -1,6 +1,7 @@
 import { DONE_HW } from "./constants.js";
 import { isActive } from "./data.js";
 import { addDays, iso, wdIdx, weekStart } from "./util.js";
+import { uniDates } from "./tumdates.js";
 
 /* ICS-Parser (z. B. Kalender-Export aus TUMonline) */
 export function parseICS(text) {
@@ -67,7 +68,7 @@ export function parseICS(text) {
 export const guessType = (s) => /zentral/i.test(s) ? "Zentralübung" : /tutor/i.test(s) ? "Tutorium" : /übung|uebung|\bUE\b|exercise/i.test(s) ? "Übung" : /praktikum/i.test(s) ? "Praktikum" : "Vorlesung";
 
 /* ICS-Export: Abgaben, Prüfungen und Termine für den Handy-Kalender (mit Erinnerungen) */
-export function buildICS(data, { hw = true, exams = true, sessions = false } = {}) {
+export function buildICS(data, { homework = true, hw = homework, exams = true, sessions = false, uni = true } = {}) {
   const esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
   const d8 = (s) => s.replace(/-/g, "");
   const t6 = (s) => (s || "00:00").replace(":", "") + "00";
@@ -88,6 +89,12 @@ export function buildICS(data, { hw = true, exams = true, sessions = false } = {
   if (sessions) data.sessions.filter((s) => isActive(s) && s.date >= iso()).forEach((s) => ev([
     `UID:ses-${s.id}@studyos`, `DTSTART:${d8(s.date)}T${t6(s.start)}`, `DTEND:${d8(s.date)}T${t6(s.end || s.start)}`,
     `SUMMARY:${esc(`${s.type}: ${mod(s.moduleId)}`)}`, ...(s.room ? [`LOCATION:${esc(s.room)}`] : []),
+  ]));
+  /* Feste Semestertermine der TUM (abgeleitet, nicht gespeichert); Erinnerung am Vortag bei Rückmeldung und Anmeldeschluss */
+  if (uni) uniDates(data.settings || {}).filter((x) => x.date >= iso()).forEach((x) => ev([
+    `UID:uni-${x.id}@studyos`, `DTSTART;VALUE=DATE:${d8(x.date)}`, `DTEND;VALUE=DATE:${d8(addDays(x.date, 1))}`,
+    `SUMMARY:${esc(x.title)}`, "TRANSP:TRANSPARENT",
+    ...(x.kind === "fee" || x.end ? ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc("Morgen: " + x.title)}`, "TRIGGER:-PT15H", "END:VALARM"] : []),
   ]));
   L.push("END:VCALENDAR");
   return L.join("\r\n") + "\r\n";

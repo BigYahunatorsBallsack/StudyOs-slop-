@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { pickColor } from "../lib/colors.js";
 import { countsOf, demoData, emptyData, normalizeImport } from "../lib/data.js";
 import { buildICS, guessType, parseICS } from "../lib/ics.js";
@@ -7,20 +7,289 @@ import { Card, ConfirmButton, Tabs } from "../ui/primitives.jsx";
 import { RETRO_PALETTES, UI_SIZES, retroMotionOf, retroPaletteOf, useUiSize } from "../app/useTheme.js";
 import { btnGhost, btnPrimary, inputBase, inputCls, inputFlex } from "../ui/styles.js";
 import { decryptBackup, encryptBackup, isEncryptedBackup } from "../lib/crypto.js";
-import { CloudCard } from "./Cloud.jsx";
+import { CalendarFeed, CloudCard, Reminders } from "./Cloud.jsx";
 import { CANTEENS, mensaOf } from "../lib/mensa.js";
 import { CURRICULA, curriculumOf } from "../lib/curriculum.js";
-import { CommuteSettings } from "./Commute.jsx";
+import { CommutePush, CommuteSettings } from "./Commute.jsx";
 import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
 import { Select } from "../ui/select.jsx";
 import { TUM_BREAKS, offDay } from "../lib/holidays.js";
 import { buzz, canVibrate, hapticsOn, playSfx, setHapticsOn } from "../ui/sfx.js";
 import { TRASH_DAYS, trashOf } from "../lib/trash.js";
+import { TumDatesToggle } from "../ui/TumDatesToggle.jsx";
+import { CleanupCard } from "./Cleanup.jsx";
+import { AppLockCard } from "../ui/AppLock.jsx";
+import { lockAvailable } from "../lib/applock.js";
+import { EVENT, SETTING_GROUPS, matchSettings, readGroup, rememberGroup, takeRequest } from "../lib/settings.js";
+
+/* Am breiten Bildschirm Gruppen links, die offene Gruppe rechts; am Handy klappen die Gruppen untereinander auf */
+const WIDE = "(min-width: 768px)";
+function useWide() {
+  const get = () => { try { return window.matchMedia(WIDE).matches; } catch { return false; } };
+  const [on, setOn] = useState(get);
+  useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia(WIDE); } catch { return undefined; }
+    const f = () => setOn(mq.matches);
+    mq.addEventListener?.("change", f);
+    return () => mq.removeEventListener?.("change", f);
+  }, []);
+  return on;
+}
+
+const readFileText = (file, cb, onErr) => { if (!file) return; const r = new FileReader(); r.onload = () => cb(String(r.result)); r.onerror = () => onErr("Datei konnte nicht gelesen werden."); r.readAsText(file); };
+
+/* Inhalt der Gruppen. Neue Einstellungen als eigene Komponente in die passende Gruppe hängen
+   und in lib/settings.js (SETTINGS) für die Suche eintragen. */
+const GROUP_VIEWS = {
+  darstellung: AppearanceGroup,
+  benachrichtigungen: NotifyGroup,
+  studium: StudyGroup,
+  kalender: CalendarGroup,
+  weg: ({ db }) => <div data-set="commute"><CommuteSettings db={db} /></div>,
+  cloud: ({ db }) => <div data-set="cloud"><CloudCard cloud={db.cloud} settings={db.data.settings} patchSettings={db.patchSettings} onRestore={(d, label) => db.replaceAll(d, `Vor dem Wiederherstellen (Cloud-Sicherung ${label})`)} /></div>,
+  sicherung: BackupGroup,
+  sicherheit: SecurityGroup,
+  papierkorb: ({ db }) => <><div data-set="trash"><TrashCard db={db} /></div><div data-set="cleanup"><CleanupCard db={db} /></div></>,
+  zuruecksetzen: ResetGroup,
+};
 
 export function DataView({ db }) {
+  const wide = useWide();
+  const root = useRef(null);
+  const groups = SETTING_GROUPS.filter(([id]) => id !== "cloud" || db.cloud?.available);
+  const first = useRef(null);
+  if (!first.current) first.current = takeRequest() || { group: readGroup(), item: "" };
+  const [open, setOpen] = useState(first.current.group);
+  const [hit, setHit] = useState({ item: first.current.item, n: 0 }); /* Ziel eines Sprungs aus Suche oder Strg + K */
+  const [q, setQ] = useState("");
+  const hits = useMemo(() => matchSettings(q).filter((h) => groups.some((g) => g[0] === h.group)), [q, groups.length]);
+  const shown = groups.some((g) => g[0] === open) ? open : wide ? groups[0][0] : "";
+  const jump = (group, item = "") => { setOpen(group); rememberGroup(group); setHit((h) => ({ item: item || "@" + group, n: h.n + 1 })); };
+  useEffect(() => {
+    const f = (e) => { takeRequest(); jump(e.detail.group, e.detail.item); };
+    window.addEventListener(EVENT, f);
+    return () => window.removeEventListener(EVENT, f);
+  }, []);
+  /* nach dem Öffnen hinscrollen; eine gesuchte Einstellung bleibt markiert, bis die nächste gesucht wird */
+  useEffect(() => {
+    const el = root.current, id = hit.item;
+    if (!el || !id) return;
+    el.querySelectorAll(".settings-hit").forEach((x) => x.classList.remove("settings-hit"));
+    const target = id.startsWith("@") ? null : el.querySelector(`[data-set="${id}"]`);
+    if (target) { target.classList.add("settings-hit"); target.scrollIntoView?.({ block: "center" }); }
+    else el.querySelector(`[data-group="${shown}"]`)?.scrollIntoView?.({ block: "start" });
+  }, [hit.n, hit.item, shown]);
+  const toggle = (id) => {
+    const next = shown === id && !wide ? "" : id;
+    setOpen(next); rememberGroup(next);
+    if (next && !wide) setHit((h) => ({ item: "@" + next, n: h.n + 1 }));
+  };
+  const trashN = trashOf(db.data).length;
+  const hint = (id, text) => (id === "papierkorb" ? (trashN ? `${trashN} ${trashN === 1 ? "Eintrag" : "Einträge"}` : "Leer") : text);
+  const body = (id) => { const View = GROUP_VIEWS[id]; return View ? <View db={db} go={(g, item) => jump(g, item)} /> : null; };
+
+  return (
+    <div className="settings" ref={root}>
+      <form className="settings-search" role="search" onSubmit={(e) => { e.preventDefault(); if (hits[0]) { jump(hits[0].group, hits[0].id); setQ(""); } }}>
+        <label htmlFor="settings-q" className="sr-only">Einstellungen durchsuchen</label>
+        <input id="settings-q" type="search" className={inputCls} placeholder="Einstellung suchen, z. B. Push, Mensa, Export" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+        {q.trim() && (hits.length ? (
+          <ul className="settings-hits" aria-label="Passende Einstellungen">
+            {hits.map((h) => (
+              <li key={h.id}>
+                <button type="button" className="settings-hit-btn" onClick={() => { jump(h.group, h.id); setQ(""); }}>
+                  <span className="min-w-0 flex-1 truncate">{h.label}</span><span className="shrink-0 text-xs text-slate-500">{h.groupTitle}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="mt-2 text-xs text-slate-500">Keine Einstellung zu „{q.trim()}“.</p>)}
+      </form>
+      <div className={wide ? "settings-split" : ""}>
+        <ul className="settings-list" aria-label="Bereiche">
+          {groups.map(([id, title, text]) => (
+            <li key={id} className="settings-item" data-group={wide ? undefined : id}>
+              {/* die ganze Kachel ist anklickbar (::after des Knopfs), der Kurzinhalt steht als Beschreibung daneben */}
+              <div className={`surface settings-tile ${shown === id ? "settings-tile-open" : ""}`}>
+                <h2 className="settings-head">
+                  <button type="button" className="settings-toggle" aria-describedby={`einst-hint-${id}`} aria-expanded={shown === id} aria-controls={shown === id ? `einst-${id}` : undefined} onClick={() => toggle(id)}>
+                    <span className="settings-name">{title}</span><span className="settings-caret" aria-hidden="true" />
+                  </button>
+                </h2>
+                <p className="settings-hint" id={`einst-hint-${id}`}>{hint(id, text)}</p>
+              </div>
+              {!wide && shown === id && <div id={`einst-${id}`} className="settings-body space-y-4">{body(id)}</div>}
+            </li>
+          ))}
+        </ul>
+        {wide && shown && <div id={`einst-${shown}`} data-group={shown} className="settings-pane space-y-4">{body(shown)}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* Ein Schalter in einer Zeile */
+function Toggle({ set, checked, onChange, children }) {
+  return (
+    <label data-set={set} className="flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
+      <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={checked} onChange={onChange} />
+      {children}
+    </label>
+  );
+}
+
+function AppearanceGroup({ db }) {
   const { data } = db;
   const [uiSize, setUiSize] = useUiSize();
+  const [vibrate, setVibrate] = useState(hapticsOn);
+  return (
+    <>
+      <Card title="Aussehen">
+        <div className="space-y-4">
+          <div data-set="palette">
+            <span className="mb-1 block text-xs text-slate-400">Farbpalette</span>
+            <Tabs items={RETRO_PALETTES.map(([k, l]) => [k, l])} value={retroPaletteOf(data.settings.retroPalette)} onChange={(v) => db.patchSettings({ retroPalette: v })} label="Farbpalette" />
+            <p className="mt-1.5 text-xs text-slate-400">{{ synthwave: "Neon-Pink und Cyan über einer Stadt bei Nacht.", gameboy: "Vier Grüntöne wie auf dem Game Boy von 1989.", amber: "Bernstein auf Schwarz wie ein altes Terminal.", cga: "Magenta, Cyan und Gelb auf Schwarz wie frühe PC-Spiele.", papier: "Dunkle Tinte auf hellem Papier, gut lesbar in der Sonne." }[retroPaletteOf(data.settings.retroPalette)]} Pixel-Grafiken färben sich mit; die Modulfarben bleiben, wie du sie gewählt hast.</p>
+          </div>
+          <div data-set="size">
+            <span className="mb-1 block text-xs text-slate-400">Schriftgröße</span>
+            <Tabs items={UI_SIZES} value={uiSize} onChange={setUiSize} label="Schriftgröße" />
+            <p className="mt-1.5 text-xs text-slate-400">{{ compact: "Kleiner und dichter: mehr passt auf den Bildschirm.", normal: "Die Standardgröße.", large: "Größere Schrift und Knöpfe, angenehmer auf kleinen Handys." }[uiSize]} Gilt nur für dieses Gerät.</p>
+          </div>
+          <div data-set="motion">
+            <span className="mb-1 block text-xs text-slate-400">Animationen</span>
+            <Tabs items={[["pixel", "Pixel"], ["neon", "Neon"], ["scan", "Scan"], ["off", "Aus"]]} value={retroMotionOf(data.settings.retroMotion)} onChange={(v) => db.patchSettings({ retroMotion: v })} label="Retro-Animationen" />
+            <p className="mt-1.5 text-xs text-slate-400">{{ pixel: "Knackig wie ein 8-Bit-Menü: Knöpfe drücken sich in den Schatten, Auswahl springt kurz auf, Dialoge schnappen auf.", neon: "Leuchtreklame: Was du berührst oder auswählst, glüht kurz in Neon auf.", scan: "Röhrenmonitor: Beim Wechsel zieht eine Scanlinie über den Bildschirm, Knöpfe schimmern, Auswahl wird unterstrichen.", off: "Keine Animationen, nur der Retro-Look." }[retroMotionOf(data.settings.retroMotion)]} Der Inhalt ist immer sofort da, bewegt wird nur, was du antippst. Ist am Gerät „Bewegung reduzieren“ eingeschaltet, bleibt alles still.</p>
+          </div>
+          <Toggle set="wide" checked={data.settings.wideLayout !== false} onChange={(e) => db.patchSettings({ wideLayout: e.target.checked })}>Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen</Toggle>
+        </div>
+      </Card>
+      <Card title="Klang & Vibration">
+        <div className="space-y-2">
+          <Toggle set="sfx" checked={!!data.settings.sfx} onChange={(e) => { db.patchSettings({ sfx: e.target.checked }); if (e.target.checked) playSfx("coin", true); }}>8-Bit-Klickgeräusche (beim Abhaken und bei neuen Abzeichen)</Toggle>
+          {canVibrate() && <Toggle set="vibrate" checked={vibrate} onChange={(e) => { setHapticsOn(e.target.checked); setVibrate(e.target.checked); if (e.target.checked) buzz(); }}>Kurz vibrieren beim Abhaken (nur dieses Gerät)</Toggle>}
+        </div>
+      </Card>
+    </>
+  );
+}
+
+/* Alle Push-Arten an einem Ort; Pushes brauchen Cloud-Sync */
+function NotifyGroup({ db, go }) {
+  const { data } = db, cloud = db.cloud;
+  return (
+    <>
+      {cloud?.available && cloud.phase === "ready" ? <Reminders cloud={cloud} settings={data.settings} patchSettings={db.patchSettings} /> : (
+        <Card title="Erinnerungen">
+          <p className="text-xs text-slate-400" data-set="push">Push-Erinnerungen an Abgaben, Prüfungen und Termine brauchen Cloud-Sync{cloud?.available ? "." : ", der in dieser Version nicht eingerichtet ist."}</p>
+          {cloud?.available && <button className={`${btnGhost} mt-3`} onClick={() => go("cloud")}>Cloud-Sync einrichten</button>}
+        </Card>
+      )}
+      <Card title="Weg zur Uni per Push"><CommutePush db={db} /></Card>
+      <Card title="Auf diesem Gerät">
+        <div className="space-y-2">
+          <Toggle set="sound" checked={data.settings.sound !== false} onChange={(e) => db.patchSettings({ sound: e.target.checked })}>Signalton und Vibration bei Timer-Ende (der Ton startet nach der ersten Timer-Aktion)</Toggle>
+          <Toggle set="badge" checked={data.settings.appBadge !== false} onChange={(e) => db.patchSettings({ appBadge: e.target.checked })}>Zahl am App-Symbol: was heute noch offen ist</Toggle>
+        </div>
+      </Card>
+    </>
+  );
+}
+
+function StudyGroup({ db }) {
+  const { data } = db;
+  return (
+    <>
+      <Card title="Studium">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2" data-set="name">
+            <label htmlFor="st-name" className="mb-1 block text-xs text-slate-400">Dein Name (für die Begrüßung)</label>
+            <input id="st-name" className={inputCls} value={data.settings.name ?? ""} onChange={(e) => db.patchSettings({ name: e.target.value })} placeholder="optional" />
+          </div>
+          <div data-set="uni">
+            <label htmlFor="st-uni" className="mb-1 block text-xs text-slate-400">Hochschule</label>
+            <input id="st-uni" className={inputCls} value={data.settings.university ?? ""} onChange={(e) => db.patchSettings({ university: e.target.value })} placeholder="z. B. TUM" />
+          </div>
+          <div data-set="program">
+            <label htmlFor="st-prog" className="mb-1 block text-xs text-slate-400">Studiengang</label>
+            <input id="st-prog" className={inputCls} value={data.settings.program ?? ""} onChange={(e) => db.patchSettings({ program: e.target.value })} placeholder="z. B. Informatik" />
+          </div>
+          <div className="col-span-2" data-set="plan">
+            <label htmlFor="st-plan" className="mb-1 block text-xs text-slate-400">Studienplan (Vorlage für Module und GOP-Regel)</label>
+            <Select id="st-plan" className={inputCls} value={curriculumOf(data)?.id || "none"} onChange={(e) => db.patchSettings({ curriculum: e.target.value })}>
+              <option value="none">Keiner</option>
+              {CURRICULA.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+          </div>
+          <div className="col-span-2" data-set="mensa">
+            <label htmlFor="st-mensa" className="mb-1 block text-xs text-slate-400">Mensa auf „Heute“</label>
+            <Select id="st-mensa" className={inputCls} value={mensaOf(data.settings)} onChange={(e) => db.patchSettings({ mensa: e.target.value })}>
+              <option value="">Keine anzeigen</option>
+              {CANTEENS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </Select>
+          </div>
+          <div data-set="ects">
+            <label htmlFor="st-ects" className="mb-1 block text-xs text-slate-400">ECTS-Ziel (Studiengang)</label>
+            <input id="st-ects" type="number" min="1" className={inputCls} value={data.settings.targetEcts} onChange={(e) => db.patchSettings({ targetEcts: Math.max(1, Number(e.target.value) || 1) })} />
+          </div>
+          <div data-set="threshold">
+            <label htmlFor="st-th" className="mb-1 block text-xs text-slate-400">Warnung unter Nachbereitung (%)</label>
+            <input id="st-th" type="number" min="0" max="100" className={inputCls} value={data.settings.threshold} onChange={(e) => db.patchSettings({ threshold: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} />
+          </div>
+          <div data-set="weekly">
+            <label htmlFor="st-week" className="mb-1 block text-xs text-slate-400">Wochenziel Lernzeit (Std., 0 = aus)</label>
+            <input id="st-week" type="number" min="0" max="168" className={inputCls} value={data.settings.weeklyGoal || 0} onChange={(e) => db.patchSettings({ weeklyGoal: Math.max(0, Math.min(168, Number(e.target.value) || 0)) })} />
+          </div>
+          <div data-set="weeks">
+            <label htmlFor="st-weeks" className="mb-1 block text-xs text-slate-400">Semesterwochen inkl. Prüfungsphase</label>
+            <input id="st-weeks" type="number" min="4" max="30" className={inputCls} value={data.settings.semesterWeeks || 18} onChange={(e) => db.patchSettings({ semesterWeeks: Math.max(4, Math.min(30, Number(e.target.value) || 18)) })} />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">ECTS-Ziel und Notengewichtung können je nach Prüfungsordnung abweichen. Der Notenschnitt in StudyOS ist ECTS-gewichtet.</p>
+      </Card>
+      <div data-set="breaks"><BreaksCard db={db} /></div>
+    </>
+  );
+}
+
+function CalendarGroup({ db }) {
+  const { data } = db;
+  const [icsOptions, setIcsOptions] = useState({ homework: true, exams: true, sessions: false });
   const [msg, setMsg] = useState("");
+  const exportICS = async () => {
+    try {
+      const res = await saveFile(`studyos-kalender-${iso()}.ics`, buildICS(data, icsOptions), "text/calendar;charset=utf-8");
+      if (res !== "aborted") setMsg("Kalenderdatei erstellt. Öffne sie am Handy, um die Termine in deinen Kalender zu übernehmen.");
+    } catch { setMsg("Kalenderdatei konnte nicht erstellt werden."); }
+  };
+  return (
+    <>
+      <div data-set="feed"><FeedCard db={db} /></div>
+      <div data-set="moodle"><MoodleCard db={db} /></div>
+      <div data-set="artemis"><ArtemisCard db={db} /></div>
+      {db.cloud?.phase === "ready" && <div data-set="calfeed"><CalendarFeed cloud={db.cloud} settings={data.settings} patchSettings={db.patchSettings} /></div>}
+      <div data-set="icsImport"><IcsImport db={db} readFile={(f, cb) => readFileText(f, cb, () => {})} /></div>
+      <div data-set="icsExport">
+        <Card title="Kalender exportieren">
+          <p className="text-xs text-slate-400">Abgaben und Prüfungen als .ics exportieren und zum Handy-Kalender hinzufügen. Kalender-Erinnerungen werden mitgeliefert. Regelmäßige Lehrtermine können optional mit exportiert werden.</p>
+          <div className="mt-3 space-y-2">
+            {[["homework", "Offene Hausaufgaben und Abgaben"], ["exams", "Prüfungen"], ["sessions", "Anstehende Lehrveranstaltungen"]].map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" className="h-4 w-4 accent-sky-500" checked={icsOptions[k]} onChange={(e) => setIcsOptions((o) => ({ ...o, [k]: e.target.checked }))} />{label}</label>
+            ))}
+          </div>
+          <button className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={exportICS} disabled={!Object.values(icsOptions).some(Boolean)}>Kalenderdatei erstellen</button>
+          {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
+        </Card>
+      </div>
+    </>
+  );
+}
+
+/* Sicherung als Datei, Zwischenstände auf dem Gerät, Speicher und (selten) Import */
+function BackupGroup({ db }) {
+  const { data } = db;
+  const [msg, setMsg] = useState(""), [snapMsg, setSnapMsg] = useState(""), [importMsg, setImportMsg] = useState("");
   const [showJson, setShowJson] = useState(false);
   const [pasted, setPasted] = useState("");
   const [pending, setPending] = useState(null);
@@ -33,22 +302,20 @@ export function DataView({ db }) {
   const [busy, setBusy] = useState(false);
   const [storage, setStorage] = useState(null);
   useEffect(() => { if (db.env?.storageInfo) db.env.storageInfo().then(setStorage).catch(() => {}); }, [db.env, db.saveState]);
-  const [icsOptions, setIcsOptions] = useState({ homework: true, exams: true, sessions: false });
   const [snapshots, setSnapshots] = useState([]);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
-  const [vibrate, setVibrate] = useState(hapticsOn);
   useEffect(() => { if (db.env?.listSnapshots) db.env.listSnapshots().then(setSnapshots).catch(() => {}); }, [db.env]);
   const refreshSnapshots = () => db.env?.listSnapshots && db.env.listSnapshots().then(setSnapshots).catch(() => {});
   const createSnapshot = async () => {
     if (!db.env?.snapshot) return;
     setSnapshotBusy(true);
     await db.env.snapshot("Manuelle Sicherung", data);
-    await refreshSnapshots(); setSnapshotBusy(false); setMsg("Wiederherstellungspunkt auf diesem Gerät erstellt.");
+    await refreshSnapshots(); setSnapshotBusy(false); setSnapMsg("Wiederherstellungspunkt auf diesem Gerät erstellt.");
   };
   const restoreSnapshot = async (s) => {
     if (!db.env?.loadSnapshot) return;
     const full = await db.env.loadSnapshot(s.id);
-    if (full?.payload) { db.replaceAll(normalizeImport(full.payload)); setMsg("Wiederherstellung gestartet. Die Daten werden gespeichert."); }
+    if (full?.payload) { db.replaceAll(normalizeImport(full.payload)); setSnapMsg("Wiederherstellung gestartet. Die Daten werden gespeichert."); }
   };
   const json = useMemo(() => (showJson ? JSON.stringify(data, null, 2) : ""), [showJson, data]);
   const counts = countsOf;
@@ -78,12 +345,6 @@ export function DataView({ db }) {
     catch { setShowJson(true); setMsg("Kopieren nicht erlaubt. Markiere den Text unten und kopiere ihn manuell."); }
     finally { setBusy(false); }
   };
-  const exportICS = async () => {
-    try {
-      const res = await saveFile(`studyos-kalender-${iso()}.ics`, buildICS(data, icsOptions), "text/calendar;charset=utf-8");
-      if (res !== "aborted") setMsg("Kalenderdatei erstellt. Öffne sie am Handy, um die Termine in deinen Kalender zu übernehmen.");
-    } catch { setMsg("Kalenderdatei konnte nicht erstellt werden."); }
-  };
   const tryParse = (text) => {
     setImportErr(""); setLocked(null); setPending(null);
     try {
@@ -98,213 +359,131 @@ export function DataView({ db }) {
     catch (e) { setImportErr(e.message); }
     finally { setBusy(false); }
   };
-  const finishImport = (text) => { setPending(null); setPasted(""); setMsg(text); };
-  const readFile = (file, cb) => { if (!file) return; const r = new FileReader(); r.onload = () => cb(String(r.result)); r.onerror = () => setImportErr("Datei konnte nicht gelesen werden."); r.readAsText(file); };
+  const finishImport = (text) => { setPending(null); setPasted(""); setImportMsg(text); };
 
   return (
-    <div className="space-y-4">
-      <CloudCard cloud={db.cloud} settings={data.settings} patchSettings={db.patchSettings} onRestore={(d, label) => db.replaceAll(d, `Vor dem Wiederherstellen (Cloud-Sicherung ${label})`)} />
-
-      <FeedCard db={db} />
-      <MoodleCard db={db} />
-      <ArtemisCard db={db} />
-      <CommuteSettings db={db} />
-
-      <Card title="Export (Sicherung)">
-        <p className="text-xs text-slate-400">{counts(data)}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button className={btnPrimary} onClick={download} disabled={busy || !!passProblem}>{busy ? "Bitte warten …" : "Als Datei herunterladen"}</button>
-          <button className={btnGhost} onClick={copy} disabled={busy || !!passProblem}>In Zwischenablage kopieren</button>
-          <button className={btnGhost} onClick={() => setShowJson((v) => !v)} aria-expanded={showJson}>{showJson ? "JSON ausblenden" : "JSON anzeigen"}</button>
-        </div>
-        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-          <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={encrypt} onChange={(e) => setEncrypt(e.target.checked)} />
-          Mit Passphrase verschlüsseln (AES-256)
-        </label>
-        {encrypt && (
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <input type="password" autoComplete="new-password" aria-label="Passphrase" placeholder="Passphrase (mind. 8 Zeichen)" className={`${inputCls} col-span-2 sm:col-span-1`} value={pass} onChange={(e) => setPass(e.target.value)} />
-            <input type="password" autoComplete="new-password" aria-label="Passphrase wiederholen" placeholder="Wiederholen" className={`${inputCls} col-span-2 sm:col-span-1`} value={pass2} onChange={(e) => setPass2(e.target.value)} />
-            <p className="col-span-2 text-[11px] text-slate-500">{passProblem || "Die Passphrase wird nirgends gespeichert. Vergisst du sie, ist die Sicherung verloren."}</p>
+    <>
+      <div data-set="export">
+        <Card title="Export (Sicherung)">
+          <p className="text-xs text-slate-400">{counts(data)}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className={btnPrimary} onClick={download} disabled={busy || !!passProblem}>{busy ? "Bitte warten …" : "Als Datei herunterladen"}</button>
+            <button className={btnGhost} onClick={copy} disabled={busy || !!passProblem}>In Zwischenablage kopieren</button>
+            <button className={btnGhost} onClick={() => setShowJson((v) => !v)} aria-expanded={showJson}>{showJson ? "JSON ausblenden" : "JSON anzeigen"}</button>
           </div>
-        )}
-        {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
-        {showJson && <textarea readOnly aria-label="Exportierte Daten" className={`${inputBase} w-full font-num mt-3 h-40 text-[11px]`} value={json} onFocus={(e) => e.target.select()} />}
-      </Card>
-
-      <TrashCard db={db} />
-
-      {db.env?.listSnapshots && (
-        <Card title="Wiederherstellung auf diesem Gerät">
-          <p className="text-xs text-slate-400">StudyOS hält bis zu 8 lokale Zwischenstände vor großen Änderungen. Sie ersetzen keine Sicherungsdatei und sind nicht auf anderen Geräten verfügbar.</p>
-          <button className={`${btnGhost} mt-2`} disabled={snapshotBusy} onClick={createSnapshot}>{snapshotBusy ? "Erstellt …" : "Jetzt Wiederherstellungspunkt erstellen"}</button>
-          {snapshots.length > 0 ? (
-            <ul className="mt-3 space-y-2">
-              {snapshots.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2">
-                  <div className="min-w-0 flex-1"><p className="text-sm">{s.label}</p><p className="font-num text-[11px] text-slate-500">{new Date(s.created).toLocaleString("de-DE")}</p></div>
-                  <ConfirmButton label="Wiederherstellen" confirmLabel="Daten ersetzen?" className={btnGhost} onConfirm={() => restoreSnapshot(s)} />
-                </li>
-              ))}
-            </ul>
-          ) : <p className="mt-2 text-xs text-slate-500">Noch keine Zwischenstände.</p>}
-        </Card>
-      )}
-
-      <Card title="Import (Sicherung wiederherstellen)">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className={`${btnGhost} cursor-pointer`}>Datei wählen<input type="file" accept=".json,application/json" className="sr-only" onChange={(e) => { readFile(e.target.files[0], tryParse); e.target.value = ""; }} /></label>
-          <span className="text-xs text-slate-500">oder JSON einfügen:</span>
-        </div>
-        <textarea aria-label="JSON zum Import einfügen" className={`${inputBase} w-full font-num mt-2 h-20 text-[11px]`} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder='{"version":1,"modules":[…]}' />
-        <button className={`${btnGhost} mt-2`} disabled={!pasted.trim()} onClick={() => tryParse(pasted)}>Eingefügten Text prüfen</button>
-        {importErr && <p role="alert" className="mt-2 text-xs text-rose-400">{importErr}</p>}
-        {locked && (
-          <div className="mt-3 rounded-lg border border-sky-500/40 bg-sky-500/10 p-3">
-            <p className="text-xs text-sky-100">Diese Sicherung ist verschlüsselt.</p>
-            <form className="mt-2 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); unlock(); }}>
-              <input type="password" autoComplete="current-password" aria-label="Passphrase zum Entschlüsseln" placeholder="Passphrase" className={inputFlex} value={unlockPass} onChange={(e) => setUnlockPass(e.target.value)} />
-              <button type="submit" className={btnPrimary} disabled={busy || !unlockPass}>{busy ? "Entschlüsselt …" : "Entschlüsseln"}</button>
-              <button type="button" className={btnGhost} onClick={() => setLocked(null)}>Abbrechen</button>
-            </form>
-          </div>
-        )}
-        {pending && (
-          <div className="mt-3 rounded-lg border border-sky-500/40 bg-sky-500/10 p-3">
-            <p className="text-xs text-sky-100">Gefunden: {counts(pending)}</p>
-            <p className="mt-1 text-xs text-slate-400"><b>Zusammenführen</b> übernimmt neue und jüngere Einträge und behält deine eigenen (für zwei Geräte). <b>Ersetzen</b> verwirft alle aktuellen Daten.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button className={btnPrimary} onClick={() => { const st = db.mergeIn(pending); finishImport(`Zusammengeführt: ${st.added} neu, ${st.updated} aktualisiert, ${st.removed} entfernt.${st.removed ? " Nicht übernommen wurden Einträge, die auf diesem Gerät später gelöscht wurden. Um eine Sicherung vollständig wiederherzustellen, wähle „Daten ersetzen“." : ""}`); }}>Zusammenführen</button>
-              <ConfirmButton label="Daten ersetzen" confirmLabel="Ja, alles ersetzen" className={btnGhost} onConfirm={() => { db.replaceAll(pending); finishImport("Import abgeschlossen. Deine Daten werden gespeichert."); }} />
-              <button className={btnGhost} onClick={() => setPending(null)}>Abbrechen</button>
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={encrypt} onChange={(e) => setEncrypt(e.target.checked)} />
+            Mit Passphrase verschlüsseln (AES-256)
+          </label>
+          {encrypt && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <input type="password" autoComplete="new-password" aria-label="Passphrase" placeholder="Passphrase (mind. 8 Zeichen)" className={`${inputCls} col-span-2 sm:col-span-1`} value={pass} onChange={(e) => setPass(e.target.value)} />
+              <input type="password" autoComplete="new-password" aria-label="Passphrase wiederholen" placeholder="Wiederholen" className={`${inputCls} col-span-2 sm:col-span-1`} value={pass2} onChange={(e) => setPass2(e.target.value)} />
+              <p className="col-span-2 text-[11px] text-slate-500">{passProblem || "Die Passphrase wird nirgends gespeichert. Vergisst du sie, ist die Sicherung verloren."}</p>
             </div>
-          </div>
-        )}
-      </Card>
-
-      <IcsImport db={db} readFile={readFile} />
-
-      <Card title="Kalender exportieren">
-        <p className="text-xs text-slate-400">Abgaben und Prüfungen als .ics exportieren und zum Handy-Kalender hinzufügen. Kalender-Erinnerungen werden mitgeliefert. Regelmäßige Lehrtermine können optional mit exportiert werden.</p>
-        <div className="mt-3 space-y-2">
-          {[["homework", "Offene Hausaufgaben und Abgaben"], ["exams", "Prüfungen"], ["sessions", "Anstehende Lehrveranstaltungen"]].map(([k, label]) => (
-            <label key={k} className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" className="h-4 w-4 accent-sky-500" checked={icsOptions[k]} onChange={(e) => setIcsOptions((o) => ({ ...o, [k]: e.target.checked }))} />{label}</label>
-          ))}
-        </div>
-        <button className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={exportICS} disabled={!Object.values(icsOptions).some(Boolean)}>Kalenderdatei erstellen</button>
-      </Card>
-
-      {storage && (
-        <Card title="Speicher auf diesem Gerät">
-          <p className="text-xs text-slate-400">
-            {storage.usage !== null && storage.quota ? `${(storage.usage / 1048576).toFixed(1).replace(".", ",")} MB von ${Math.round(storage.quota / 1048576).toLocaleString("de-DE")} MB belegt. ` : ""}
-            {storage.persisted === true ? "Der Browser hält die Daten dauerhaft vor." : storage.persisted === false ? "Der Browser darf die Daten bei Speichermangel löschen. Installiere die App, um das zu verhindern." : ""}
-          </p>
-          {!storage.mirrorOk && <p role="alert" className="mt-2 text-xs text-amber-300">Die Notfallkopie (localStorage, ca. 5 MB) ist voll. Deine Daten liegen weiter sicher in der Datenbank, aber es gibt keine zweite Kopie mehr auf dem Gerät. Exportiere regelmäßig eine Sicherung.</p>}
-          {storage.mode === "local" && <p role="alert" className="mt-2 text-xs text-amber-300">Die Datenbank (IndexedDB) ist nicht verfügbar, gespeichert wird nur in localStorage. Exportiere regelmäßig eine Sicherung.</p>}
-        </Card>
-      )}
-
-      <Card title="Einstellungen">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <label htmlFor="st-name" className="mb-1 block text-xs text-slate-400">Dein Name (für die Begrüßung)</label>
-            <input id="st-name" className={inputCls} value={data.settings.name ?? ""} onChange={(e) => db.patchSettings({ name: e.target.value })} placeholder="optional" />
-          </div>
-          <div>
-            <label htmlFor="st-uni" className="mb-1 block text-xs text-slate-400">Hochschule</label>
-            <input id="st-uni" className={inputCls} value={data.settings.university ?? ""} onChange={(e) => db.patchSettings({ university: e.target.value })} placeholder="z. B. TUM" />
-          </div>
-          <div className="col-span-2">
-            <label htmlFor="st-mensa" className="mb-1 block text-xs text-slate-400">Mensa auf „Heute“</label>
-            <Select id="st-mensa" className={inputCls} value={mensaOf(data.settings)} onChange={(e) => db.patchSettings({ mensa: e.target.value })}>
-              <option value="">Keine anzeigen</option>
-              {CANTEENS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label htmlFor="st-prog" className="mb-1 block text-xs text-slate-400">Studiengang</label>
-            <input id="st-prog" className={inputCls} value={data.settings.program ?? ""} onChange={(e) => db.patchSettings({ program: e.target.value })} placeholder="z. B. Informatik" />
-          </div>
-          <div className="col-span-2">
-            <label htmlFor="st-plan" className="mb-1 block text-xs text-slate-400">Studienplan (Vorlage für Module und GOP-Regel)</label>
-            <Select id="st-plan" className={inputCls} value={curriculumOf(data)?.id || "none"} onChange={(e) => db.patchSettings({ curriculum: e.target.value })}>
-              <option value="none">Keiner</option>
-              {CURRICULA.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </div>
-          <div className="col-span-2">
-            <span className="mb-1 block text-xs text-slate-400">Farbpalette</span>
-            <Tabs items={RETRO_PALETTES.map(([k, l]) => [k, l])} value={retroPaletteOf(data.settings.retroPalette)} onChange={(v) => db.patchSettings({ retroPalette: v })} label="Farbpalette" />
-            <p className="mt-1.5 text-xs text-slate-400">{{ synthwave: "Neon-Pink und Cyan über einer Stadt bei Nacht.", gameboy: "Vier Grüntöne wie auf dem Game Boy von 1989.", amber: "Bernstein auf Schwarz wie ein altes Terminal.", cga: "Magenta, Cyan und Gelb auf Schwarz wie frühe PC-Spiele." }[retroPaletteOf(data.settings.retroPalette)]} Pixel-Grafiken färben sich mit; die Modulfarben bleiben, wie du sie gewählt hast.</p>
-          </div>
-          <div className="col-span-2">
-            <span className="mb-1 block text-xs text-slate-400">Schriftgröße</span>
-            <Tabs items={UI_SIZES} value={uiSize} onChange={setUiSize} label="Schriftgröße" />
-            <p className="mt-1.5 text-xs text-slate-400">{{ compact: "Kleiner und dichter: mehr passt auf den Bildschirm.", normal: "Die Standardgröße.", large: "Größere Schrift und Knöpfe, angenehmer auf kleinen Handys." }[uiSize]} Gilt nur für dieses Gerät.</p>
-          </div>
-          <div className="col-span-2">
-            <span className="mb-1 block text-xs text-slate-400">Animationen</span>
-            <Tabs items={[["pixel", "Pixel"], ["neon", "Neon"], ["scan", "Scan"], ["off", "Aus"]]} value={retroMotionOf(data.settings.retroMotion)} onChange={(v) => db.patchSettings({ retroMotion: v })} label="Retro-Animationen" />
-            <p className="mt-1.5 text-xs text-slate-400">{{ pixel: "Knackig wie ein 8-Bit-Menü: Knöpfe drücken sich in den Schatten, Auswahl springt kurz auf, Dialoge schnappen auf.", neon: "Leuchtreklame: Was du berührst oder auswählst, glüht kurz in Neon auf.", scan: "Röhrenmonitor: Beim Wechsel zieht eine Scanlinie über den Bildschirm, Knöpfe schimmern, Auswahl wird unterstrichen.", off: "Keine Animationen, nur der Retro-Look." }[retroMotionOf(data.settings.retroMotion)]} Der Inhalt ist immer sofort da, bewegt wird nur, was du antippst. Ist am Gerät „Bewegung reduzieren“ eingeschaltet, bleibt alles still.</p>
-          </div>
-          <div>
-            <label htmlFor="st-ects" className="mb-1 block text-xs text-slate-400">ECTS-Ziel (Studiengang)</label>
-            <input id="st-ects" type="number" min="1" className={inputCls} value={data.settings.targetEcts} onChange={(e) => db.patchSettings({ targetEcts: Math.max(1, Number(e.target.value) || 1) })} />
-          </div>
-          <div>
-            <label htmlFor="st-th" className="mb-1 block text-xs text-slate-400">Warnung unter Nachbereitung (%)</label>
-            <input id="st-th" type="number" min="0" max="100" className={inputCls} value={data.settings.threshold} onChange={(e) => db.patchSettings({ threshold: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} />
-          </div>
-          <div>
-            <label htmlFor="st-week" className="mb-1 block text-xs text-slate-400">Wochenziel Lernzeit (Std., 0 = aus)</label>
-            <input id="st-week" type="number" min="0" max="168" className={inputCls} value={data.settings.weeklyGoal || 0} onChange={(e) => db.patchSettings({ weeklyGoal: Math.max(0, Math.min(168, Number(e.target.value) || 0)) })} />
-          </div>
-          <div>
+          )}
+          {msg && <p role="status" className="mt-2 text-xs text-emerald-300">{msg}</p>}
+          {showJson && <textarea readOnly aria-label="Exportierte Daten" className={`${inputBase} w-full font-num mt-3 h-40 text-[11px]`} value={json} onFocus={(e) => e.target.select()} />}
+          <div className="mt-3 max-w-sm" data-set="backupDays">
             <label htmlFor="st-backup" className="mb-1 block text-xs text-slate-400">Erinnerung an Sicherung (Tage)</label>
             <input id="st-backup" type="number" min="1" max="90" className={inputCls} value={data.settings.backupDays || 7} onChange={(e) => db.patchSettings({ backupDays: Math.max(1, Math.min(90, Number(e.target.value) || 7)) })} />
           </div>
-          <div>
-            <label htmlFor="st-weeks" className="mb-1 block text-xs text-slate-400">Semesterwochen inkl. Prüfungsphase</label>
-            <input id="st-weeks" type="number" min="4" max="30" className={inputCls} value={data.settings.semesterWeeks || 18} onChange={(e) => db.patchSettings({ semesterWeeks: Math.max(4, Math.min(30, Number(e.target.value) || 18)) })} />
+        </Card>
+      </div>
+
+      {db.env?.listSnapshots && (
+        <div data-set="snapshots">
+          <Card title="Wiederherstellung auf diesem Gerät">
+            <p className="text-xs text-slate-400">StudyOS hält bis zu 8 lokale Zwischenstände vor großen Änderungen. Sie ersetzen keine Sicherungsdatei und sind nicht auf anderen Geräten verfügbar.</p>
+            <button className={`${btnGhost} mt-2`} disabled={snapshotBusy} onClick={createSnapshot}>{snapshotBusy ? "Erstellt …" : "Jetzt Wiederherstellungspunkt erstellen"}</button>
+            {snapshots.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {snapshots.map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2">
+                    <div className="min-w-0 flex-1"><p className="text-sm">{s.label}</p><p className="font-num text-[11px] text-slate-500">{new Date(s.created).toLocaleString("de-DE")}</p></div>
+                    <ConfirmButton label="Wiederherstellen" confirmLabel="Daten ersetzen?" className={btnGhost} onConfirm={() => restoreSnapshot(s)} />
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="mt-2 text-xs text-slate-500">Noch keine Zwischenstände.</p>}
+            {snapMsg && <p role="status" className="mt-2 text-xs text-emerald-300">{snapMsg}</p>}
+          </Card>
+        </div>
+      )}
+
+      {storage && (
+        <div data-set="storage">
+          <Card title="Speicher auf diesem Gerät">
+            <p className="text-xs text-slate-400">
+              {storage.usage !== null && storage.quota ? `${(storage.usage / 1048576).toFixed(1).replace(".", ",")} MB von ${Math.round(storage.quota / 1048576).toLocaleString("de-DE")} MB belegt. ` : ""}
+              {storage.persisted === true ? "Der Browser hält die Daten dauerhaft vor." : storage.persisted === false ? "Der Browser darf die Daten bei Speichermangel löschen. Installiere die App, um das zu verhindern." : ""}
+            </p>
+            {!storage.mirrorOk && <p role="alert" className="mt-2 text-xs text-amber-300">Die Notfallkopie (localStorage, ca. 5 MB) ist voll. Deine Daten liegen weiter sicher in der Datenbank, aber es gibt keine zweite Kopie mehr auf dem Gerät. Exportiere regelmäßig eine Sicherung.</p>}
+            {storage.mode === "local" && <p role="alert" className="mt-2 text-xs text-amber-300">Die Datenbank (IndexedDB) ist nicht verfügbar, gespeichert wird nur in localStorage. Exportiere regelmäßig eine Sicherung.</p>}
+          </Card>
+        </div>
+      )}
+
+      <div data-set="import">
+        <Card title="Import (Sicherung wiederherstellen)">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className={`${btnGhost} cursor-pointer`}>Datei wählen<input type="file" accept=".json,application/json" className="sr-only" onChange={(e) => { readFileText(e.target.files[0], tryParse, setImportErr); e.target.value = ""; }} /></label>
+            <span className="text-xs text-slate-500">oder JSON einfügen:</span>
           </div>
-          <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
-            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.sound !== false} onChange={(e) => db.patchSettings({ sound: e.target.checked })} />
-            Signalton und Vibration bei Timer-Ende (der Ton startet nach der ersten Timer-Aktion)
-          </label>
-          <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
-            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={!!data.settings.sfx} onChange={(e) => { db.patchSettings({ sfx: e.target.checked }); if (e.target.checked) playSfx("coin", true); }} />
-            8-Bit-Klickgeräusche (beim Abhaken und bei neuen Abzeichen)
-          </label>
-          {canVibrate() && (
-            <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
-              <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={vibrate} onChange={(e) => { setHapticsOn(e.target.checked); setVibrate(e.target.checked); if (e.target.checked) buzz(); }} />
-              Kurz vibrieren beim Abhaken (nur dieses Gerät)
-            </label>
+          <textarea aria-label="JSON zum Import einfügen" className={`${inputBase} w-full font-num mt-2 h-20 text-[11px]`} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder='{"version":1,"modules":[…]}' />
+          <button className={`${btnGhost} mt-2`} disabled={!pasted.trim()} onClick={() => tryParse(pasted)}>Eingefügten Text prüfen</button>
+          {importErr && <p role="alert" className="mt-2 text-xs text-rose-400">{importErr}</p>}
+          {locked && (
+            <div className="mt-3 rounded-lg border border-sky-500/40 bg-sky-500/10 p-3">
+              <p className="text-xs text-sky-100">Diese Sicherung ist verschlüsselt.</p>
+              <form className="mt-2 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); unlock(); }}>
+                <input type="password" autoComplete="current-password" aria-label="Passphrase zum Entschlüsseln" placeholder="Passphrase" className={inputFlex} value={unlockPass} onChange={(e) => setUnlockPass(e.target.value)} />
+                <button type="submit" className={btnPrimary} disabled={busy || !unlockPass}>{busy ? "Entschlüsselt …" : "Entschlüsseln"}</button>
+                <button type="button" className={btnGhost} onClick={() => setLocked(null)}>Abbrechen</button>
+              </form>
+            </div>
           )}
-          <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
-            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.wideLayout !== false} onChange={(e) => db.patchSettings({ wideLayout: e.target.checked })} />
-            Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen
-          </label>
-          <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2 text-sm text-slate-300">
-            <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={data.settings.appBadge !== false} onChange={(e) => db.patchSettings({ appBadge: e.target.checked })} />
-            Zahl am App-Symbol: was heute noch offen ist
-          </label>
-        </div>
-        <p className="mt-2 text-xs text-slate-500">ECTS-Ziel und Notengewichtung können je nach Prüfungsordnung abweichen. Der Notenschnitt in StudyOS ist ECTS-gewichtet.</p>
-      </Card>
+          {pending && (
+            <div className="mt-3 rounded-lg border border-sky-500/40 bg-sky-500/10 p-3">
+              <p className="text-xs text-sky-100">Gefunden: {counts(pending)}</p>
+              <p className="mt-1 text-xs text-slate-400"><b>Zusammenführen</b> übernimmt neue und jüngere Einträge und behält deine eigenen (für zwei Geräte). <b>Ersetzen</b> verwirft alle aktuellen Daten.</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button className={btnPrimary} onClick={() => { const st = db.mergeIn(pending); finishImport(`Zusammengeführt: ${st.added} neu, ${st.updated} aktualisiert, ${st.removed} entfernt.${st.removed ? " Nicht übernommen wurden Einträge, die auf diesem Gerät später gelöscht wurden. Um eine Sicherung vollständig wiederherzustellen, wähle „Daten ersetzen“." : ""}`); }}>Zusammenführen</button>
+                <ConfirmButton label="Daten ersetzen" confirmLabel="Ja, alles ersetzen" className={btnGhost} onConfirm={() => { db.replaceAll(pending); finishImport("Import abgeschlossen. Deine Daten werden gespeichert."); }} />
+                <button className={btnGhost} onClick={() => setPending(null)}>Abbrechen</button>
+              </div>
+            </div>
+          )}
+          {importMsg && <p role="status" className="mt-2 text-xs text-emerald-300">{importMsg}</p>}
+        </Card>
+      </div>
+    </>
+  );
+}
 
-      <BreaksCard db={db} />
-
-      <Card title="Ausprobieren & Zurücksetzen">
-        <div className="flex flex-wrap gap-2">
-          <ConfirmButton label="Beispieldaten laden" confirmLabel="Aktuelle Daten ersetzen?" className={btnGhost} onConfirm={() => db.replaceAll(demoData())} />
-          <ConfirmButton label="Alle Daten löschen" confirmLabel="Wirklich alles löschen?" onConfirm={() => db.replaceAll(emptyData())} />
-        </div>
-      </Card>
+/* App-Sperre (nur dieses Gerät); ohne Fingerabdruck, Face ID oder Geräte-PIN ein kurzer Hinweis */
+function SecurityGroup() {
+  const [avail, setAvail] = useState(null);
+  useEffect(() => { let live = true; lockAvailable().then((a) => live && setAvail(a)).catch(() => live && setAvail(false)); return () => { live = false; }; }, []);
+  if (avail === null) return null;
+  return (
+    <div data-set="applock">
+      {avail ? <AppLockCard /> : <Card title="App-Sperre"><p className="text-xs text-slate-400">Auf diesem Gerät nicht verfügbar: Es braucht Fingerabdruck, Face ID oder eine Geräte-PIN im Browser.</p></Card>}
     </div>
   );
 }
+
+function ResetGroup({ db }) {
+  return (
+    <Card title="Ausprobieren & Zurücksetzen">
+      <div className="flex flex-wrap gap-2">
+        <span data-set="demo"><ConfirmButton label="Beispieldaten laden" confirmLabel="Aktuelle Daten ersetzen?" className={btnGhost} onConfirm={() => db.replaceAll(demoData())} /></span>
+        <span data-set="wipe"><ConfirmButton label="Alle Daten löschen" confirmLabel="Wirklich alles löschen?" onConfirm={() => db.replaceAll(emptyData())} /></span>
+      </div>
+    </Card>
+  );
+}
+
 
 export function IcsImport({ db, readFile }) {
   const { data } = db;
@@ -404,6 +583,7 @@ function BreaksCard({ db }) {
             <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={st.christmasBreak !== false} onChange={(e) => db.patchSettings({ christmasBreak: e.target.checked })} />
             Weihnachtspause (24.12. bis 6.1.)
           </label>
+          <div data-set="tumDates"><TumDatesToggle db={db} /></div>
         </div>
       )}
       {own.length > 0 && (
@@ -437,7 +617,7 @@ function BreaksCard({ db }) {
 
 const TRASH_KIND = { modules: "Modul", sessions: "Termin", homework: "Abgabe", topics: "Thema", logs: "Lerneinheit", notes: "Notiz", cards: "Karteikarte", exams: "Prüfung", blocks: "Lernblock" };
 
-/* Papierkorb: Gelöschtes der letzten 30 Tage auf diesem Gerät */
+/* Papierkorb: Gelöschtes der letzten 30 Tage (mit Cloud-Sync geräteübergreifend) */
 function TrashCard({ db }) {
   const list = trashOf(db.data);
   const [open, setOpen] = useState(false);
@@ -462,7 +642,7 @@ function TrashCard({ db }) {
             <ConfirmButton label="Papierkorb leeren" confirmLabel="Endgültig löschen?" className={btnGhost} onConfirm={() => db.purgeTrash()} />
           </div>
         </>
-      ) : <p className="text-xs text-slate-500">Leer. Gelöschtes bleibt hier {TRASH_DAYS} Tage, nur auf diesem Gerät.</p>}
+      ) : <p className="text-xs text-slate-500">Leer. Gelöschtes bleibt hier {TRASH_DAYS} Tage, mit Cloud-Sync auf allen Geräten.</p>}
     </Card>
   );
 }

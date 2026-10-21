@@ -14,6 +14,7 @@ export const TODAY_BLOCKS = [
   ["todo", "Zu erledigen"],
   ["erledigt", "Erledigt heute"],
   ["exams", "Prüfungen"],
+  ["fristen", "Uni-Fristen (TUM)"],
   ["commute", "Weg zur Uni"],
   ["mensa", "Mensa"],
 ];

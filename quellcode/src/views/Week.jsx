@@ -14,6 +14,9 @@ import { semWeekLabel } from "../lib/semweek.js";
 import { toHM } from "../lib/blocks.js";
 import { shortName } from "../lib/modules.js";
 import { PullRefresh } from "../ui/pull.jsx";
+import { uniDatesOn } from "../lib/tumdates.js";
+import { UNI_COLOR } from "./UniDates.jsx";
+import { SemesterBar } from "./SemesterBar.jsx";
 
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 
@@ -80,7 +83,7 @@ export function WeekView({ db, compact = false }) {
         {!isMonth && <SelectToggle db={db} kind="session" ids={(isDay ? weekSes.filter((s) => s.date === day) : weekSes).map((s) => s.id)} />}
       </div>
       {!compact && !isMonth && <BlockSuggestions db={db} days={isDay ? [day] : days} />}
-      {isMonth ? <MonthGrid db={db} month={month} onPick={openWeek} />
+      {isMonth ? <><SemesterBar data={data} onPick={openWeek} /><MonthGrid db={db} month={month} onPick={openWeek} /></>
         : isDay ? <DaySwipe onShift={(n) => goDay(addDays(day, n))}><WeekGrid db={db} days={[day]} weekSes={weekSes.filter((s) => s.date === day)} single /></DaySwipe>
         : view === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
     </div>
@@ -129,14 +132,15 @@ function MonthGrid({ db, month, onPick }) {
       {weeks.map((w) => (
         <div key={w} className="month-row" role="row">
           {Array.from({ length: 7 }, (_, i) => addDays(w, i)).map((d) => {
-            const hw = hwBy.get(d) || [], ex = exBy.get(d) || [], ses = sesBy.get(d) || [], off = offDay(d, data.settings);
+            const hw = hwBy.get(d) || [], ex = exBy.get(d) || [], ses = sesBy.get(d) || [], off = offDay(d, data.settings), uni = uniDatesOn(d, data.settings);
             const open = hw.filter((h) => !DONE_HW.has(h.status));
-            const parts = [`${Number(d.slice(8))}. ${monthName(d.slice(0, 7))}`, off?.label, ex.length ? `${ex.length} ${ex.length === 1 ? "Prüfung" : "Prüfungen"}` : "", hw.length ? `${hw.length} ${hw.length === 1 ? "Abgabe" : "Abgaben"}${open.length < hw.length ? ` (${hw.length - open.length} erledigt)` : ""}` : "", ses.length ? `${ses.length} ${ses.length === 1 ? "Termin" : "Termine"}` : ""].filter(Boolean);
+            const parts = [`${Number(d.slice(8))}. ${monthName(d.slice(0, 7))}`, off?.label, ex.length ? `${ex.length} ${ex.length === 1 ? "Prüfung" : "Prüfungen"}` : "", hw.length ? `${hw.length} ${hw.length === 1 ? "Abgabe" : "Abgaben"}${open.length < hw.length ? ` (${hw.length - open.length} erledigt)` : ""}` : "", ses.length ? `${ses.length} ${ses.length === 1 ? "Termin" : "Termine"}` : "", ...uni.map((x) => x.title)].filter(Boolean);
             return (
               <button key={d} role="gridcell" className={`month-day ${d.slice(0, 7) !== month ? "other" : ""} ${d === t ? "today" : ""} ${off ? "off" : ""} ${ex.length ? "has-exam" : ""}`} onClick={() => onPick(d)} aria-label={parts.join(", ")} title={parts.slice(1).join(", ") || undefined}>
                 <span className="month-num">{Number(d.slice(8))}</span>
                 <span className="month-dots" aria-hidden="true">
                   {ex.map((e) => <span key={e.id + (e.retakeDate === d ? "r" : "")} className="mdot mdot-exam" />)}
+                  {uni.map((x) => <span key={x.id} className="mdot mdot-uni" style={{ "--mod": UNI_COLOR[x.kind] }} />)}
                   {hw.slice(0, 4).map((h) => <span key={h.id} className={`mdot ${DONE_HW.has(h.status) ? "mdot-done" : ""}`} style={{ "--mod": db.mod(h.moduleId)?.color }} />)}
                   {hw.length > 4 && <span className="mdot-more">+{hw.length - 4}</span>}
                 </span>
@@ -287,7 +291,7 @@ function WeekGrid({ db, days, weekSes, single = false }) {
   const hours = Array.from({ length: endH - startH + 1 }, (_, i) => startH + i);
   const hwByDay = (d) => data.homework.filter((h) => h.due === d && !h.dueTime);
   const evName = (ev) => { const m = db.mod(ev.moduleId); return ev.isBlock ? ev.title : ev.isExam ? `Prüfung ${shortName(m?.name) || ""}`.trim() : `${shortName(m?.name) || "Termin"} ${ev.type || ""}`.trim(); };
-  const anyAllDay = shown.some((d) => hwByDay(d).length || data.exams.some((e) => e.date === d && !e.time));
+  const anyAllDay = shown.some((d) => hwByDay(d).length || uniDatesOn(d, data.settings).length || data.exams.some((e) => e.date === d && !e.time));
   const nowMin = toMin(nowHM());
   const cardClash = cardSession && clashesOf(timed.filter((x) => x.date === cardSession.date)).get(cardSession.id);
 
@@ -304,6 +308,7 @@ function WeekGrid({ db, days, weekSes, single = false }) {
           <span className="self-center text-[10px] text-slate-500">fällig</span>
           {shown.map((d) => (
             <div key={d} className="allday">
+              {uniDatesOn(d, data.settings).map((x) => <span key={x.id} className="ad-uni block" style={{ "--mod": UNI_COLOR[x.kind] }} title={x.title}>{x.short}<span className="sr-only">: {x.title}</span></span>)}
               {hwByDay(d).map((h) => { const m = db.mod(h.moduleId); return (
                 <button key={h.id} className="text-left" onClick={() => db.openForm("homework", h)} aria-label={`Abgabe ${h.title}, ${m?.name || ""}, ${fmt(d)}`}>
                   <span className="ad-hw block" style={{ "--mod": m?.color, textDecoration: ["bearbeitet", "abgegeben", "bewertet"].includes(h.status) ? "line-through" : undefined }}>{h.title}</span>
@@ -399,7 +404,8 @@ function WeekList({ db, days, weekSes }) {
         const ex = data.exams.filter((e) => e.date === d);
         const mins = sum(data.logs.filter((l) => l.date === d), (l) => l.minutes);
         const bl = (data.blocks || []).filter((b) => b.date === d).sort(byTime);
-        const isToday = d === t, empty = !ses.length && !hw.length && !ex.length && !bl.length;
+        const uni = uniDatesOn(d, data.settings);
+        const isToday = d === t, empty = !ses.length && !hw.length && !ex.length && !bl.length && !uni.length;
         return (
           <section key={d} aria-label={`${WD_LONG[wdIdx(d)]} ${fmt(d)}`}>
             <div className="mb-2 flex items-center justify-between">
@@ -417,6 +423,12 @@ function WeekList({ db, days, weekSes }) {
                     <p className="row-meta">{e.time}{e.room ? `, ${e.room}` : ""}</p>
                   </li>
                 ); })}
+                {uni.map((x) => (
+                  <li key={x.id} className="row" style={{ "--mod": UNI_COLOR[x.kind] }}>
+                    <p className="row-title">{x.title}</p>
+                    <p className="row-meta">Uni-Frist</p>
+                  </li>
+                ))}
                 {ses.map((s) => <SessionRow key={s.id} s={s} db={db} />)}
                 {bl.map((b) => <BlockRow key={b.id} b={b} db={db} />)}
                 {hw.map((h) => <HomeworkRow key={h.id} h={h} db={db} />)}

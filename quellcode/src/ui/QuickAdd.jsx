@@ -65,7 +65,7 @@ export function QuickAdd({ db, onClose }) {
           <>
             <div className="seg mt-3" role="radiogroup" aria-label="Art des Eintrags">
               {KINDS.map(([k, l]) => (
-                <button type="button" key={k} role="radio" aria-checked={q.kind === k} aria-selected={q.kind === k} className="seg-item" onClick={() => setKind(k)}>{l}</button>
+                <button type="button" key={k} role="radio" aria-checked={q.kind === k} className="seg-item" onClick={() => setKind(k)}>{l}</button>
               ))}
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5" aria-live="polite">
