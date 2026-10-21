@@ -380,7 +380,7 @@ export function CardsView({ db, timer, filter, setFilter }) {
             <div className="mt-3 grid grid-cols-4 gap-2">
               {[["Nochmal", "border-rose-500/50 text-rose-200"], ["Schwer", "border-amber-500/50 text-amber-200"], ["Gut", "border-sky-500/50 text-sky-200"], ["Leicht", "border-emerald-500/50 text-emerald-200"]].map(([l, c], i) => (
                 <button key={l} onClick={() => rate(i)} className={`rounded-lg border px-2 py-2 text-xs font-medium hover:bg-slate-800 ${c} ${focusRing}`}>
-                  {l}<span className="block text-[10px] font-normal opacity-70">{preview(i)} · {i + 1}</span>
+                  {l}<span className="block text-[10px] font-normal">{preview(i)} · {i + 1}</span>
                 </button>
               ))}
             </div>

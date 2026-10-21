@@ -162,7 +162,7 @@ export function TopicRow({ x, db, minutes }) {
         <div className="flex shrink-0" role="group" aria-label={`Selbsteinschätzung ${x.title}`}>
           {[1, 2, 3, 4, 5].map((n) => (
             <button key={n} onClick={() => db.patch("topics", x.id, { rating: x.rating === n ? 0 : n })} aria-label={`${n} von 5`} aria-pressed={(x.rating || 0) >= n}
-              className={`px-0.5 text-base leading-none ${(x.rating || 0) >= n ? "text-amber-300" : "text-slate-600 hover:text-slate-400"}`}>★</button>
+              className={`rate-star px-0.5 text-base leading-none ${(x.rating || 0) >= n ? "text-amber-300" : "text-slate-600 hover:text-slate-400"}`}>★</button>
           ))}
         </div>
       </div>

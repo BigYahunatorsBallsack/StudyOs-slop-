@@ -153,9 +153,9 @@ function MonthGrid({ db, month, onPick }) {
                   {ex.map((e) => <span key={e.id + (e.retakeDate === d ? "r" : "")} className="mdot mdot-exam" />)}
                   {uni.map((x) => <span key={x.id} className="mdot mdot-uni" style={{ "--mod": UNI_COLOR[x.kind] }} />)}
                   {hw.slice(0, 4).map((h) => <span key={h.id} className={`mdot ${DONE_HW.has(h.status) ? "mdot-done" : ""}`} style={{ "--mod": db.mod(h.moduleId)?.color }} />)}
-                  {hw.length > 4 && <span className="mdot-more">+{hw.length - 4}</span>}
+                  {hw.length > 4 && <span className="mdot-more" data-n={`+${hw.length - 4}`} />}
                 </span>
-                {ses.length > 0 && <span className="month-ses" aria-hidden="true">{ses.length}</span>}
+                {ses.length > 0 && <span className="month-ses" aria-hidden="true" data-n={ses.length} />}
               </button>
             );
           })}
@@ -365,21 +365,21 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
                 const box = { top: y(s) + 1, height: Math.max(20, ((e - s) / 60) * hp - 2), left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)`, right: "auto" };
                 const tall = ((e - s) / 60) * hp > 34;
                 /* Der Name beginnt mit dem sichtbaren Text (für Sprachsteuerung), danach die Einzelheiten */
-                const shown = (a, b) => (tall && b ? `${a} ${b}: ` : `${a}: `);
+                const shown = (a, b, when) => (tall && b ? `${a} ${b}${single && when ? " " + when : ""}: ` : `${a}: `);
                 if (ev.isBlock) return (
-                  <button key={ev.id} className={`ev ev-block ev-move ${ev.done ? "ev-done" : ""} ${cx ? "ev-clash" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("block", ev.id) ? "ev-selected" : ""}`} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen")}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}${cx ? ", " + cx : ""}`} title={cx || undefined}
+                  <button key={ev.id} className={`ev ev-block ev-move ${ev.done ? "ev-done" : ""} ${cx ? "ev-clash" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("block", ev.id) ? "ev-selected" : ""}`} aria-label={`${shown(shortName(ev.title), m ? shortName(m.name) : "Lernen", `${ev.start}–${ev.end}`)}Lernblock ${ev.title}${m ? ", " + m.name : ""}, ${ev.start} bis ${ev.end}${ev.done ? ", erledigt" : ""}${cx ? ", " + cx : ""}`} title={cx || undefined}
                     {...(selKind === "block" ? { "aria-pressed": picked("block", ev.id), onClick: () => db.select("block", ev.id) }
                       : withDrag({ ...pressProps("block", ev.id), onClick: () => db.openForm("block", ev) }, (e) => startDrag(e, ev)))}
                     style={{ "--mod": m?.color || "var(--accent)", ...box }}>
                     <b>{shortName(ev.title)}</b>
                     {tall && " "}{tall && <span>{m ? shortName(m.name) : "Lernen"}</span>}
-                    {single && tall && <span className="ev-when">{ev.start}–{ev.end}</span>}
+                    {single && tall && " "}{single && tall && <span className="ev-when">{ev.start}–{ev.end}</span>}
                     <span className="ev-resize" aria-hidden="true" />
                   </button>
                 );
                 const cov = ev.isExam || ev.cancelled ? null : sessionCoverage(ev);
                 const cls = ev.isExam ? "" : ev.cancelled ? "ev-cancelled" : ev.reviewed ? "ev-done" : isHeld(ev) ? "ev-review" : "";
-                const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}${cov ? `, ${cov.label}` : ""}`) + (cx ? `, ${cx}` : "");
+                const label = shown(ev.isExam ? "Prüfung" : shortName(m?.name), ev.isExam ? shortName(m?.name) : ev.type, `${ev.start}${ev.isExam ? "" : `–${ev.end}`}${ev.room ? `, ${ev.room}` : ""}`) + (ev.isExam ? `Prüfung ${m?.name || ""} um ${ev.start}` : `${ev.type} ${m?.name || ""}, ${ev.start} bis ${ev.end}${ev.room ? ", " + ev.room : ""}${ev.cancelled ? ", fällt aus" : ev.reviewed ? ", nachbereitet" : isHeld(ev) ? ", noch nicht nachbereitet" : ""}${cov ? `, ${cov.label}` : ""}`) + (cx ? `, ${cx}` : "");
                 return (
                   <button key={ev.id} className={`ev ${cls} ${ev.isExam ? "" : "ev-move"} ${cx ? "ev-clash" : ""} ${hover.card?.id === ev.id ? "ev-active" : ""} ${drag?.id === ev.id ? "ev-dragging" : ""} ${picked("session", ev.id) ? "ev-selected" : ""}`} aria-label={label} title={ev.isExam ? label : undefined}
                     {...(ev.isExam ? { onClick: () => db.goLearn("pruefungen") }
@@ -388,7 +388,7 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
                     style={{ "--mod": ev.isExam ? "var(--danger)" : m?.color, ...box, color: ev.isExam ? "#fff" : undefined }}>
                     <b>{ev.isExam ? "Prüfung" : shortName(m?.name)}</b>
                     {tall && " "}{tall && <span>{ev.isExam ? shortName(m?.name) : ev.type}</span>}
-                    {single && tall && <span className="ev-when">{ev.start}{ev.isExam ? "" : `–${ev.end}`}{ev.room ? `, ${ev.room}` : ""}</span>}
+                    {single && tall && " "}{single && tall && <span className="ev-when">{ev.start}{ev.isExam ? "" : `–${ev.end}`}{ev.room ? `, ${ev.room}` : ""}</span>}
                     {!ev.isExam && <span className="ev-resize" aria-hidden="true" />}
                     {cov && <span className="ev-cov" data-tier={cov.ratio >= 0.9 ? "ok" : cov.ratio >= 0.34 ? "warn" : "low"} aria-hidden="true"><span style={{ width: `${Math.round(cov.ratio * 100)}%` }} /></span>}
                   </button>

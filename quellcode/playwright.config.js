@@ -19,6 +19,8 @@ export default defineConfig({
     { name: 'mobil', testMatch: 'e2e/**/*.spec.js', use: { ...devices['Pixel 7'], userAgent: 'Mozilla/5.0 (X11; Linux x86_64) StudyOS-Test' } },
     // Screenshot-Vergleich (npm run test:visual); Referenzbilder neu erzeugen mit: npm run test:visual -- --update-snapshots
     { name: 'bilder', testMatch: 'visual/**/*.spec.js', use: { ...devices['Pixel 7'], userAgent: 'Mozilla/5.0 (X11; Linux x86_64) StudyOS-Test' } },
+    // Großer Durchlauf aller Ansichten auf Handy und PC, alle Paletten (npm run test:durchlauf, langsam); Geräte setzt der Test selbst
+    { name: 'durchlauf', testMatch: 'durchlauf/**/*.spec.js', use: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) StudyOS-Test' } },
   ],
   webServer: { command: 'node tests/e2e/server.mjs', url: `http://localhost:${process.env.PORT || 4173}/`, reuseExistingServer: true },
 });

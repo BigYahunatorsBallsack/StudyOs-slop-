@@ -1346,8 +1346,8 @@ test('TUM-Semestertermine als Uni-Fristen und Semesterleiste über dem Monat', a
   const bar = page.getByRole('region', { name: 'Semesterleiste WiSe 2026/27' });
   await expect(bar.getByText('VL-Woche 8')).toBeVisible();
   await expect(bar.getByRole('button')).toHaveCount(27);
-  await expect(bar.getByRole('button', { name: /^KW 49, VL-Woche 8, diese Woche$/ })).toHaveClass(/current/);
-  await expect(bar.getByRole('button', { name: /^KW 50, VL-Woche 9, 3 Abgaben$/ })).toHaveClass(/busy/);
+  await expect(bar.getByRole('button', { name: /^KW 49, 8. VL-Woche, diese Woche$/ })).toHaveClass(/current/);
+  await expect(bar.getByRole('button', { name: /^KW 50, 9. VL-Woche, 3 Abgaben$/ })).toHaveClass(/busy/);
   await expect(bar.getByRole('button', { name: /^KW 53, Weihnachtspause/ })).toHaveClass(/off/);
   await expect(bar.getByRole('button', { name: /^KW 6, .*1 Prüfung/ })).toHaveClass(/has-exam/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
