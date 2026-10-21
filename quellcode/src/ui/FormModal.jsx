@@ -10,6 +10,10 @@ import { imageFiles, imageMd, pastedName, removeLocal, storeFile } from "../lib/
 import { followingSimilar } from "../lib/series.js";
 import { Select } from "./select.jsx";
 import { SubtaskEditor } from "./subtasks.jsx";
+import { LinkEditor } from "./modlinks.jsx";
+import { PartnerInput } from "./partners.jsx";
+import { lastPartners, partnerSuggestions } from "../lib/partners.js";
+import { canonical } from "../lib/sync.js";
 
 /* Bilder einfügen (Strg+V, Einfügen am Handy, Hineinziehen): als Anhang speichern, in Notizen und Karten auch als Bild einbinden */
 const FILE_COLL = { note: "notes", homework: "homework", card: "cards" };
@@ -29,15 +33,18 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
       const has = init[f.k] !== undefined && init[f.k] !== null;
       if (f.t === "checkbox") v[f.k] = has ? !!init[f.k] : !!f.def;
       else if (f.t === "weekdays") v[f.k] = Array.isArray(init[f.k]) ? init[f.k].map(Number) : [];
-      else if (f.t === "subtasks") v[f.k] = Array.isArray(init[f.k]) ? init[f.k] : [];
+      else if (f.t === "subtasks" || f.t === "links") v[f.k] = Array.isArray(init[f.k]) ? init[f.k] : [];
+      else if (f.t === "people") v[f.k] = Array.isArray(init[f.k]) ? init[f.k] : null;
       else if (f.t === "decimal") v[f.k] = has ? fmtDec(init[f.k]) : "";
       else v[f.k] = has ? init[f.k] : f.k === "moduleId" && init.moduleId === undefined && lastMod ? lastMod : typeof f.def === "function" ? f.def() : f.def ?? "";
     });
     fields.forEach((f) => { if (f.t === "select" && f.req && (v[f.k] === "" || v[f.k] === undefined)) v[f.k] = resolve(f, v)[0]?.value ?? ""; });
+    /* Gruppenabgabe: ohne eigene Angabe das Team vom letzten Blatt des Moduls */
+    fields.forEach((f) => { if (f.t === "people" && v[f.k] === null) v[f.k] = lastPartners(data, v.moduleId, init.id); });
     return v;
   });
   const [err, setErr] = useState("");
-  const setField = (k, val) => setVals((v) => { const n = { ...v, [k]: val }; if (k === "moduleId") { if ("topicId" in n) n.topicId = ""; if ("sessionId" in n) n.sessionId = ""; if ("homeworkId" in n) n.homeworkId = ""; } return n; });
+  const setField = (k, val) => setVals((v) => { const n = { ...v, [k]: val }; if (k === "moduleId") { if ("topicId" in n) n.topicId = ""; if ("sessionId" in n) n.sessionId = ""; if ("homeworkId" in n) n.homeworkId = ""; if ("partners" in n && !Array.isArray(form.initial?.partners) && canonical(v.partners) === canonical(lastPartners(data, v.moduleId, form.initial?.id))) n.partners = lastPartners(data, val, form.initial?.id); } return n; });
   const fileColl = db ? FILE_COLL[form.kind] : null;
   const [pending, setPending] = useState([]);
   const [pasteMsg, setPasteMsg] = useState("");
@@ -105,7 +112,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
       if (files.length) out.files = files;
       savedRef.current = true;
     }
-    onSave(form.kind, out, form.isNew, extra);
+    onSave(form.kind, def.prepare ? def.prepare(out) : out, form.isNew, extra);
     onClose();
   };
 
@@ -123,7 +130,9 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
               if (f.t === "select") ctrl = <Select {...common}>{resolve(f, vals).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>;
               else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} onMakeCard={db?.cardFromText ? (t) => db.cardFromText(t, vals.moduleId) : undefined} />;
               else if (f.t === "textarea") ctrl = <textarea {...common} rows={f.rows || 4} placeholder={f.ph} />;
-              else if (f.t === "subtasks") ctrl = <SubtaskEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} />;
+              else if (f.t === "subtasks") ctrl = <SubtaskEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} partners={vals.partners} />;
+              else if (f.t === "people") ctrl = <PartnerInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} suggestions={partnerSuggestions(data, vals.moduleId, form.initial?.id)} />;
+              else if (f.t === "links") ctrl = <LinkEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} />;
               else if (f.t === "weekdays") ctrl = (
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label={f.l}>
                   {WD.map((w, i) => {
