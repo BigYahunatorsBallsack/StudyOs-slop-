@@ -22,6 +22,7 @@ import { isOcc, occLabel } from "../lib/occlusion.js";
 import { OcclusionImage } from "../ui/Occlusion.jsx";
 import { workload } from "../lib/study.js";
 import { SwipeUnder, useSwipe } from "../ui/swipe.jsx";
+import { useBackClose } from "../ui/back.js";
 
 /* ---------------- Lernen ---------------- */
 export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
@@ -309,6 +310,9 @@ export function CardsView({ db, timer, filter, setFilter }) {
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
   }, [current, revealed, full]);
+
+  /* Zurück-Geste beendet das Vollbild (wie Esc), die Abfrage läuft weiter */
+  useBackClose(full && !!current, () => { fullFocus.current = true; setFull(false); });
 
   /* Lernzeit: im Hintergrund anhalten, beim Verlassen der Ansicht und am Ende der Sitzung eintragen */
   const curMod = useRef(""); curMod.current = current ? current.moduleId || "" : "";

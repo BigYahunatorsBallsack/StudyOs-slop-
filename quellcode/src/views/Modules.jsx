@@ -136,7 +136,7 @@ export function ModuleDetail({ db, id, onBack }) {
         <button className={btnGhost} onClick={() => setMerge(true)}>Zusammenführen</button>
       </div>
       {merge && <MergeModules db={db} preset={[id, ...mergeSuggestions(data.modules).filter((g) => g.modules.some((x) => x.id === id)).flatMap((g) => g.modules.map((x) => x.id)).filter((x) => x !== id)]} target={id} onClose={() => setMerge(false)} onDone={(tid) => tid !== id && db.goModule(tid)} />}
-      <Tabs items={subs} value={sub} onChange={setSub} label="Modulbereiche" />
+      <Tabs items={subs} value={sub} onChange={setSub} label="Modulbereiche" swipe />
 
       {sub === "uebersicht" && (
         <div className="space-y-4">

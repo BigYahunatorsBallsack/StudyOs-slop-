@@ -17,6 +17,7 @@ import { PullRefresh } from "../ui/pull.jsx";
 import { uniDatesOn } from "../lib/tumdates.js";
 import { UNI_COLOR } from "./UniDates.jsx";
 import { SemesterBar } from "./SemesterBar.jsx";
+import { useBackClose } from "../ui/back.js";
 
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 
@@ -59,6 +60,12 @@ export function WeekView({ db, compact = false }) {
   const pickMode = (k) => { if (k === "tag" && weekStart(day) !== ws) setDay(days.includes(t) ? t : ws); setMode(k); };
   const shiftMonth = (n) => { const [y, m] = month.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
   const openWeek = (d) => { setWs(weekStart(d)); setMode("raster"); };
+  /* aktiven Reiter unten nochmal angetippt (App.jsx): zurück zu heute */
+  useEffect(() => {
+    const f = (e) => { if (e.detail === (compact ? "heute" : "woche")) { setMonth(t.slice(0, 7)); goDay(t); } };
+    window.addEventListener("studyos:retap", f);
+    return () => window.removeEventListener("studyos:retap", f);
+  }, [t, compact]);
   const shift = (n) => (isMonth ? shiftMonth(n) : isDay ? goDay(addDays(day, n)) : setWs(addDays(ws, 7 * n)));
   const H = compact ? "h3" : "h2";
   const [kw, ...semRest] = semWeekLabel(isDay ? day : ws, data).split(" · ");
@@ -197,6 +204,7 @@ function WeekGrid({ db, days, weekSes, single = false }) {
   /* Freie Stelle angetippt: kleine Auswahl „Termin“ / „Lernblock“ mit dieser Uhrzeit */
   const [slot, setSlot] = useState(null);
   const slotRef = useRef(null);
+  useBackClose(!!slot, () => setSlot(null));
   useEffect(() => {
     if (!slot) return undefined;
     const away = (e) => { if (!slotRef.current?.contains(e.target)) setSlot(null); };
