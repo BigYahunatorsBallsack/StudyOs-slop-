@@ -2,15 +2,13 @@
    Zeigt die nächsten Abfahrten und welche Verbindung für die erste Lehrveranstaltung reicht.
    Alternativ mit dem Auto: Fahrzeit bei aktueller Verkehrslage und wann man losfahren sollte. */
 import React, { useEffect, useRef, useState } from "react";
-import { CAMPUSES, carPlan, commuteIncomplete, commuteOf, DEFAULT_COMMUTE, hhmm, mapsLink, matches, queryOffset, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
-import { fmtShort, iso } from "../lib/util.js";
+import { CAMPUSES, carPlan, commuteIncomplete, commuteOf, dayWord, DEFAULT_COMMUTE, hhmm, mapsLink, matches, queryOffset, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
 import { homeArrival, homeCar, homeLines, homeQueries, homeTrips, homewardNow, HOMEWARD } from "../lib/homeward.js";
 import { estimateLeave, forecastUrl, parseForecast, returnAt, summarize, weatherLine, weatherPlaces } from "../lib/weather.js";
 import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
 import { useGroupOpens } from "../ui/collapse.jsx";
 import { Select } from "../ui/select.jsx";
 
-const dayWord = (date) => (date === iso() ? "heute" : date === iso(new Date(Date.now() + 86400000)) ? "morgen" : fmtShort(date));
 const lineName = (l) => (/^\d/.test(l || "") ? `Bus ${l}` : l || "Abfahrten");
 const TYPES = "BUS,REGIONAL_BUS,SBAHN,UBAHN,TRAM,BAHN";
 

@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Behoben: Zeitumstellung:** „Weg zur Uni“ schreibt in der Nacht vor und am Abend der Zeitumstellung wieder richtig „morgen“ statt eines Datums. Wiederkehrende Termine aus abonnierten Kalendern, die in Weltzeit (UTC) gespeichert sind, stehen nach der Umstellung zur selben Uhrzeit wie in deinem Kalender-Programm. Alle anderen Datums- und Zeitrechnungen (Fristen, Timer, Lernzeit, Erinnerungen) sind für die Umstellungstage geprüft.
 - **Einstellungen übersichtlich gegliedert:** Mehr → Daten & Einstellungen zeigt jetzt Gruppen: Darstellung & Klang, Benachrichtigungen, Studium, Kalender & Abos, Weg zur Uni, Cloud & Sync, Sicherung & Daten, Papierkorb und Zurücksetzen. Am Handy klappt eine Gruppe beim Antippen auf, am PC steht die Liste links und die offene Gruppe rechts. Alle Push-Arten stehen gesammelt unter Benachrichtigungen; die zuletzt geöffnete Gruppe merkt sich das Gerät.
 - **Einstellungen durchsuchen:** Das Suchfeld oben auf der Seite findet Einstellungen nach Namen und Stichwörtern („Push“, „Mensa“, „Export“), öffnet die passende Gruppe und markiert die Stelle. Auch Strg + K findet Einstellungen und springt direkt hin.
 - **Was ist neu:** Nach einem Update zeigt StudyOS einmal eine kleine Karte mit den neuen Punkten, wegklickbar mit ✕; beim allerersten Start nicht. Unter Mehr → „Was ist neu“ steht die Liste jederzeit.

@@ -1,6 +1,6 @@
 /* Weg zur Uni: welche Verbindung reicht für die erste Lehrveranstaltung?
    Optional mit Zubringer, z. B. erst mit der S-Bahn zur Umstiegshaltestelle, dort in den Bus. */
-import { addDays, iso } from "./util.js";
+import { addDays, fmtShort, iso } from "./util.js";
 
 /* Bis StudyOS 2.7 die Vorgabe für alle: S6 Zorneding → Haar → Bus 230 nach Garching. Bestehende Daten ohne eigene
    Einstellung behalten sie (siehe upgradeSettings in data.js). */
@@ -93,6 +93,9 @@ export function upcomingSessions(sessions, now = new Date()) {
 export function nextFirstSession(sessions, now = new Date()) {
   return upcomingSessions(sessions, now)[0] || null;
 }
+
+/** „heute“, „morgen“ oder „Mo, 26.10.“ (nach Kalendertagen, auch an den 23- und 25-Stunden-Tagen der Zeitumstellung) */
+export const dayWord = (date, today = iso()) => (date === today ? "heute" : date === addDays(today, 1) ? "morgen" : fmtShort(date));
 
 const at = (date, hm) => { const [y, m, d] = date.split("-").map(Number); const [h, mi] = hm.split(":").map(Number); return new Date(y, m - 1, d, h, mi).getTime(); };
 
