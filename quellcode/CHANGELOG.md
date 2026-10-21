@@ -1,6 +1,8 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Farbpalette „Papier“ für draußen:** Unter Daten & Einstellungen → Farbpalette gibt es jetzt eine helle Palette: dunkle Tinte auf cremefarbenem Papier mit Magenta und Petrol, weiter im Pixel-Look. Alle Texte erreichen mindestens 4,5:1 Kontrast, auch in der Sonne gut lesbar; Sternenhimmel und Neon-Glühen fallen weg, Modulfarben als Schrift und Rand werden dunkler gemischt. Browser-Leiste und iOS-Statusleiste passen sich an.
+- **Besser mit Tastatur und Screenreader:** Die Suche ist jetzt eine richtige Combobox (Pfeiltasten wählen, der Screenreader liest den Treffer vor), Meldungen und „Rückgängig“ werden über eine Statusregion angesagt, Auswahlknöpfe (Art des Eintrags, verfügbare Zeit, Studienstatus) melden ihren Zustand korrekt, und Esc auf einer Terminkarte gibt den Fokus an den Termin zurück. Ein neuer Test prüft Dialoge (Fokus bleibt drin, Esc schließt, Fokus kommt zurück) und alle Hauptseiten in beiden Paletten mit axe.
 - **Schnelleingabe vervollständigt Module:** Beim Tippen schlägt die Schnelleingabe passende Module vor; antippen oder Tab übernimmt den vollen Namen. Die Vorschau zeigt weiter Art, Modul, Datum, Uhrzeit und Teilaufgaben, bei Lernzeit auch die Art der Lerneinheit.
 - **Letzte Eingaben als Vorlage:** Unter dem leeren Feld stehen deine letzten 5 Schnelleingaben (auf diesem Gerät). Antippen füllt das Feld und markiert das Datum, sodass du nur das neue tippst.
 - **Lernzeit nachtragen per Schnelleingabe:** „1h DS gestern“, „45 min Karten Analysis“ oder „90min Lernen LinAlg Mo“ legt eine Lerneinheit beim Modul an. Ein Wochentag meint dabei den letzten, „Karten“ wird zur Art „Karteikarten“, und Abkürzungen wie „LinAlg“ werden erkannt.

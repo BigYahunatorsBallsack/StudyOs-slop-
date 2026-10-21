@@ -36,6 +36,7 @@ export function SessionTri({ s, db, compact = false, color }) {
 /** Schwebende Karte an einem Termin (Position aus dem Rechteck des Auslösers). */
 export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note = "" }) {
   const ref = useRef(null);
+  const opener = useRef(typeof document !== "undefined" ? document.activeElement : null); /* Esc gibt den Fokus dorthin zurück */
   const [pos, setPos] = useState({ left: -9999, top: -9999 });
   const m = db.mod(s.moduleId);
 
@@ -52,7 +53,7 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note 
   }, [anchor, s]);
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e) => { if (e.key === "Escape") { onClose(); opener.current?.focus?.(); } };
     const onDown = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.(".ev")) onClose(); };
     const onScroll = () => onClose();
     document.addEventListener("keydown", onKey);

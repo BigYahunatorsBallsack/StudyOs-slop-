@@ -236,7 +236,7 @@ export function DataView({ db }) {
           <div className="col-span-2">
             <span className="mb-1 block text-xs text-slate-400">Farbpalette</span>
             <Tabs items={RETRO_PALETTES.map(([k, l]) => [k, l])} value={retroPaletteOf(data.settings.retroPalette)} onChange={(v) => db.patchSettings({ retroPalette: v })} label="Farbpalette" />
-            <p className="mt-1.5 text-xs text-slate-400">{{ synthwave: "Neon-Pink und Cyan über einer Stadt bei Nacht.", gameboy: "Vier Grüntöne wie auf dem Game Boy von 1989.", amber: "Bernstein auf Schwarz wie ein altes Terminal.", cga: "Magenta, Cyan und Gelb auf Schwarz wie frühe PC-Spiele." }[retroPaletteOf(data.settings.retroPalette)]} Pixel-Grafiken färben sich mit; die Modulfarben bleiben, wie du sie gewählt hast.</p>
+            <p className="mt-1.5 text-xs text-slate-400">{{ synthwave: "Neon-Pink und Cyan über einer Stadt bei Nacht.", gameboy: "Vier Grüntöne wie auf dem Game Boy von 1989.", amber: "Bernstein auf Schwarz wie ein altes Terminal.", cga: "Magenta, Cyan und Gelb auf Schwarz wie frühe PC-Spiele.", papier: "Dunkle Tinte auf hellem Papier, gut lesbar in der Sonne." }[retroPaletteOf(data.settings.retroPalette)]} Pixel-Grafiken färben sich mit; die Modulfarben bleiben, wie du sie gewählt hast.</p>
           </div>
           <div className="col-span-2">
             <span className="mb-1 block text-xs text-slate-400">Schriftgröße</span>

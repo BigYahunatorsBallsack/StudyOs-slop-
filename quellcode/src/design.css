@@ -86,7 +86,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .seg { display: flex; flex-wrap: wrap; gap: .375rem; }
 .seg-item { flex-shrink: 0; border-radius: 999px; padding: .45rem .95rem; font-size: .8125rem; font-weight: 600; background: var(--surface); color: var(--muted); transition: background-color .15s, color .15s; }
 @media (hover: hover) { .seg-item:hover { color: var(--text); } }
-.seg-item[aria-selected="true"] { background: var(--ink); color: var(--on-ink); }
+.seg-item:is([aria-selected="true"], [role="radio"][aria-checked="true"]) { background: var(--ink); color: var(--on-ink); }
 
 /* ---- Chips ---- */
 .chip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .32rem .7rem; font-size: .75rem; font-weight: 600; background: var(--surface-2); color: var(--muted); transition: background-color .15s, color .15s, transform .12s; }
@@ -364,7 +364,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .tri-btn { display: inline-flex; align-items: center; gap: .25rem; border-radius: 999px; padding: .32rem .7rem; font-size: .75rem; font-weight: 650; color: var(--muted); transition: background-color .15s, color .15s, transform .12s; white-space: nowrap; }
 @media (hover: hover) { .tri-btn:hover { color: var(--text); } }
 .tri-btn:active { transform: scale(.95); }
-.tri-btn[aria-pressed="true"] { background: var(--mod, var(--accent)); color: var(--on-module); }
+.tri-btn:is([aria-pressed="true"], [role="radio"][aria-checked="true"]) { background: var(--mod, var(--accent)); color: var(--on-module); }
 .tri-btn.tri-warn { color: var(--warn-text); }
 .tri-mark { display: inline-block; min-width: .6rem; text-align: center; }
 .tri-btn[aria-pressed="true"] .tri-mark { animation: pop .28s ease; }

@@ -91,11 +91,49 @@
   --sun-1: #ffff55; --sun-2: #ffaa55; --sun-3: #ff55ff; --sun-4: #ff55aa; --sun-5: #aa55ff;
   --hm0: #18182e; --hm1: #3a1a5a; --hm2: #7a2a9a; --hm3: #c040d0; --hm4: #ff55ff;
 }
+/* Papier: hell für draußen in der Sonne. Cremefarbenes Papier, dunkle Tinte, Magenta und Petrol als Akzente;
+   alle Textfarben ≥ 4,5:1 auch auf --surface-3. Kein Sternenhimmel, die Skyline nur als blasser Stempel. */
+:root[data-theme="retro"][data-palette="papier"] {
+  --bg: #f3ead3; --surface: #fbf6e9; --surface-2: #efe4c8; --surface-3: #e5d6b2;
+  --line: rgba(29, 23, 18, .12); --line-strong: rgba(29, 23, 18, .26);
+  --text: #1d1712; --text-2: #362b20; --muted: #54473a; --faint: #5f5141;
+  --ink: #1d1712; --on-ink: #fbf6e9;
+  --accent: #b0124f; --accent-strong: #960d42; --accent-text: #9a0f45; --on-accent: #fff7ec;
+  --accent-2: #005f66;
+  --warn: #8f5500; --warn-strong: #7f4b00; --warn-text: #7f4b00;
+  --danger: #b3261e; --danger-strong: #9a1f18; --danger-text: #9a1f18;
+  --ok: #256619; --ok-strong: #1f5c14; --ok-text: #1f5c14;
+  --on-module: #1d1712; --nav-bg: #fbf6e9;
+  --shadow: 4px 4px 0 0 rgba(70, 50, 20, .22);
+  --pxc: #a8936c; --pxc-soft: #c4b28c; --pxc-strong: #7d6a4a;
+  --accent-shade: #f0c4d4; --accent-deep: #f2cfdb; --accent-2-light: #2a8a92; --accent-2-shade: #bfdcdc;
+  --sun-1: #f5b700; --sun-2: #f08a24; --sun-3: #e5603a; --sun-4: #d63f5a; --sun-5: #b0124f;
+  --drop: rgba(70, 50, 20, .28);
+  --hm0: #efe4c8; --hm1: #f0bfcf; --hm2: #dc7fa0; --hm3: #c4406f; --hm4: #b0124f;
+  --art: saturate(1.3) brightness(.8) contrast(1.15);
+  color-scheme: light;
+}
 :root[data-theme="retro"]::before, :root[data-theme="retro"] body::before, :root[data-theme="retro"] .hero::after,
 :root[data-theme="retro"] :is(.px-icon, .px-ride, .px-burst, .px-buddy, .px-shot, .px-sky-sun),
 :root[data-theme="retro"] .section-title::before, :root[data-theme="retro"] .minis > span::before, :root[data-theme="retro"] .empty::before,
 :root[data-theme="retro"] .grid-now::before, :root[data-theme="retro"] .tab[aria-current="page"]::before, :root[data-theme="retro"] .select::after { filter: var(--art); }
 :root[data-theme="retro"] .px-sky-moon { filter: var(--art) drop-shadow(0 0 6px color-mix(in srgb, var(--text) 35%, transparent)); }
+/* Papier: was für dunklen Grund gebaut ist (Sterne, Neon-Glühen, helle Mischfarben, Modulfarbe als Schrift), dunkler und ruhiger */
+:root[data-theme="retro"][data-palette="papier"]::before { content: none; }
+:root[data-theme="retro"][data-palette="papier"] body::before { filter: grayscale(1) sepia(.5); opacity: .16; }
+:root[data-theme="retro"][data-palette="papier"] .px-sky { opacity: .35; }
+:root[data-theme="retro"][data-palette="papier"] body::after { background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(70, 50, 20, .035) 2px 3px); }
+:root[data-theme="retro"][data-palette="papier"] ::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--text); }
+:root[data-theme="retro"][data-palette="papier"] .page-title { text-shadow: 2px 2px 0 color-mix(in srgb, var(--accent) 22%, transparent); }
+:root[data-theme="retro"][data-palette="papier"] .brand { text-shadow: 2px 2px 0 var(--accent-deep); }
+:root[data-theme="retro"][data-palette="papier"] .hero-when { color: color-mix(in srgb, var(--mod, var(--accent)) 40%, var(--text)); }
+:root[data-theme="retro"][data-palette="papier"] :is(.hero-title, .hero-meta) { text-shadow: none; }
+:root[data-theme="retro"][data-palette="papier"] .hero::after { opacity: .3; }
+:root[data-theme="retro"][data-palette="papier"] :is(.hero .btn-solid, .hero .room-new) { --pxc: color-mix(in srgb, var(--mod, var(--accent)) 55%, var(--text)); }
+:root[data-theme="retro"][data-palette="papier"] .hero .room-new { color: color-mix(in srgb, var(--mod, var(--accent)) 40%, var(--text)); }
+:root[data-theme="retro"][data-palette="papier"] :is(.tile, .exam-chip, .commute-plan, .exam-countdown, .merge-row.on, .tl-live .tl-body) { --pxc: color-mix(in srgb, var(--mod, var(--accent)) 70%, var(--text)); }
+:root[data-theme="retro"][data-palette="papier"] .allday .ad-exam { color: var(--on-accent); }
+:root[data-theme="retro"][data-palette="papier"] .mod-text { color: color-mix(in srgb, var(--mod) 40%, var(--text)) !important; }
 
 /* Schriftgröße (Einstellungen): alles in rem wächst mit, Pixel-Grafiken behalten ihre Größe */
 html[data-size="compact"] { font-size: 87.5%; }
@@ -198,7 +236,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .surface .field, :root[data-theme="retro"] .sheet-panel .field { background: var(--bg); }
 :root[data-theme="retro"] .seg { row-gap: .6rem; padding: 3px 5px 6px 3px; } /* Platz für Pixel-Rand und Schatten, auch zwischen umgebrochenen Zeilen */
 :root[data-theme="retro"] .seg-item { font-size: .7rem; background: var(--surface); }
-:root[data-theme="retro"] .seg-item[aria-selected="true"] { background: var(--ink); color: var(--on-ink); --pxc: var(--accent-2-light); }
+:root[data-theme="retro"] .seg-item:is([aria-selected="true"], [role="radio"][aria-checked="true"]) { background: var(--ink); color: var(--on-ink); --pxc: var(--accent-2-light); }
 :root[data-theme="retro"] .chip { font-size: .68rem; }
 :root[data-theme="retro"] .chip[aria-pressed="true"] { background: var(--surface-3); color: var(--text); --pxc: var(--mod, var(--accent)); }
 :root[data-theme="retro"] .stats, :root[data-theme="retro"] .exam-chips { padding-top: 3px; padding-bottom: 7px; }
@@ -250,7 +288,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .tri-attended { --step: var(--accent-2); }
 :root[data-theme="retro"] .tri-reviewed { --step: var(--ok); }
 :root[data-theme="retro"] .tri-btn { color: color-mix(in srgb, var(--step) 75%, var(--muted)); }
-:root[data-theme="retro"] .tri-btn[aria-pressed="true"] { background: var(--step); color: var(--bg); filter: none; }
+:root[data-theme="retro"] .tri-btn:is([aria-pressed="true"], [role="radio"][aria-checked="true"]) { background: var(--step); color: var(--bg); filter: none; }
 :root[data-theme="retro"] .tri-btn.tri-warn { color: var(--warn-text); }
 /* Termin-Karte ist schmal: Beschriftung darf an der Trennstelle umbrechen, die Knöpfe bleiben gleich breit */
 :root[data-theme="retro"] .popover .tri { gap: 2px; }

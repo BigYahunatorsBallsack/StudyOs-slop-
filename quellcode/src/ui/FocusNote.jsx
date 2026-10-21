@@ -16,7 +16,7 @@ export function FocusNote({ log, db, onClose, onDetails, onDiscard }) {
     <Modal title="Fokusphase geschafft" onClose={save}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }} className="space-y-3">
         <p className="text-sm text-slate-300">
-          <b className="stat-value text-base">{fmtMin(log.minutes)}</b> eingetragen für <span style={{ color: m?.color }}>{m?.name || "Allgemein"}</span>{tp ? `, ${tp.title}` : ""}.
+          <b className="stat-value text-base">{fmtMin(log.minutes)}</b> eingetragen für <span className="mod-text" style={{ color: m?.color, "--mod": m?.color }}>{m?.name || "Allgemein"}</span>{tp ? `, ${tp.title}` : ""}.
         </p>
         <div>
           <label htmlFor="fn-note" className="mb-1 block text-xs text-slate-400">Was hast du gemacht? (optional)</label>
