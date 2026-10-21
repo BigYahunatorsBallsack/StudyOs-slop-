@@ -1,5 +1,6 @@
 /* Fristen für den Erinnerungsdienst. Nur Titel, Modulname und Datum verlassen das Gerät unverschlüsselt. */
 import { DONE_HW } from "./constants.js";
+import { uniDatesOn } from "./tumdates.js";
 import { addDays, fmtMin, fmtShort, iso, sum, wdIdx } from "./util.js";
 import { describeChange } from "./feed.js";
 import { withoutArchived } from "./study.js";
@@ -116,6 +117,7 @@ export function morningBody(data, day, mod) {
     ex.length ? `Prüfung: ${ex.map((e) => `${mod(e.moduleId) || "Prüfung"}${e.time ? ` um ${e.time}` : ""}`).join(", ")}` : "",
     ses.length ? ses.map((s) => `${s.start} ${mod(s.moduleId) || s.type}`).join(", ") : "",
     hw.length ? `Abgabe: ${hw.map((h) => `${h.title}${h.dueTime ? ` bis ${h.dueTime}` : ""}`).join(", ")}` : "",
+    uniDatesOn(day, data.settings || {}).map((x) => `Uni: ${x.title}`).join(", "),
   ].filter(Boolean);
   if (!parts.length) return "";
   return parts.join(". ") + (cards ? `. ${cards} ${cards === 1 ? "Karte" : "Karten"} fällig.` : ".");

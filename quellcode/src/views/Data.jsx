@@ -14,6 +14,7 @@ import { CommuteSettings } from "./Commute.jsx";
 import { ArtemisCard, FeedCard, MoodleCard } from "./Feed.jsx";
 import { Select } from "../ui/select.jsx";
 import { TUM_BREAKS, offDay } from "../lib/holidays.js";
+import { TumDatesToggle } from "../ui/TumDatesToggle.jsx";
 import { buzz, canVibrate, hapticsOn, playSfx, setHapticsOn } from "../ui/sfx.js";
 import { TRASH_DAYS, trashOf } from "../lib/trash.js";
 
@@ -404,6 +405,7 @@ function BreaksCard({ db }) {
             <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={st.christmasBreak !== false} onChange={(e) => db.patchSettings({ christmasBreak: e.target.checked })} />
             Weihnachtspause (24.12. bis 6.1.)
           </label>
+          <TumDatesToggle db={db} />
         </div>
       )}
       {own.length > 0 && (
