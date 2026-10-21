@@ -12,6 +12,7 @@
     "test:function": "node build.mjs && node tests/deno/run-function.mjs node_modules/.bin/deno",
     "typecheck": "tsc -p .",
     "check": "npm run lint && npm run typecheck && npm test && npm run test:function && npm run test:e2e",
+    "test:durchlauf": "node build.mjs && TZ=Europe/Berlin playwright test --project=durchlauf",
     "test:visual": "node build.mjs && TZ=Europe/Berlin playwright test --project=bilder"
   },
   "dependencies": {

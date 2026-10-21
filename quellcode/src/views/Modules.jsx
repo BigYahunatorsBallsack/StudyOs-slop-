@@ -122,7 +122,7 @@ export function ModuleDetail({ db, id, onBack }) {
 
   return (
     <div className="space-y-4">
-      <button onClick={onBack} className={`text-sm text-slate-400 hover:text-slate-200 ${focusRing} rounded`}>← Alle Module</button>
+      <button onClick={onBack} className={`tap text-sm text-slate-400 hover:text-slate-200 ${focusRing} rounded`}>← Alle Module</button>
       <div className="flex items-start gap-3">
         <span className="mt-1 h-8 w-1.5 rounded-full" style={{ background: m.color }} aria-hidden="true" />
         <div className="min-w-0 flex-1">

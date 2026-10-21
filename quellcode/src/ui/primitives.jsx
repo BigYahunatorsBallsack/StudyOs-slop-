@@ -161,11 +161,11 @@ export function MarkdownInput({ id, value, onChange, rows, placeholder, onMakeCa
     <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-950 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500">
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-800 px-2 py-1">
         {[["B", "**", "**", "fett"], ["I", "*", "*", "kursiv"], ["`", "`", "`", "Code"], ["H", "## ", "", "Überschrift"], ["•", "- ", "", "Listeneintrag"], ["Link", "[", "](https://)", "Linktext"]].map(([l, a, b, s]) => (
-          <button type="button" key={l} onClick={() => insert(a, b, s)} className={`rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-100 ${focusRing}`} title={s}>{l}</button>
+          <button type="button" key={l} onClick={() => insert(a, b, s)} className={`md-tool rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-100 ${focusRing}`} title={s}>{l}</button>
         ))}
         <span className="flex-1" />
-        {onMakeCard && hasSel && !preview && <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={makeCard} className={`rounded px-2 py-1 text-xs text-sky-300 hover:bg-slate-800 ${focusRing}`}>Karte daraus</button>}
-        <button type="button" onClick={() => setPreview((p) => !p)} className={`rounded px-2 py-1 text-xs text-sky-300 hover:bg-slate-800 ${focusRing}`} aria-pressed={preview}>{preview ? "Bearbeiten" : "Vorschau"}</button>
+        {onMakeCard && hasSel && !preview && <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={makeCard} className={`md-tool rounded px-2 py-1 text-xs text-sky-300 hover:bg-slate-800 ${focusRing}`}>Karte daraus</button>}
+        <button type="button" onClick={() => setPreview((p) => !p)} className={`md-tool rounded px-2 py-1 text-xs text-sky-300 hover:bg-slate-800 ${focusRing}`} aria-pressed={preview}>{preview ? "Bearbeiten" : "Vorschau"}</button>
       </div>
       {preview ? (
         <div className="min-h-28 p-3">{value ? <Markdown text={value} onToggleTask={(ln) => onChange(toggleTask(value, ln))} /> : <p className="text-sm text-slate-500">Noch kein Inhalt.</p>}</div>

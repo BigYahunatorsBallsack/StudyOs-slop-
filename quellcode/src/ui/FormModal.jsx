@@ -146,7 +146,7 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
                 <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Farbe">
                   {PALETTE.map((c) => (
                     <button type="button" key={c} role="radio" aria-checked={vals.color === c} aria-label={`Farbe ${c}`} onClick={() => setField("color", c)}
-                      className={`h-7 w-7 rounded-full ring-offset-2 ring-offset-slate-900 ${focusRing} ${vals.color === c ? "ring-2 ring-white" : ""}`} style={{ background: c }} />
+                      className={`h-8 w-8 rounded-full ring-offset-2 ring-offset-slate-900 ${focusRing} ${vals.color === c ? "ring-2 ring-white" : ""}`} style={{ background: c }} />
                   ))}
                 </div>
               );

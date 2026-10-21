@@ -20,18 +20,18 @@ export function SemesterBar({ data, onPick, today = iso() }) {
       <div className="sembar-weeks">
         {weeks.map((w) => {
           const parts = [
-            `KW ${w.kw}`, w.week ? `VL-Woche ${w.week}` : w.offLabel || "vorlesungsfrei", w.current ? "diese Woche" : "",
+            `KW ${w.kw}`, w.week ? `${w.week}. VL-Woche` : w.offLabel || "vorlesungsfrei", w.current ? "diese Woche" : "",
             w.exams ? `${w.exams} ${w.exams === 1 ? "Prüfung" : "Prüfungen"}` : "", w.hw ? `${w.hw} ${w.hw === 1 ? "Abgabe" : "Abgaben"}` : "",
             ...w.holidays, ...w.uni,
           ].filter(Boolean);
           return (
             <button key={w.mon} className={`sembar-week ${w.off ? "off" : ""} ${w.current ? "current" : ""} ${w.exams ? "has-exam" : ""} ${w.hw >= BUSY_HW ? "busy" : ""}`}
               onClick={() => onPick(w.mon)} aria-label={parts.join(", ")} title={parts.slice(1).join(", ")}>
-              <span className="sembar-kw">{w.kw}</span>
+              <span className="sembar-kw">{w.kw}</span>{" "}
               <span className="sembar-vl">{w.week || ""}</span>
               <span className="sembar-marks" aria-hidden="true">
                 {w.exams > 0 && <span className="sembar-exam" />}
-                {w.hw > 0 && <span className="sembar-hw">{w.hw}</span>}
+                {w.hw > 0 && <span className="sembar-hw" data-n={w.hw} />}
                 {w.uni.length > 0 && <span className="sembar-uni" />}
                 {w.holidays.length > 0 && !w.off && <span className="sembar-hol" />}
               </span>
