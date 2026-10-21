@@ -5,6 +5,7 @@ import { playSfx } from "./sfx.js";
 import { PlaceLinks, WatchProgress } from "./links.jsx";
 import { openSessionNote } from "./actions.jsx";
 import { fmtShort, isHeld } from "../lib/util.js";
+import { useBackClose } from "./back.js";
 
 export const SESSION_STEPS = [
   ["prepared", "Vorbereitet", "Vor"],
@@ -39,6 +40,7 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note 
   const opener = useRef(typeof document !== "undefined" ? document.activeElement : null); /* Esc gibt den Fokus dorthin zurück */
   const [pos, setPos] = useState({ left: -9999, top: -9999 });
   const m = db.mod(s.moduleId);
+  useBackClose(lastPointer.current !== "mouse", onClose); /* angetippt: Zurück-Geste schließt die Karte (Maus-Überfahren nicht) */
 
   useLayoutEffect(() => {
     const el = ref.current;

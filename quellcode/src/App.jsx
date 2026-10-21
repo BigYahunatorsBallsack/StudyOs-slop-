@@ -33,6 +33,8 @@ import { cardFromSelection, syncNoteCards } from "./lib/cards.js";
 import { pdfText, sheetFromShare } from "./lib/sheet.js";
 import { getLocal as getFile, setRemoteFiles } from "./lib/files.js";
 import { readView, saveView } from "./lib/view.js";
+import { LEVEL, motionOff, useBackClose } from "./ui/back.js";
+import { isSideSwipe, swipeStep } from "./lib/gestures.js";
 
 /* Seltener genutzte Bereiche als eigene Dateien (offline über den Service Worker).
    Nach dem Start werden sie im Leerlauf vorgeladen, damit der erste Wechsel nicht auf „Lädt …“ wartet: React zeigt einen
@@ -96,6 +98,13 @@ export default function App() {
   const [tab, setTab] = useState(view0.tab || "heute");
   /* Bereich wechseln: sofort nach oben springen (nicht weich scrollen, das wirkt wie Laden) */
   const goTab = (k) => { setTab(k); if (k === "module") setModuleId(null); window.scrollTo && window.scrollTo({ top: 0, behavior: "instant" }); };
+  /* Unten den schon aktiven Reiter nochmal antippen: nach oben scrollen (bei „Bewegung aus“ sofort), die Woche springt
+     zusätzlich auf heute (Week.jsx hört auf „studyos:retap“). Im geöffneten Modul geht es wie bisher zur Modulliste. */
+  const tapTab = (k) => {
+    if (k !== tab || (k === "module" && moduleId)) { goTab(k); return; }
+    window.scrollTo && window.scrollTo({ top: 0, behavior: motionOff() ? "instant" : "smooth" });
+    window.dispatchEvent(new CustomEvent("studyos:retap", { detail: k }));
+  };
   const [moduleId, setModuleId] = useState(view0.tab === "module" ? view0.moduleId || null : null);
   const [learnTab, setLearnTab] = useState(view0.learn || "timer");
   const [moreTab, setMoreTab] = useState(view0.more || "rueckblick");
@@ -114,6 +123,12 @@ export default function App() {
   const [sel, setSel] = useState(null);
   useEffect(() => setSel(null), [tab, moduleId, moreTab, learnTab]);
   const wide = useMedia("(min-width: 1100px)");
+
+  /* Zurück-Geste (Android-Zurück, Wischen vom Rand): aus einem anderen Bereich zurück auf „Heute“, aus einem Modul
+     zur Modulliste, aus der Mehrfachauswahl heraus; auf „Heute“ verlässt Zurück die App. Fenster melden sich selbst an. */
+  useBackClose(ready && tab !== "heute", () => goTab("heute"), LEVEL.BEREICH);
+  useBackClose(ready && tab === "module" && !!moduleId, () => setModuleId(null), LEVEL.SEITE);
+  useBackClose(!!sel, () => setSel(null), LEVEL.SEITE);
 
   const toast = (text, action, ms = 5000) => {
     const id = uid();
@@ -139,7 +154,7 @@ export default function App() {
     if (!ready) return;
     const s = parseShareLocation(window.location);
     if (!s) return;
-    window.history.replaceState(null, "", window.location.pathname);
+    window.history.replaceState(window.history.state, "", window.location.pathname); /* Zustand behalten: Zurück-Geste (ui/back.js) */
     setShareIn(s);
   }, [ready]);
 
@@ -149,7 +164,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const a = params.get("aktion");
     if (!a) return;
-    window.history.replaceState(null, "", window.location.pathname);
+    window.history.replaceState(window.history.state, "", window.location.pathname); /* Zustand behalten: Zurück-Geste (ui/back.js) */
     if (a === "lerneinheit") openForm("log", { date: iso() }, true);
     else if (a === "notiz") openForm("note", null, true);
     else if (a === "timer") { setLearnTab("timer"); setTab("lernen"); }
@@ -440,7 +455,8 @@ export default function App() {
     try { Promise.resolve(n ? navigator.setAppBadge(n) : navigator.clearAppBadge?.()).catch(() => {}); } catch { /* ohne Berechtigung egal */ }
   }, [ready, data]);
 
-  /* Am Handy seitlich wischen wechselt den Bereich (nicht auf Zeilen mit eigener Wischgeste, Feldern oder seitlich scrollenden Leisten) */
+  /* Am Handy seitlich wischen wechselt den Bereich (nicht auf Zeilen mit eigener Wischgeste, Feldern oder seitlich scrollenden Leisten).
+     Auf der Modulseite wechselt es stattdessen die Unterreiter (Übersicht, Termine, …); am ersten bzw. letzten passiert nichts. */
   const mainRef = useRef(null);
   const tabRef = useRef(tab); tabRef.current = tab;
   useEffect(() => {
@@ -454,11 +470,26 @@ export default function App() {
     };
     const end = (e) => {
       if (!st) return;
-      const t = e.changedTouches[0], dx = t.clientX - st.x, dy = t.clientY - st.y, quick = Date.now() - st.at < 700;
+      const t = e.changedTouches[0], dx = t.clientX - st.x, dy = t.clientY - st.y;
+      const ms = Date.now() - st.at;
       st = null;
-      if (!quick || Math.abs(dx) < 70 || Math.abs(dx) < 2.2 * Math.abs(dy) || document.querySelector('[role="dialog"]')) return;
-      const order = nav.map((x) => x[0]), i = order.indexOf(tabRef.current), j = i + (dx < 0 ? 1 : -1);
-      if (i >= 0 && j >= 0 && j < order.length) goTab(order[j]);
+      if (!isSideSwipe({ dx, dy, ms }) || document.querySelector('[role="dialog"]')) return;
+      const tabs = tabRef.current === "module" && el.querySelector("[data-swipe-tabs]");
+      if (tabs) { subSwipe(tabs, dx); return; }
+      const order = nav.map((x) => x[0]), j = swipeStep(order.indexOf(tabRef.current), order.length, dx);
+      if (j !== null) goTab(order[j]);
+    };
+    /* Unterreiter wechseln; der neue bleibt in der seitlich scrollenden Leiste sichtbar, und liegt die Leiste
+       oberhalb des Bildschirms, springt die Seite dorthin (sonst stünde man mitten im neuen Inhalt) */
+    const subSwipe = (list, dx) => {
+      const btns = [...list.querySelectorAll("[role=tab]")];
+      const j = swipeStep(btns.findIndex((b) => b.getAttribute("aria-selected") === "true"), btns.length, dx);
+      if (j === null) return;
+      const b = btns[j];
+      b.click();
+      list.scrollLeft = b.offsetLeft - list.offsetLeft - (list.clientWidth - b.offsetWidth) / 2;
+      const top = list.getBoundingClientRect().top, bar = document.querySelector(".appbar")?.offsetHeight || 0;
+      if (top < bar) window.scrollTo({ top: window.scrollY + top - bar - 8, behavior: "instant" });
     };
     el.addEventListener("touchstart", start, { passive: true });
     el.addEventListener("touchend", end, { passive: true });
@@ -711,7 +742,7 @@ export default function App() {
         <ul>
           {nav.map(([k, l, ic]) => (
             <li key={k}>
-              <button onClick={() => goTab(k)} aria-current={tab === k ? "page" : undefined}
+              <button onClick={() => tapTab(k)} aria-current={tab === k ? "page" : undefined}
                 className="tab">
                 <Icon name={ic} />{l}
               </button>
