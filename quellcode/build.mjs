@@ -22,7 +22,6 @@ const csp = [
   "font-src 'self' data:", `connect-src ${connect}`, "worker-src 'self'", "manifest-src 'self'",
   "frame-src 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'",
 ].join('; ');
-writeFileSync('dist/index.html', readFileSync('dist/index.html', 'utf8').replace('__CSP__', csp));
 
 // 1) JavaScript bündeln; selten genutzte Bereiche (Lernen, Mehr, Supabase …) als eigene Chunks
 const app = await build({
@@ -32,8 +31,17 @@ const app = await build({
 });
 const chunks = Object.keys(app.metafile.outputs).filter((f) => f.startsWith('dist/chunks/') && f.endsWith('.js')).map((f) => f.slice(5)).sort();
 
+// 1b) Chunks, die app.js beim Start fest importiert, gleich mit index.html anfordern (modulepreload):
+// Sonst fragt der Browser sie erst an, wenn app.js ganz geladen und gelesen ist.
+const startChunks = new Set();
+const walk = (f) => { for (const i of app.metafile.outputs[f].imports) if (i.kind === 'import-statement' && !startChunks.has(i.path)) { startChunks.add(i.path); walk(i.path); } };
+walk('dist/app.js');
+const preloads = [...startChunks].sort().map((f) => `<link rel="modulepreload" href="./${f.slice(5)}">`).join('\n  ');
+writeFileSync('dist/index.html', readFileSync('dist/index.html', 'utf8').replace('__CSP__', csp).replace('<!--MODULEPRELOAD-->', preloads));
+
 // 2) CSS: Utilities + Designsystem; Schrift für den Offline-Betrieb mitliefern
-// Farbschema „Retro“ (src/retro.css) kommt danach; seine Schriften lädt der Browser nur, wenn Retro aktiv ist
+// Farbschema „Retro“ (src/retro.css) kommt danach. Es ist das einzige Farbschema: index.html lädt seine Pixel-Schriften
+// vorab, der Service Worker hält sie offline bereit. Bricolage (design.css) braucht Retro nicht, sie bleibt nur als Datei dabei.
 writeFileSync('dist/style.css', ['src/style.css', 'src/design.css', 'src/retro.css'].map((f) => readFileSync(f, 'utf8')).join('\n'));
 mkdirSync('dist/fonts', { recursive: true });
 copyFileSync('node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2', 'dist/fonts/bricolage-grotesque-latin-wght.woff2');
@@ -49,7 +57,8 @@ for (const f of readdirSync('node_modules/katex/dist/fonts')) if (f.endsWith('.w
 
 // 3) Service Worker mit Inhalts-Hash der Shell-Dateien. Formeln und Code-Farben (extras.js, KaTeX) werden
 // nicht vorab geladen, sondern beim ersten Gebrauch zwischengespeichert; der Hash deckt sie trotzdem ab.
-const shell = ['index.html', 'app.js', ...chunks, 'style.css', 'fonts/bricolage-grotesque-latin-wght.woff2', 'manifest.webmanifest', 'favicon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
+const fonts = ['silkscreen-latin-400', 'silkscreen-latin-700', 'jetbrains-mono-latin-400', 'jetbrains-mono-latin-700', 'vt323-latin-400'].map((f) => `fonts/${f}.woff2`);
+const shell = ['index.html', 'app.js', ...chunks, 'style.css', ...fonts, 'manifest.webmanifest', 'favicon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 const h = createHash('sha256');
 for (const f of [...shell, 'extras.js', 'katex/katex.min.css']) h.update(f).update(readFileSync('dist/' + f));
 const hash = h.digest('hex').slice(0, 12);
