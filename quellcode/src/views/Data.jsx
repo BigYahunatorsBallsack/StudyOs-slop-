@@ -16,6 +16,8 @@ import { Select } from "../ui/select.jsx";
 import { TUM_BREAKS, offDay } from "../lib/holidays.js";
 import { buzz, canVibrate, hapticsOn, playSfx, setHapticsOn } from "../ui/sfx.js";
 import { TRASH_DAYS, trashOf } from "../lib/trash.js";
+import { CleanupCard } from "./Cleanup.jsx";
+import { AppLockCard } from "../ui/AppLock.jsx";
 
 export function DataView({ db }) {
   const { data } = db;
@@ -133,6 +135,8 @@ export function DataView({ db }) {
       </Card>
 
       <TrashCard db={db} />
+      <CleanupCard db={db} />
+      <AppLockCard />
 
       {db.env?.listSnapshots && (
         <Card title="Wiederherstellung auf diesem Gerät">
@@ -437,7 +441,7 @@ function BreaksCard({ db }) {
 
 const TRASH_KIND = { modules: "Modul", sessions: "Termin", homework: "Abgabe", topics: "Thema", logs: "Lerneinheit", notes: "Notiz", cards: "Karteikarte", exams: "Prüfung", blocks: "Lernblock" };
 
-/* Papierkorb: Gelöschtes der letzten 30 Tage auf diesem Gerät */
+/* Papierkorb: Gelöschtes der letzten 30 Tage (mit Cloud-Sync geräteübergreifend) */
 function TrashCard({ db }) {
   const list = trashOf(db.data);
   const [open, setOpen] = useState(false);
@@ -462,7 +466,7 @@ function TrashCard({ db }) {
             <ConfirmButton label="Papierkorb leeren" confirmLabel="Endgültig löschen?" className={btnGhost} onConfirm={() => db.purgeTrash()} />
           </div>
         </>
-      ) : <p className="text-xs text-slate-500">Leer. Gelöschtes bleibt hier {TRASH_DAYS} Tage, nur auf diesem Gerät.</p>}
+      ) : <p className="text-xs text-slate-500">Leer. Gelöschtes bleibt hier {TRASH_DAYS} Tage, mit Cloud-Sync auf allen Geräten.</p>}
     </Card>
   );
 }
