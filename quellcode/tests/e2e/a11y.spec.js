@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 /* Barrierefreiheit (WCAG 2.1 A/AA) mit axe-core: alle Bereiche mit Beispieldaten, dunkel und hell. */
 const nav = (page, name) => page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('button', { name });
-const SUBS = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen'] };
+const SUBS = { Lernen: ['Timer', 'Lerneinheiten', 'Karteikarten', 'Prüfungen & Lernplan'], Mehr: ['Wochenrückblick', 'Alle Hausaufgaben', 'Studienfortschritt', 'Daten & Einstellungen', 'Was ist neu'] };
 
 async function check(page, where) {
   const res = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -21,6 +21,7 @@ for (const theme of ['retro']) {
     await page.goto('./');
     await nav(page, 'Mehr').click();
     await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+    await page.locator('.settings-toggle', { hasText: /^Zurücksetzen/ }).click();
     await page.getByRole('button', { name: 'Beispieldaten laden' }).click();
     await page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
     await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load())?.modules?.length ?? 0)).toBeGreaterThan(0);

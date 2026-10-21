@@ -1,6 +1,9 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Einstellungen übersichtlich gegliedert:** Mehr → Daten & Einstellungen zeigt jetzt Gruppen: Darstellung & Klang, Benachrichtigungen, Studium, Kalender & Abos, Weg zur Uni, Cloud & Sync, Sicherung & Daten, Papierkorb und Zurücksetzen. Am Handy klappt eine Gruppe beim Antippen auf, am PC steht die Liste links und die offene Gruppe rechts. Alle Push-Arten stehen gesammelt unter Benachrichtigungen; die zuletzt geöffnete Gruppe merkt sich das Gerät.
+- **Einstellungen durchsuchen:** Das Suchfeld oben auf der Seite findet Einstellungen nach Namen und Stichwörtern („Push“, „Mensa“, „Export“), öffnet die passende Gruppe und markiert die Stelle. Auch Strg + K findet Einstellungen und springt direkt hin.
+- **Was ist neu:** Nach einem Update zeigt StudyOS einmal eine kleine Karte mit den neuen Punkten, wegklickbar mit ✕; beim allerersten Start nicht. Unter Mehr → „Was ist neu“ steht die Liste jederzeit.
 - **Schnelleingabe vervollständigt Module:** Beim Tippen schlägt die Schnelleingabe passende Module vor; antippen oder Tab übernimmt den vollen Namen. Die Vorschau zeigt weiter Art, Modul, Datum, Uhrzeit und Teilaufgaben, bei Lernzeit auch die Art der Lerneinheit.
 - **Letzte Eingaben als Vorlage:** Unter dem leeren Feld stehen deine letzten 5 Schnelleingaben (auf diesem Gerät). Antippen füllt das Feld und markiert das Datum, sodass du nur das neue tippst.
 - **Lernzeit nachtragen per Schnelleingabe:** „1h DS gestern“, „45 min Karten Analysis“ oder „90min Lernen LinAlg Mo“ legt eine Lerneinheit beim Modul an. Ein Wochentag meint dabei den letzten, „Karten“ wird zur Art „Karteikarten“, und Abkürzungen wie „LinAlg“ werden erkannt.

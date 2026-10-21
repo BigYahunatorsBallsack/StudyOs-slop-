@@ -68,6 +68,8 @@ import { addTrash, purgeTrash, restoreTrash, trashEntry } from "./lib/trash.js";
 import { parseShareLocation } from "./lib/share.js";
 import { sharedNote, takeShared } from "./lib/shared.js";
 import { LiveLeft } from "./ui/dayview.jsx";
+import { WhatsNewCard } from "./ui/WhatsNew.jsx";
+import { requestSettings } from "./lib/settings.js";
 
 /* Trifft eine Media-Query zu? Folgt Änderungen (Fenster breiter oder schmaler ziehen). */
 function useMedia(q) {
@@ -550,6 +552,8 @@ export default function App() {
     focus: (opts) => { timerApi.focus(opts); setLearnTab("timer"); setTab("lernen"); },
     goLearn: (sub, mid) => { setLearnTab(sub); if (mid !== undefined) setCardFilter(mid); setTab("lernen"); },
     goMore: (sub) => { setMoreTab(sub); setTab("mehr"); },
+    /* Daten & Einstellungen mit offener Gruppe, optional zu einer Einstellung gescrollt (lib/settings.js) */
+    goSettings: (group, item) => { requestSettings(group, item); setMoreTab("daten"); setTab("mehr"); },
     goTab, openQuick: () => setQuickOpen(true), openWhatNow: () => { setTab("heute"); setWhatNowOpen(true); }, openHelp: () => setHelpOpen(true),
     remove: removeEntity,
     /* Schnellmenü (lange drücken) und Verschieben (nach links wischen) */
@@ -588,6 +592,7 @@ export default function App() {
     else if (a.type === "whatNow") db.openWhatNow();
     else if (a.type === "learn") db.goLearn(a.sub, a.sub === "karten" ? "" : undefined);
     else if (a.type === "tab") goTab(a.tab);
+    else if (a.type === "more" && a.group) db.goSettings(a.group, a.item);
     else if (a.type === "more") db.goMore(a.sub);
     else if (a.type === "help") setHelpOpen(true);
   };
@@ -609,7 +614,7 @@ export default function App() {
   const todayEl = <Today db={db} onQuick={() => setQuickOpen(true)} whatNowOpen={whatNowOpen} setWhatNowOpen={setWhatNowOpen} notice={ENV && hasData && cloud.phase !== "ready" && (backupAge === null || backupAge >= (data.settings.backupDays || 7)) ? (
           <div className="notice notice-plain flex items-center gap-3">
             <p className="flex-1">{backupAge === null ? "Du hast noch keine Sicherung exportiert." : `Letzte Sicherung vor ${backupAge} Tagen.`} Deine Daten liegen nur auf diesem Gerät. Sichere sie oder schalte den Cloud-Sync ein.</p>
-            <button className={btnGhost} onClick={() => db.goMore("daten")}>Jetzt sichern</button>
+            <button className={btnGhost} onClick={() => db.goSettings("sicherung", "export")}>Jetzt sichern</button>
           </div>
         ) : null} />;
 
@@ -631,17 +636,17 @@ export default function App() {
           <div className="ml-auto flex min-w-0 items-center gap-2">
             <LiveLeft data={data} />
             <TimerBadge timer={timer} onClick={() => db.goLearn("timer")} />
-            <SyncDot cloud={cloud} onOpenSettings={() => db.goMore("daten")} />
+            <SyncDot cloud={cloud} onOpenSettings={() => db.goSettings("cloud")} />
             {saveState === "memory" && dirty && (
-              <button onClick={() => db.goMore("daten")} className="pill-status bg-amber-500/15 text-amber-200">Nicht gesichert</button>
+              <button onClick={() => db.goSettings("sicherung", "export")} className="pill-status bg-amber-500/15 text-amber-200">Nicht gesichert</button>
             )}
             {cloud.phase === "ready" && (cloud.status === "error" || cloud.status === "offline") && (
-              <button onClick={() => db.goMore("daten")} className={`pill-status ${cloud.status === "error" ? "bg-rose-500/15 text-rose-200" : "bg-slate-800 text-slate-400"}`} title={cloud.error || "Offline, synchronisiert später"}>
+              <button onClick={() => db.goSettings("cloud")} className={`pill-status ${cloud.status === "error" ? "bg-rose-500/15 text-rose-200" : "bg-slate-800 text-slate-400"}`} title={cloud.error || "Offline, synchronisiert später"}>
                 {cloud.status === "error" ? "Sync-Fehler" : "Offline"}
               </button>
             )}
             {saveState === "error" && (
-              <button onClick={() => db.goMore("daten")} className="pill-status bg-rose-500/15 text-rose-200">Speichern fehlgeschlagen</button>
+              <button onClick={() => db.goSettings("sicherung", "storage")} className="pill-status bg-rose-500/15 text-rose-200">Speichern fehlgeschlagen</button>
             )}
             {installReady && (
               <button onClick={db.install} className="pill-status bg-sky-500/15 text-sky-200">
@@ -673,6 +678,7 @@ export default function App() {
             <button className={btnPrimary} onClick={db.applyUpdate}>Jetzt aktualisieren</button>
           </div>
         )}
+        <WhatsNewCard ready={ready && !loadError} hasData={hasData} onAll={() => db.goMore("neu")} />
         {saveState === "memory" && bannerOpen && (
           <div className="notice notice-warn mb-4 flex items-start gap-3">
             <p className="flex-1">Diese Vorschau speichert nicht automatisch. Sichere deine Einträge unter <b>Mehr → Daten → Export</b>. Die installierte Version speichert alles automatisch auf deinem Gerät.</p>

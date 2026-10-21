@@ -4,8 +4,11 @@ import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync, cpSync, readdirSync, rmSync } from 'node:fs';
 import { SUPABASE_URL } from './src/lib/cloud-config.js';
+import { parseChangelog } from './src/lib/whatsnew.js';
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+// „Was ist neu“: nur die fett gedruckten Überschriften der jüngsten Abschnitte aus CHANGELOG.md
+const whatsNew = parseChangelog(readFileSync('CHANGELOG.md', 'utf8'));
 
 // 0) Statische Dateien (index.html, Icons, Manifest …) aus public/ übernehmen; alte Chunks entfernen
 rmSync('dist', { recursive: true, force: true });
@@ -25,7 +28,7 @@ writeFileSync('dist/index.html', readFileSync('dist/index.html', 'utf8').replace
 const app = await build({
   entryPoints: { app: 'src/entry.jsx' }, bundle: true, minify: true, format: 'esm', splitting: true, target: 'es2020',
   jsx: 'automatic', outdir: 'dist', chunkNames: 'chunks/[name]-[hash]', legalComments: 'none', metafile: true,
-  define: { 'process.env.NODE_ENV': '"production"', __APP_VERSION__: JSON.stringify(pkg.version) },
+  define: { 'process.env.NODE_ENV': '"production"', __APP_VERSION__: JSON.stringify(pkg.version), __WHATS_NEW__: JSON.stringify(whatsNew) },
 });
 const chunks = Object.keys(app.metafile.outputs).filter((f) => f.startsWith('dist/chunks/') && f.endsWith('.js')).map((f) => f.slice(5)).sort();
 

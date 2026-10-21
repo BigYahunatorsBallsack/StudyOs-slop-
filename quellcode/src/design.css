@@ -608,3 +608,33 @@ html { overscroll-behavior-x: none; }
 .select-bar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(.5rem + env(safe-area-inset-top)); z-index: 45; width: min(44rem, calc(100% - 1.5rem)); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem .75rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: 0 10px 30px rgb(0 0 0 / .45); }
 .select-count { font-size: .85rem; font-weight: 600; }
 .select-module { width: auto; min-width: 9.5rem; padding-top: .4rem; padding-bottom: .4rem; font-size: .8rem; }
+
+/* Daten & Einstellungen: Suche, Gruppen (Handy: untereinander aufklappen; breit: links Liste, rechts die offene Gruppe) */
+.settings-search { margin-bottom: 1rem; }
+.settings-hits { margin-top: .5rem; display: flex; flex-direction: column; gap: .25rem; }
+.settings-hit-btn { display: flex; width: 100%; align-items: baseline; gap: .75rem; padding: .55rem .8rem; border-radius: var(--r-row); background: var(--surface); color: var(--text); font-size: .875rem; text-align: left; }
+@media (hover: hover) { .settings-hit-btn:hover { background: var(--surface-2); } }
+.settings-list { display: flex; flex-direction: column; gap: .6rem; }
+.settings-item, .settings-pane { min-width: 0; }
+.settings-tile { position: relative; padding: .8rem 1rem; }
+.settings-head { margin: 0; font: inherit; }
+.settings-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .75rem; text-align: left; color: var(--text); }
+.settings-toggle::after { content: ""; position: absolute; inset: 0; }
+.settings-name { font-weight: 700; font-size: .95rem; overflow-wrap: anywhere; }
+.settings-hint { margin-top: .15rem; padding-right: 1.5rem; font-size: .75rem; color: var(--faint); }
+.settings-caret { flex-shrink: 0; width: .5em; height: .5em; border-right: 2px solid var(--faint); border-bottom: 2px solid var(--faint); transform: rotate(-45deg); }
+.settings-toggle[aria-expanded="true"] .settings-caret { transform: rotate(45deg); border-color: var(--accent-text); }
+.settings-toggle[aria-expanded="true"] .settings-name { color: var(--accent-text); }
+.settings-body { margin-top: .75rem; margin-bottom: .6rem; }
+.settings-split { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.settings-split .settings-list { position: sticky; top: 4.5rem; }
+.settings-split .settings-tile { padding: .65rem .85rem; }
+.settings-split .settings-caret { display: none; }
+.settings-split .settings-tile-open { background: var(--surface-2); }
+.settings-split .settings-hint { padding-right: 0; }
+.settings-split .settings-name { font-size: .8rem; }
+.settings-hit { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: var(--r-row); }
+
+/* Was ist neu: Karte nach einem Update und Liste unter Mehr */
+.whatsnew-list { margin-top: .4rem; padding-left: 1.1rem; list-style: disc; display: flex; flex-direction: column; gap: .2rem; }
+.whatsnew-version { font-size: .75rem; font-weight: 600; color: var(--faint); }

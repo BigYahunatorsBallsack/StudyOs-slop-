@@ -13,6 +13,7 @@ async function setup(page, theme) {
   await page.goto('./');
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  await page.locator('.settings-toggle', { hasText: /^Zurücksetzen/ }).click();
   await page.getByRole('button', { name: 'Beispieldaten laden' }).click();
   await page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
   await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load())?.modules?.length ?? 0)).toBeGreaterThan(0);

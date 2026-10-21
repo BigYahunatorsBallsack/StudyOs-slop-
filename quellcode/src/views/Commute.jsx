@@ -317,17 +317,27 @@ export function CommuteSettings({ db }) {
             </div>
             <p className="mt-2 text-[11px] text-slate-500">Die Fahrzeit mit Verkehr kommt über deine Supabase-Funktion, dort muss GOOGLE_MAPS_KEY oder TOMTOM_KEY als Secret gesetzt sein (siehe Anleitung). Start und Ziel gehen dafür an Google bzw. TomTom.</p>
           </div>
-          <label className="mt-4 flex items-start gap-2 text-sm">
-            <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushCommute} onChange={(e) => db.patchSettings({ pushCommute: e.target.checked })} />
-            <span>Bei Verspätung oder Ausfall per Push sagen, wenn ich früher los muss<span className="block text-[11px] text-slate-500">Braucht eingeschaltete Erinnerungen. Dafür liegen Haltestellen, Linien und die Uhrzeit deiner ersten Veranstaltung je Tag unverschlüsselt bei Supabase.</span></span>
-          </label>
-          <label className="mt-3 flex items-start gap-2 text-sm">
-            <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushLeave} onChange={(e) => db.patchSettings({ pushLeave: e.target.checked })} />
-            <span>Per Push „Jetzt losgehen“ vor dem ersten Termin vor Ort<span className="block text-[11px] text-slate-500">Kommt kurz bevor du los musst, nach Echtzeit-Abfahrt bzw. mit dem Auto nach aktueller Verkehrslage. Braucht eingeschaltete Erinnerungen; dafür liegen Haltestellen und Linien bzw. Start und Ziel sowie die Uhrzeit deines ersten Termins je Tag unverschlüsselt bei Supabase. Online-Termine (Raum „Online“, „Zoom“ oder ein Link) zählen nicht.</span></span>
-          </label>
+          <p className="mt-4 text-[11px] text-slate-500">Pushes zum Losgehen und bei Verspätung: unter „Benachrichtigungen“.</p>
           <p className="mt-2 text-[11px] text-slate-500">Echtzeitdaten der MVG über deine Supabase-Funktion. Bei Verspätung rechnet StudyOS mit der tatsächlichen Abfahrt.</p>
         </>
       )}
     </Card>
+  );
+}
+
+/* Pushes zum Weg zur Uni (unter Benachrichtigungen, bei den übrigen Push-Arten) */
+export function CommutePush({ db }) {
+  if (!commuteOf(db.data.settings)) return <p className="text-xs text-slate-500" data-set="pushLeave">Pushes zum Losgehen gibt es, sobald „Weg zur Uni“ eingeschaltet ist.</p>;
+  return (
+    <div>
+      <label className="flex items-start gap-2 text-sm" data-set="pushCommute">
+        <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushCommute} onChange={(e) => db.patchSettings({ pushCommute: e.target.checked })} />
+        <span>Bei Verspätung oder Ausfall per Push sagen, wenn ich früher los muss<span className="block text-[11px] text-slate-500">Braucht eingeschaltete Erinnerungen. Dafür liegen Haltestellen, Linien und die Uhrzeit deiner ersten Veranstaltung je Tag unverschlüsselt bei Supabase.</span></span>
+      </label>
+      <label className="mt-3 flex items-start gap-2 text-sm" data-set="pushLeave">
+        <input type="checkbox" className="mt-1" checked={!!db.data.settings.pushLeave} onChange={(e) => db.patchSettings({ pushLeave: e.target.checked })} />
+        <span>Per Push „Jetzt losgehen“ vor dem ersten Termin vor Ort<span className="block text-[11px] text-slate-500">Kommt kurz bevor du los musst, nach Echtzeit-Abfahrt bzw. mit dem Auto nach aktueller Verkehrslage. Braucht eingeschaltete Erinnerungen; dafür liegen Haltestellen und Linien bzw. Start und Ziel sowie die Uhrzeit deines ersten Termins je Tag unverschlüsselt bei Supabase. Online-Termine (Raum „Online“, „Zoom“ oder ein Link) zählen nicht.</span></span>
+      </label>
+    </div>
   );
 }

@@ -65,9 +65,15 @@ async function newDevice(browser, backend, { time, touch } = {}) {
   return { context, page, errors };
 }
 const nav = (page, name) => page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('button', { name });
-async function openData(page) {
+/* Daten & Einstellungen mit aufgeklappter Gruppe (Standard: Cloud & Sync) */
+async function openData(page, group = 'Cloud') {
   await nav(page, 'Mehr').click();
   await page.getByRole('tab', { name: 'Daten & Einstellungen' }).click();
+  await openGroup(page, group);
+}
+async function openGroup(page, group) {
+  const t = page.locator('.settings-toggle', { hasText: new RegExp('^' + group) });
+  if ((await t.getAttribute('aria-expanded')) !== 'true') await t.click();
 }
 async function addNote(page, title) {
   await page.goto('./?aktion=notiz');
@@ -159,7 +165,7 @@ test('Erinnerungen: einschalten, Fristen hochladen, Testnachricht, ausschalten',
   const backend = createBackend();
   const A = await newDevice(browser, backend);
   // Beispieldaten: enthalten Abgaben und eine Prüfung
-  await openData(A.page);
+  await openData(A.page, 'Zurücksetzen');
   await A.page.getByRole('button', { name: 'Beispieldaten laden' }).click();
   await A.page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
   await login(A.page);
@@ -168,6 +174,7 @@ test('Erinnerungen: einschalten, Fristen hochladen, Testnachricht, ausschalten',
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
 
+  await openGroup(A.page, 'Benachrichtigungen');
   await A.page.getByRole('button', { name: 'Erinnerungen einschalten' }).click();
   await expect(A.page.getByText('Erinnerungen sind auf diesem Gerät eingeschaltet.')).toBeVisible();
   const uid = [...backend.push.keys()][0];
@@ -210,6 +217,7 @@ test('Stundenplan-Abo: einrichten, Änderungen übernehmen, neue Veranstaltung z
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
 
+  await openGroup(A.page, 'Kalender');
   await A.page.getByLabel('TUMonline-Kalender-Link').fill('https://campus.tum.de/tumonline/ical?pToken=abc');
   await A.page.getByRole('button', { name: 'Abrufen', exact: true }).first().click();
   await expect(A.page.getByText('2 Termine in 1 Veranstaltungen gefunden.')).toBeVisible();
@@ -245,6 +253,7 @@ test('Erinnerungen: verständliche Meldung, wenn der Push-Dienst des Browsers st
   await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
   await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await openGroup(A.page, 'Benachrichtigungen');
   await A.page.getByRole('button', { name: 'Erinnerungen einschalten' }).click();
   await expect(A.page.getByText(/konnte sich nicht beim Push-Dienst anmelden.*Brave/)).toBeVisible();
   await expect(A.page.getByRole('button', { name: 'Erinnerungen einschalten' })).toBeEnabled();
@@ -263,6 +272,7 @@ test('Stundenplan-Abo legt Vorlesung, Übung und Tutorübung als ein Modul an', 
   await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+  await openGroup(A.page, 'Kalender');
   await A.page.getByLabel('TUMonline-Kalender-Link').fill('https://campus.tum.de/x.ics');
   await A.page.getByRole('button', { name: 'Abrufen', exact: true }).first().click();
   await A.page.getByRole('button', { name: 'Abonnieren' }).click();
@@ -276,7 +286,7 @@ test('Karteikarten teilen: Link erzeugen, ohne Konto öffnen und importieren', a
   test.setTimeout(60000);
   const backend = createBackend();
   const A = await newDevice(browser, backend);
-  await openData(A.page);
+  await openData(A.page, 'Zurücksetzen');
   await A.page.getByRole('button', { name: 'Beispieldaten laden' }).click();
   await A.page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
   await expect.poll(() => A.page.evaluate(async () => (await window.STUDYOS_ENV.load())?.cards?.length ?? 0)).toBeGreaterThan(0);
@@ -324,6 +334,7 @@ test('Moodle-Abgaben abonnieren und Fristen als Kalender-Link', async ({ browser
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
 
+  await openGroup(A.page, 'Kalender');
   await A.page.getByLabel('Moodle-Kalender-Link').fill('https://www.moodle.tum.de/calendar/export_execute.php?userid=1&authtoken=x');
   await A.page.getByRole('button', { name: 'Abrufen', exact: true }).nth(1).click();
   await expect(A.page.getByText('2 Abgaben in 2 Kursen.', { exact: false })).toBeVisible();
@@ -385,6 +396,7 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
 
   // Der Weg ist fest: keine Haltestellensuche mehr
+  await openGroup(A.page, 'Weg zur Uni');
   await expect(A.page.getByText('S6 ab Zorneding, in Haar umsteigen in den Bus 230 zum Campus Garching')).toBeVisible();
   await expect(A.page.getByLabel('Umstieg suchen')).toHaveCount(0);
 
@@ -473,6 +485,7 @@ test('Artemis: Abo auch ohne Abgaben, übernimmt sie später automatisch', async
   await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
   await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
   await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+  await openGroup(A.page, 'Kalender');
   await A.page.getByLabel('Artemis-Kalender-Link').fill('https://artemis.tum.de/api/calendar/courses/621/calendar-events-ics?token=abc');
   await A.page.getByRole('button', { name: 'Prüfen', exact: true }).click();
   await expect(A.page.getByText('Noch keine Abgabefristen im Kalender (nur 2 Vorlesungen).', { exact: false })).toBeVisible();
@@ -576,7 +589,7 @@ test('Bild-Karte: Bild verschlüsselt in der Cloud, das zweite Gerät lädt es u
   test.setTimeout(60000);
   const backend = createBackend();
   const A = await newDevice(browser, backend);
-  await openData(A.page);
+  await openData(A.page, 'Zurücksetzen');
   await A.page.getByRole('button', { name: 'Beispieldaten laden' }).click();
   await A.page.getByRole('button', { name: 'Aktuelle Daten ersetzen?' }).click();
   await login(A.page);
