@@ -22,5 +22,7 @@ export default defineConfig({
     // Großer Durchlauf aller Ansichten auf Handy und PC, alle Paletten (npm run test:durchlauf, langsam); Geräte setzt der Test selbst
     { name: 'durchlauf', testMatch: 'durchlauf/**/*.spec.js', use: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) StudyOS-Test' } },
   ],
-  webServer: { command: 'node tests/e2e/server.mjs', url: `http://localhost:${process.env.PORT || 4173}/`, reuseExistingServer: true },
+  // Port aus PORT (Standard 4173). Einen schon laufenden Server nur mit PW_REUSE_SERVER=1 mitbenutzen: sonst testen parallele
+  // Läufe aus anderen Ordnern still gegen deren dist/; so bricht der zweite Lauf mit „Port belegt“ ab (dann PORT=… setzen).
+  webServer: { command: 'node tests/e2e/server.mjs', url: `http://localhost:${process.env.PORT || 4173}/`, reuseExistingServer: process.env.PW_REUSE_SERVER === '1' },
 });
