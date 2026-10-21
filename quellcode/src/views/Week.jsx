@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { DONE_HW, WD, WD_LONG } from "../lib/constants.js";
-import { addDays, byTime, fmt, fmtMin, fmtShort, isHeld, iso, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
+import { addDays, byTime, fmt, fmtShort, isHeld, iso, nowHM, sum, uid, wdIdx, weekStart } from "../lib/util.js";
 import { BlockRow, HomeworkRow, SessionRow } from "../ui/rows.jsx";
 import { Tabs } from "../ui/primitives.jsx";
 import { SelectToggle } from "../ui/selection.jsx";
@@ -17,6 +17,8 @@ import { PullRefresh } from "../ui/pull.jsx";
 import { uniDatesOn } from "../lib/tumdates.js";
 import { UNI_COLOR } from "./UniDates.jsx";
 import { SemesterBar } from "./SemesterBar.jsx";
+import { useBackClose } from "../ui/back.js";
+import { hoursShort, hoursText, weekSummary, weekSummaryText } from "../lib/overview.js";
 
 const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 
@@ -59,10 +61,18 @@ export function WeekView({ db, compact = false }) {
   const pickMode = (k) => { if (k === "tag" && weekStart(day) !== ws) setDay(days.includes(t) ? t : ws); setMode(k); };
   const shiftMonth = (n) => { const [y, m] = month.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
   const openWeek = (d) => { setWs(weekStart(d)); setMode("raster"); };
+  /* aktiven Reiter unten nochmal angetippt (App.jsx): zurück zu heute */
+  useEffect(() => {
+    const f = (e) => { if (e.detail === (compact ? "heute" : "woche")) { setMonth(t.slice(0, 7)); goDay(t); } };
+    window.addEventListener("studyos:retap", f);
+    return () => window.removeEventListener("studyos:retap", f);
+  }, [t, compact]);
   const shift = (n) => (isMonth ? shiftMonth(n) : isDay ? goDay(addDays(day, n)) : setWs(addDays(ws, 7 * n)));
   const H = compact ? "h3" : "h2";
   const [kw, ...semRest] = semWeekLabel(isDay ? day : ws, data).split(" · ");
   const sem = semRest.join(" · ");
+  /* Wochensumme: Stunden Termine (ohne ausgefallene), gelernt, fällige Abgaben */
+  const wsum = weekSummary(data, days), sumParts = weekSummaryText(wsum);
 
   return (
     <div className="space-y-4">
@@ -78,6 +88,7 @@ export function WeekView({ db, compact = false }) {
           <button className="btn btn-ghost btn-icon" onClick={() => shift(1)} aria-label={isMonth ? "Nächster Monat" : isDay ? "Nächster Tag" : "Nächste Woche"}><span aria-hidden="true" className="block w-4 text-center">›</span></button>
         </div>
       </div>
+      {!isMonth && !isDay && sumParts.length > 0 && <p className="week-sum font-num">{sumParts.map((x, i) => <span key={i}>{x}</span>)}</p>}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs items={compact ? [["raster", "Raster"], ["liste", "Liste"]] : [["raster", "Raster"], ["tag", "Tag"], ["liste", "Liste"], ["monat", "Monat"]]} value={view} onChange={pickMode} label="Ansicht" />
         {!isMonth && <SelectToggle db={db} kind="session" ids={(isDay ? weekSes.filter((s) => s.date === day) : weekSes).map((s) => s.id)} />}
@@ -85,7 +96,7 @@ export function WeekView({ db, compact = false }) {
       {!compact && !isMonth && <BlockSuggestions db={db} days={isDay ? [day] : days} />}
       {isMonth ? <><SemesterBar data={data} onPick={openWeek} /><MonthGrid db={db} month={month} onPick={openWeek} /></>
         : isDay ? <DaySwipe onShift={(n) => goDay(addDays(day, n))}><WeekGrid db={db} days={[day]} weekSes={weekSes.filter((s) => s.date === day)} single /></DaySwipe>
-        : view === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} /> : <WeekList db={db} days={days} weekSes={weekSes} />}
+        : view === "raster" ? <WeekGrid db={db} days={days} weekSes={weekSes} wsum={wsum} /> : <WeekList db={db} days={days} weekSes={weekSes} wsum={wsum} />}
     </div>
   );
 }
@@ -154,7 +165,7 @@ function MonthGrid({ db, month, onPick }) {
   );
 }
 
-function WeekGrid({ db, days, weekSes, single = false }) {
+function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
   const { data } = db, t = iso();
   const hover = useHoverCard();
   /* Stundenhöhe: zwei Finger (Pinch) oder Strg+Mausrad zoomen, pro Gerät und getrennt für Woche und Tag gemerkt */
@@ -197,6 +208,7 @@ function WeekGrid({ db, days, weekSes, single = false }) {
   /* Freie Stelle angetippt: kleine Auswahl „Termin“ / „Lernblock“ mit dieser Uhrzeit */
   const [slot, setSlot] = useState(null);
   const slotRef = useRef(null);
+  useBackClose(!!slot, () => setSlot(null));
   useEffect(() => {
     if (!slot) return undefined;
     const away = (e) => { if (!slotRef.current?.contains(e.target)) setSlot(null); };
@@ -300,7 +312,9 @@ function WeekGrid({ db, days, weekSes, single = false }) {
       <div className="grid-week grid-head" style={{ "--days": shown.length }}>
         <span />
         {shown.map((d) => (
-          <div key={d} className={`grid-day ${d === t ? "today" : ""} ${offDay(d, data.settings) ? "off" : ""}`} title={offDay(d, data.settings)?.label}>{WD[wdIdx(d)]}<b>{Number(d.slice(8))}</b>{offDay(d, data.settings) && <span className="grid-off">{offDay(d, data.settings).label}</span>}</div>
+          <div key={d} className={`grid-day ${d === t ? "today" : ""} ${offDay(d, data.settings) ? "off" : ""}`} title={offDay(d, data.settings)?.label}>{WD[wdIdx(d)]}<b>{Number(d.slice(8))}</b>{offDay(d, data.settings) && <span className="grid-off">{offDay(d, data.settings).label}</span>}
+            {wsum && wsum.days[d]?.sessionMin > 0 && <span className="grid-sum font-num" title={`${hoursText(wsum.days[d].sessionMin)} Termine`}><span aria-hidden="true">{hoursShort(wsum.days[d].sessionMin)}</span><span className="sr-only">{hoursText(wsum.days[d].sessionMin)} Termine</span></span>}
+          </div>
         ))}
       </div>
       {anyAllDay && (
@@ -394,7 +408,7 @@ const withDrag = (props, onDown) => ({ ...props, onPointerDown: (e) => { props.o
 /* Handler mehrerer Prop-Sätze nacheinander ausführen */
 const chain = (a, b) => ({ ...a, ...b, ...Object.fromEntries(Object.keys(b).filter((k) => a[k]).map((k) => [k, (e) => { a[k](e); b[k](e); }])) });
 
-function WeekList({ db, days, weekSes }) {
+function WeekList({ db, days, weekSes, wsum = null }) {
   const { data } = db, t = iso();
   return (
     <div className="space-y-5">
@@ -402,7 +416,7 @@ function WeekList({ db, days, weekSes }) {
         const ses = weekSes.filter((s) => s.date === d).sort(byTime);
         const hw = data.homework.filter((h) => h.due === d);
         const ex = data.exams.filter((e) => e.date === d);
-        const mins = sum(data.logs.filter((l) => l.date === d), (l) => l.minutes);
+        const mins = wsum ? wsum.days[d].learnMin : sum(data.logs.filter((l) => l.date === d), (l) => l.minutes), sesMin = wsum ? wsum.days[d].sessionMin : 0;
         const bl = (data.blocks || []).filter((b) => b.date === d).sort(byTime);
         const uni = uniDatesOn(d, data.settings);
         const isToday = d === t, empty = !ses.length && !hw.length && !ex.length && !bl.length && !uni.length;
@@ -411,7 +425,7 @@ function WeekList({ db, days, weekSes }) {
             <div className="mb-2 flex items-center justify-between">
               <h3 className={`section-title ${isToday ? "text-sky-300" : ""}`}>{WD_LONG[wdIdx(d)]} <span className="text-sm font-normal text-slate-400">{d.slice(8)}.{d.slice(5, 7)}.{isToday ? ", heute" : ""}{offDay(d, data.settings) ? `, ${offDay(d, data.settings).label}` : ""}</span></h3>
               <div className="flex items-center gap-2">
-                {mins > 0 && <span className="text-xs text-slate-400">{fmtMin(mins)} gelernt</span>}
+                {(sesMin > 0 || mins > 0) && <span className="day-sum font-num">{[sesMin > 0 && `${hoursText(sesMin)} Termine`, mins > 0 && `${hoursText(mins)} gelernt`].filter(Boolean).join(" · ")}</span>}
                 <button className="btn btn-ghost btn-icon" onClick={() => db.openForm("session", { date: d }, true)} aria-label={`Termin am ${fmt(d)} hinzufügen`}><span aria-hidden="true" className="block w-4 text-center">+</span></button>
               </div>
             </div>

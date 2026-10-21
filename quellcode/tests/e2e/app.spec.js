@@ -718,7 +718,9 @@ test('Anhang an eine Hausaufgabe (lokal) und Probeklausur', async ({ page }) => 
   await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework[0].files?.[0]?.name)).toBe('blatt3.pdf');
   await dlg.getByRole('button', { name: 'Abbrechen' }).click();
   await expect(page.getByText('1 Anhang')).toBeVisible();
-  // Probeklausur
+  // Probeklausur. Vorher den Verlaufseintrag des Formulars abräumen lassen (Zurück-Geste, ui/back.js): einen Seitenwechsel
+  // mitten in diesem Zurückgehen bricht der Browser sonst ab
+  await expect.poll(() => page.evaluate(() => history.state && history.state.studyosBack)).toBe(1);
   await page.goto('./?aktion=pruefungen');
   await page.getByRole('button', { name: 'Probeklausur' }).click();
   const mock = page.getByRole('dialog', { name: /Probeklausur/ });
@@ -743,7 +745,7 @@ test('Wochenraster zeigt Samstag/Sonntag, wenn dort eine Abgabe liegt', async ({
   await page.reload();
   await nav(page, 'Woche').click();
   await page.getByRole('tab', { name: 'Raster' }).click();
-  await expect(page.locator('.grid-day')).toHaveText(['Mo19', 'Di20', 'Mi21', 'Do22', 'Fr23', 'Sa24']);
+  await expect(page.locator('.grid-day')).toHaveText(['Mo19', 'Di20', 'Mi212h2 h Termine', 'Do22', 'Fr23', 'Sa24']);
   await expect(page.getByRole('button', { name: /Abgabe Blatt 3/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -1969,4 +1971,32 @@ test('Was ist neu: nicht beim ersten Start, einmal nach einem Update, jederzeit 
   await page.getByRole('tab', { name: 'Was ist neu' }).click();
   await expect(page.getByRole('heading', { name: 'Zuletzt dazugekommen' })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Version \d/ }).first()).toBeVisible();
+});
+
+test('Schneller Start: gespeicherter Stand gleich im ersten Bild, neuerer Notfall-Spiegel gewinnt weiterhin', async ({ page }) => {
+  await onWeekday(page);
+  await page.goto('./');
+  /* Startdateien und Pixel-Schriften werden mit index.html angefordert */
+  expect(await page.locator('link[rel="modulepreload"]').count()).toBeGreaterThan(0);
+  expect(await page.locator('link[rel="preload"][as="font"]').evaluateAll((l) => l.map((x) => x.getAttribute('href')))).toContain('./fonts/jetbrains-mono-latin-400.woff2');
+  await seed(page, () => ({}));
+  /* Mitschreiben, ob React je einen leeren Zwischenstand („Willkommen“) zeigt, bevor die Daten da sind */
+  await page.addInitScript(() => {
+    window.__seen = [];
+    new MutationObserver(() => { if (/Willkommen/.test(document.getElementById('root')?.textContent || '')) window.__seen.push('leer'); }).observe(document, { childList: true, subtree: true, characterData: true });
+  });
+  await page.reload();
+  await expect(page.getByLabel('Lernzeit')).toBeVisible();
+  expect(await page.evaluate(() => window.__seen)).toEqual([]);
+  /* Spiegel in localStorage neuer als die Datenbank (beim Schließen nur noch dort gesichert): er wird geladen */
+  await page.evaluate(() => {
+    const row = JSON.parse(localStorage.getItem('studyos-emergency-copy-v1'));
+    row.updated = new Date(Date.now() + 60000).toISOString();
+    row.payload.modules[0].name = 'Aus dem Spiegel';
+    localStorage.setItem('studyos-emergency-copy-v1', JSON.stringify(row));
+  });
+  await page.reload();
+  await nav(page, 'Module').click();
+  await expect(page.getByText('Aus dem Spiegel')).toBeVisible();
+  expect(await page.evaluate(async () => (await window.STUDYOS_ENV.load()).modules[0].name)).toBe('Aus dem Spiegel');
 });

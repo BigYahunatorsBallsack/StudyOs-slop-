@@ -55,6 +55,7 @@ export const SETTINGS = [
   ["icsImport", "kalender", "Kalender importieren (ICS)", "ics import datei kalender"],
   ["icsExport", "kalender", "Kalender exportieren", "ics export datei kalender"],
   ["commute", "weg", "Weg zur Uni", "öffis s6 bus auto campus garching weihenstephan abfahrt fußweg parken pendeln"],
+  ["commuteHeader", "weg", "Abfahrt in der Kopfzeile", "kopfzeile oben abfahrt losgehen losfahren s6 uhrzeit header leiste"],
   ["cloud", "cloud", "Cloud-Sync", "cloud sync anmelden passphrase konto synchronisieren abmelden geräte"],
   ["cloudBackup", "cloud", "Cloud-Sicherung", "cloud sicherung wöchentlich backup"],
   ["export", "sicherung", "Sicherung exportieren", "export backup datei json verschlüsseln passphrase"],

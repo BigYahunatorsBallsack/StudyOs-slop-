@@ -62,6 +62,8 @@ test('Tastatur: Dialoge, Fokus, Live-Region', async ({ page }) => {
     expect(await inDialog()).toBe(true);
     await page.keyboard.press('Shift+Tab');
     expect(await inDialog()).toBe(true);
+    /* Einblend-Animationen abwarten, sonst misst axe den Kontrast mitten im Überblenden */
+    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity));
     const found = (await new AxeBuilder({ page }).include('[role=dialog]').withTags(['wcag2a', 'wcag2aa']).analyze()).violations.map((v) => v.id);
     expect(found, name).toEqual([]);
     await page.keyboard.press('Escape');

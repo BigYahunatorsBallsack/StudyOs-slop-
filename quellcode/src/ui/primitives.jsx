@@ -4,6 +4,7 @@ import { pct } from "../lib/util.js";
 import { Markdown } from "./markdown.jsx";
 import { toggleTask } from "../lib/notes.js";
 import { btnDanger, focusRing } from "./styles.js";
+import { useBackClose, useSheetDrag } from "./back.js";
 
 export const ICONS = {
   today: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
@@ -86,9 +87,10 @@ export function RingLegend() {
   );
 }
 
-export function Tabs({ items, value, onChange, label }) {
+/* swipe: am Handy wechselt seitliches Wischen über die Seite diese Reiter (siehe App.jsx) */
+export function Tabs({ items, value, onChange, label, swipe = false }) {
   return (
-    <div role="tablist" aria-label={label} className="seg">
+    <div role="tablist" aria-label={label} className="seg" data-swipe-tabs={swipe ? "" : undefined}>
       {items.map(([k, l]) => (
         <button key={k} role="tab" aria-selected={value === k} onClick={() => onChange(k)} className="seg-item">{l}</button>
       ))}
@@ -182,6 +184,9 @@ export function Modal({ title, onClose, children }) {
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  /* Zurück-Geste schließt das Fenster; am Handy auch nach unten wegwischen (ui/back.js) */
+  useBackClose(true, onClose);
+  useSheetDrag(ref, onClose);
   useEffect(() => {
     const prev = document.activeElement;
     const el = ref.current?.querySelector("input:not([type=hidden]),select,textarea,[role=combobox]") || ref.current?.querySelector("button");

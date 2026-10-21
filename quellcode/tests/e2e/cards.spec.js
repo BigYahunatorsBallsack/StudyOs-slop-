@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 /* Karteikarten abfragen: Wischen, Lernzeit, Vollbild */
 const pageErrors = new WeakMap();
 test.beforeEach(async ({ page }) => {
+  /* Mensa und Wetter nie aus dem Netz (sonst gelegentlich 429 als Konsolenfehler) */
+  await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: { days: [] } }));
+  await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] }));
   const list = [];
   pageErrors.set(page, list);
   page.on('pageerror', (e) => list.push(String(e)));
@@ -101,7 +104,15 @@ test('Karteikarten im Vollbild: Esc beendet, die Wahl bleibt gemerkt', async ({ 
   await expect(page.locator('.card-full')).toHaveCount(0);
   await expect(page.getByText('Frage a')).toBeVisible();
   await page.getByRole('button', { name: 'Vollbild', exact: true }).click();
+  // Zurück-Geste (Android-Zurück) beendet das Vollbild, die Abfrage und der Bereich bleiben
+  await expect.poll(() => page.evaluate(() => history.state && history.state.studyosBack)).toBe(2); /* Bereich + Vollbild */
+  await page.evaluate(() => history.back());
+  await expect(page.locator('.card-full')).toHaveCount(0);
+  await expect(page.getByText('Frage a')).toBeVisible();
+  await expect(nav(page, 'Lernen')).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('button', { name: 'Vollbild', exact: true }).click();
   await page.getByRole('button', { name: 'Sitzung beenden' }).click();
+  await expect.poll(() => page.evaluate(() => history.state && history.state.studyosBack)).toBe(1); /* Vollbild-Eintrag ist weg */
   await page.reload();
   await nav(page, 'Lernen').click();
   await openCards(page);

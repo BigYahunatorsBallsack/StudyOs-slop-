@@ -74,9 +74,14 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   useEffect(() => {
     if (!cloud) return;
     let alive = true;
-    cloud.getUser().then((u) => alive && enterUser(u)).catch(() => alive && setPhase("signed-out"));
+    /* Anmeldung erst nach dem ersten Bild prüfen: lädt bei Bedarf Supabase (ca. 120 KB) und soll „Heute“ nicht aufhalten
+       (im Hintergrund gibt es kein Bild, dann spätestens nach 500 ms) */
+    let started = false;
+    const start = () => { if (!alive || started) return; started = true; cloud.getUser().then((u) => alive && enterUser(u)).catch(() => alive && setPhase("signed-out")); };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => setTimeout(start, 0));
+    const late = setTimeout(start, 500);
     const off = cloud.onAuthChange((u) => { if (alive) enterUser(u); });
-    return () => { alive = false; off && off(); };
+    return () => { alive = false; clearTimeout(late); off && off(); };
   }, [cloud, enterUser]);
 
   /* Wöchentliche Cloud-Sicherung: einmal pro Kalenderwoche nach einem erfolgreichen Sync, alte löschen */
