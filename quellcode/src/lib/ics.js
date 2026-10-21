@@ -1,6 +1,6 @@
 import { DONE_HW } from "./constants.js";
 import { isActive } from "./data.js";
-import { addDays, iso, wdIdx, weekStart } from "./util.js";
+import { addDays, diffDays, iso, wdIdx, weekStart } from "./util.js";
 import { uniDates } from "./tumdates.js";
 
 /* ICS-Parser (z. B. Kalender-Export aus TUMonline) */
@@ -12,8 +12,9 @@ export function parseICS(text) {
     const m = /(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?(Z)?/.exec(v || ""); if (!m) return null;
     let d = m[4] ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : new Date(+m[1], +m[2] - 1, +m[3]);
     if (m[7] && m[4]) d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
-    return { date: iso(d), time: m[4] ? String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : "" };
+    return { date: iso(d), time: m[4] ? hm(d) : "", ...(m[7] && m[4] && { utc: d.getTime() }) };
   };
+  const hm = (d) => String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
   for (const line of lines) {
     if (line.startsWith("BEGIN:VEVENT")) { cur = /** @type {any} */ ({ exdates: [] }); continue; }
     if (line.startsWith("END:VEVENT")) { if (cur) events.push(cur); cur = null; continue; }
@@ -56,7 +57,12 @@ export function parseICS(text) {
           if (d < e.start.date) continue;
           if ((until && d > until) || (count && n >= count)) break outer;
           n++;
-          if (!e.exdates.includes(d) && !overridden.has(`${uid}|${d}`)) out.push({ ...base, date: d, occurrence: d });
+          /* Serie mit UTC-Beginn (…Z): Jedes Vorkommen liegt zur selben UTC-Zeit (RFC 5545), über die Zeitumstellung
+             hinweg also eine Stunde früher oder später nach Ortszeit. Mit Ortszeit/TZID bleibt die Uhrzeit gleich. */
+          const shift = e.start.utc ? diffDays(e.start.date, d) * 86400000 : 0;
+          const at = shift ? new Date(e.start.utc + shift) : null, end = at && e.end?.utc ? new Date(e.end.utc + shift) : null;
+          const occ = at ? { ...base, date: iso(at), start: hm(at), ...(end && { end: hm(end) }) } : { ...base, date: d };
+          if (!e.exdates.includes(occ.date) && !overridden.has(`${uid}|${occ.date}`)) out.push({ ...occ, occurrence: occ.date });
         }
         weekMon = addDays(weekMon, step); weeks++;
       }
