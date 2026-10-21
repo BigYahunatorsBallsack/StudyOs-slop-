@@ -17,17 +17,18 @@ function hash(text) {
   return (h >>> 0).toString(36);
 }
 
-/** Kurzer Fingerabdruck des synchronisierten Inhalts: ändert sich, sobald ein Eintrag, eine Löschung
-    oder die Einstellungen sich ändern. */
+/** Kurzer Fingerabdruck des synchronisierten Inhalts: ändert sich, sobald ein Eintrag, eine Löschung,
+    die Einstellungen oder der Papierkorb sich ändern. */
 export function fingerprint(d) {
   const parts = COLLS.map((c) => c + ":" + (d[c] || []).map((x) => `${x.id}@${x.updated || ""}#${hash(canonical(x))}`).sort().join(","));
   parts.push("del:" + (d.deleted || []).map((t) => `${t.c}/${t.id}@${t.at}`).sort().join(","));
   parts.push("set:" + (d.meta?.settingsUpdated || "") + "#" + hash(canonical(d.settings || {})));
+  parts.push("trash:" + (Array.isArray(d.meta?.trash) ? d.meta.trash : []).map((t) => t && t.id).sort().join(","));
   return parts.join("|");
 }
 
-/* Nur synchronisierte Felder hochladen; gerätebezogene Metadaten bleiben lokal. */
-const forCloud = (d) => ({ ...d, meta: { settingsUpdated: d.meta?.settingsUpdated || null, settingsFu: d.meta?.settingsFu || null, lastBackup: d.meta?.lastBackup || null } });
+/* Nur synchronisierte Felder hochladen (dazu der Papierkorb); gerätebezogene Metadaten bleiben lokal. */
+const forCloud = (d) => ({ ...d, meta: { settingsUpdated: d.meta?.settingsUpdated || null, settingsFu: d.meta?.settingsFu || null, lastBackup: d.meta?.lastBackup || null, trash: Array.isArray(d.meta?.trash) ? d.meta.trash : [] } });
 
 /* synced: Zeitstempel nach dem letzten erfolgreichen Sync (stampMap); damit werden überschriebene lokale
    Änderungen erkannt (conflicts). Das Ergebnis liefert die neuen Zeitstempel für den nächsten Lauf (stamps). */

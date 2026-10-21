@@ -551,6 +551,20 @@ body.grid-dragging, body.grid-dragging * { cursor: grabbing !important; user-sel
 .attachment { display: flex; align-items: center; gap: .65rem; }
 .attachment-thumb { width: 2.5rem; height: 2.5rem; border-radius: .5rem; object-fit: cover; flex-shrink: 0; }
 .attachment-icon { width: 2.5rem; height: 2.5rem; border-radius: .5rem; flex-shrink: 0; display: grid; place-items: center; font-size: .6rem; font-weight: 800; letter-spacing: .04em; background: var(--surface-2); color: var(--muted); }
+/* App-Sperre: deckt alles ab (auch Fenster und Hinweise), der Inhalt dahinter ist unsichtbar */
+.lock-hidden { visibility: hidden; }
+.lock-screen { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 1.5rem; background: var(--bg); color: var(--text); text-align: center; }
+.lock-art { width: 96px; height: 96px; }
+:root[data-theme="retro"] .lock-art { filter: drop-shadow(4px 4px 0 var(--drop)); }
+.lock-shackle { fill: var(--muted); }
+.lock-body { fill: var(--accent); }
+.lock-hole { fill: var(--bg); }
+.lock-title { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: .04em; color: var(--accent-text); }
+.lock-err { font-size: .8125rem; color: var(--warn-text); }
+.lock-hint { font-size: .6875rem; color: var(--faint); }
+/* Aufräumen (Einstellungen): Gruppen mit Vorschau */
+.cleanup-group { padding: .6rem .75rem; border-radius: var(--r-row); background: var(--surface-2); }
+.cleanup-preview { margin-top: .35rem; display: flex; flex-direction: column; gap: .15rem; font-size: .75rem; color: var(--muted); }
 /* ---- Bild-Karteikarten mit Verdecken ---- */
 .occ-stage { position: relative; width: 100%; margin: 0 auto; background: var(--surface-2); border-radius: .5rem; overflow: hidden; user-select: none; -webkit-user-select: none; }
 .occ-edit { touch-action: none; cursor: crosshair; }

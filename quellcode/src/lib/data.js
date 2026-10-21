@@ -2,6 +2,7 @@ import { COLLS, DATA_VERSION, DEFAULT_SETTINGS, DONE_HW, PALETTE } from "./const
 import { LEGACY_COMMUTE } from "./transit.js";
 import { addDays, diffDays, fmt, fmtMin, fmtShort, isHeld, iso, sum, uid, weekStart } from "./util.js";
 import { offDay } from "./holidays.js";
+import { TRASH_TOMB } from "./trash.js";
 
 /* Wöchentliche Serie; Feiertage und vorlesungsfreie Wochen werden übersprungen (der erste Termin bleibt immer) */
 export function buildWeeklySeries(base, repeatUntil, settings = null) {
@@ -57,7 +58,7 @@ export function migrate(obj) {
   out.modules = out.modules.map((m, i) => ({ color: PALETTE[i % PALETTE.length], bonusPct: null, ...m }));
   out.cards = out.cards.map((c) => ({ ease: 2.5, interval: 0, reps: 0, due: iso(), ...c }));
   out.exams = out.exams.map((e) => ({ attempt: 1, freeWeekdays: [], ...e }));
-  out.deleted = Array.isArray(obj.deleted) ? obj.deleted.filter((t) => t && COLLS.includes(t.c) && t.id && typeof t.at === "string") : [];
+  out.deleted = Array.isArray(obj.deleted) ? obj.deleted.filter((t) => t && (COLLS.includes(t.c) || t.c === TRASH_TOMB) && t.id && typeof t.at === "string") : [];
   return out;
 }
 

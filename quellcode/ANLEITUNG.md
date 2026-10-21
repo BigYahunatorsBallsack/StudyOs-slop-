@@ -100,8 +100,22 @@ Die Passphrase gibst du auf jedem Gerät nur einmal ein.
 - Ohne Internet arbeitest du ganz normal weiter. Die App zeigt dann „Offline, synchronisiert später“ und gleicht ab, sobald wieder Netz da ist.
 - Hat ein anderes Gerät etwas überschrieben oder gelöscht, das du hier seit dem letzten Abgleich geändert hast, erscheint ein Hinweis mit **Meine behalten**.
 - Unter **Cloud-Sicherung** kannst du einmal pro Woche automatisch einen verschlüsselten Schnappschuss in der Cloud speichern lassen. Die letzten 8 Wochen bleiben erhalten und lassen sich einzeln wiederherstellen.
+- Der **Papierkorb** wird mit synchronisiert: Was du auf einem Gerät löschst, kannst du 30 Tage lang auch auf dem anderen wiederherstellen. Geräte mit einer älteren StudyOS-Version kennen das noch nicht; aktualisiere am besten alle Geräte.
 - **Abmelden** lässt die Daten auf diesem Gerät unverändert.
 - **Cloud-Daten löschen** entfernt nur die Kopie in der Cloud. Danach kannst du mit einer neuen Passphrase neu hochladen, zum Beispiel wenn du die alte vergessen hast.
 - Achtung: **Alle Daten löschen** wird bei aktivem Sync auf allen Geräten wirksam.
 
 Exportiere trotz Sync weiterhin regelmäßig eine Sicherungsdatei, denn ein versehentliches Löschen wird ebenfalls synchronisiert, und die Cloud-Sicherung hilft nur, solange du deine Sync-Passphrase kennst.
+
+## App-Sperre mit Fingerabdruck oder Face ID
+
+Unter **Mehr → Daten & Einstellungen → App-Sperre** kannst du die App auf diesem Gerät sperren lassen (standardmäßig aus, gilt nur für das jeweilige Gerät). Dann erscheint beim Öffnen und nach 5 Minuten im Hintergrund ein Sperrbildschirm; **Entsperren** fragt Fingerabdruck, Face ID oder die Geräte-PIN ab. Die Option erscheint nur, wenn Browser und Gerät das unterstützen.
+
+- Das ist eine **Sichtsperre, keine Verschlüsselung**: Sie verdeckt die App vor neugierigen Blicken, die Daten selbst liegen weiter unverschlüsselt im Browser.
+- Klappt das Entsperren nicht oder brichst du ab, tippst du einfach erneut auf **Entsperren**.
+- **Ausschalten** geht nur im entsperrten Zustand, unter **App-Sperre → Ausschalten**.
+- Löschst du den Fingerabdruck- bzw. Passkey-Eintrag im Gerät, lässt sich die App nicht mehr entsperren. Dann hilft nur, die Websitedaten von StudyOS im Browser zu löschen; ohne Cloud-Sync oder Sicherungsdatei sind die Daten damit weg.
+
+## Aufräumen
+
+**Mehr → Daten & Einstellungen → Aufräumen** findet doppelte Termine (gleiches Modul, Datum, Beginn und Art), doppelte Karteikarten (gleiche Vorder- und Rückseite im selben Modul), leere Notizen und verwaiste Anhänge auf diesem Gerät. **Löschen** entfernt eine ganze Gruppe; bei Doppeln bleibt jeweils der bearbeitete bzw. meistgelernte Eintrag, und Notizen zu einem doppelten Termin hängen danach am behaltenen. Gelöschte Einträge liegen im Papierkorb; verwaiste Anhänge werden endgültig gelöscht.
