@@ -15,9 +15,18 @@ const NOUN = { homework: ["Abgabe", "Abgaben"], session: ["Termin", "Termine"], 
 const OPTIONAL_MODULE = new Set(["note", "block"]);
 export const countLabel = (kind, n) => `${n} ${NOUN[kind][n === 1 ? 0 : 1]}`;
 
+/* Ausgewählte ids als Set, einmal je Auswahl: jede Zeile fragt nach, bei langen Listen sonst quadratisch viele Vergleiche */
+const pickedSets = new WeakMap();
+export function pickedSet(sel) {
+  if (!sel) return new Set();
+  let s = pickedSets.get(sel);
+  if (!s) { s = new Set(sel.ids); pickedSets.set(sel, s); }
+  return s;
+}
+
 /** Zeile im Auswahlmodus: ein großes Kästchen, Titel und eine Zeile Einzelheiten */
 export function SelectRow({ db, kind, id, title, meta, color, muted }) {
-  const on = db.sel.ids.includes(id);
+  const on = pickedSet(db.sel).has(id);
   return (
     <li className={`row row-select ${on ? "row-selected" : ""} ${muted ? "row-muted" : ""}`} style={{ "--mod": color }}>
       <button className="row-main flex w-full items-center gap-3" role="checkbox" aria-checked={on} onClick={() => db.select(kind, id)}>
@@ -36,7 +45,7 @@ export function SelectToggle({ db, kind, ids }) {
   if (!ids.length) return null;
   const active = db.sel?.kind === kind;
   if (!active) return <button className="link-btn" onClick={() => db.selectAll(kind, [])}>Auswählen</button>;
-  const all = ids.every((id) => db.sel.ids.includes(id));
+  const picked = pickedSet(db.sel), all = ids.every((id) => picked.has(id));
   return <button className="link-btn" onClick={() => db.selectAll(kind, all ? [] : ids)}>{all ? "Keine" : `Alle ${ids.length}`}</button>;
 }
 
@@ -49,7 +58,7 @@ export function SelectBar({ db }) {
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
   }, [moving]);
-  const items = (db.data[COLL[sel.kind]] || []).filter((x) => sel.ids.includes(x.id));
+  const picked = pickedSet(sel), items = (db.data[COLL[sel.kind]] || []).filter((x) => picked.has(x.id));
   const n = items.length, none = !n;
   const open = items.filter((h) => !DONE_HW.has(h.status));
   const ids = items.map((x) => x.id), label = countLabel(sel.kind, n);

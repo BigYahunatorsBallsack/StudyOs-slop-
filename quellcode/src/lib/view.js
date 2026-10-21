@@ -6,7 +6,7 @@ export const VIEW_KEY = "studyos-view";
 const ALLOWED = {
   tab: ["heute", "module", "woche", "lernen", "mehr"],
   learn: ["timer", "einheiten", "karten", "pruefungen"],
-  more: ["rueckblick", "erfolge", "hausaufgaben", "studium", "daten"],
+  more: ["rueckblick", "erfolge", "hausaufgaben", "studium", "daten", "neu"],
   moduleSub: ["uebersicht", "termine", "ha", "themen", "lernzeit", "notizen", "karten"],
 };
 

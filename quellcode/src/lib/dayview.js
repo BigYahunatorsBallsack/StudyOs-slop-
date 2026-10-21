@@ -1,7 +1,6 @@
 /* Rund um „Heute“: Zeitstrahl mit der nächsten freien Lücke, Vorschau auf morgen, ruhige Tage (Wochenende,
    Feiertag, vorlesungsfrei), die Restzeit des laufenden Termins und der Fokus auf einen einzelnen Eintrag. */
-import { DONE_HW } from "./constants.js";
-import { isActive } from "./data.js";
+import { isActive, isOpenHw } from "./data.js";
 import { offDay } from "./holidays.js";
 import { busyOn, toHM, toMin } from "./blocks.js";
 import { addDays, byTime, wdIdx } from "./util.js";
@@ -62,7 +61,7 @@ export function tomorrowPreview(data, today, now, from = "18:00") {
   if (now < from) return null;
   const date = addDays(today, 1);
   const first = data.sessions.filter((s) => s.date === date && isActive(s)).sort(byTime)[0] || null;
-  const homework = data.homework.filter((h) => h.due === date && !h.missed && !DONE_HW.has(h.status)).sort((a, b) => (a.dueTime || "99").localeCompare(b.dueTime || "99"));
+  const homework = data.homework.filter((h) => h.due === date && isOpenHw(h)).sort((a, b) => (a.dueTime || "99").localeCompare(b.dueTime || "99"));
   const exams = [
     ...data.exams.filter((e) => e.date === date && e.result !== "bestanden").map((e) => ({ e, retake: false })),
     ...data.exams.filter((e) => e.retakeDate === date && e.result === "nicht bestanden").map((e) => ({ e, retake: true })),
@@ -97,7 +96,7 @@ export function resolveFocus(data, f) {
   if (!f || !FOCUS_KINDS[f.kind]) return null;
   const item = (data[FOCUS_KINDS[f.kind]] || []).find((x) => x.id === f.id);
   if (!item) return null;
-  const done = f.kind === "homework" ? DONE_HW.has(item.status) || !!item.missed : f.kind === "session" ? !!item.reviewed || !!item.cancelled : !!item.done;
+  const done = f.kind === "homework" ? !isOpenHw(item) : f.kind === "session" ? !!item.reviewed || !!item.cancelled : !!item.done;
   return { kind: f.kind, item, done };
 }
 

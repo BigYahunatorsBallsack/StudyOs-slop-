@@ -1,5 +1,6 @@
 /* Fristen für den Erinnerungsdienst. Nur Titel, Modulname und Datum verlassen das Gerät unverschlüsselt. */
 import { DONE_HW } from "./constants.js";
+import { isOpenHw } from "./data.js";
 import { uniDatesOn } from "./tumdates.js";
 import { addDays, fmtMin, fmtShort, iso, sum, wdIdx } from "./util.js";
 import { describeChange } from "./feed.js";
@@ -14,7 +15,7 @@ export function deadlinesFromData(all, today = iso()) {
   const data = withoutArchived(all);
   const mod = (id) => data.modules.find((m) => m.id === id)?.name || "";
   const out = [];
-  data.homework.forEach((h) => { if (h.due && h.due >= addDays(today, -1) && !h.missed && !DONE_HW.has(h.status)) out.push({ id: h.id, kind: "homework", title: h.title, module: mod(h.moduleId), date: h.due, ...(h.dueTime ? { time: h.dueTime } : {}) }); });
+  data.homework.forEach((h) => { if (h.due && h.due >= addDays(today, -1) && isOpenHw(h)) out.push({ id: h.id, kind: "homework", title: h.title, module: mod(h.moduleId), date: h.due, ...(h.dueTime ? { time: h.dueTime } : {}) }); });
   data.exams.forEach((e) => {
     if (e.date >= today && e.result !== "bestanden") out.push({ id: e.id, kind: "exam", title: "Prüfung", module: mod(e.moduleId), date: e.date, time: e.time || "" });
     if (e.registerBy && !e.registered && e.registerBy >= today) out.push({ id: e.id, kind: "register", title: "Anmeldung", module: mod(e.moduleId), date: e.registerBy });
@@ -110,7 +111,7 @@ export function deadlinesFromData(all, today = iso()) {
 /** Text des Tagesüberblicks oder "" (dann gibt es keine Nachricht) */
 export function morningBody(data, day, mod) {
   const ses = data.sessions.filter((s) => s.date === day && !s.cancelled && s.start).sort((a, b) => a.start.localeCompare(b.start));
-  const hw = data.homework.filter((h) => h.due === day && !h.missed && !DONE_HW.has(h.status));
+  const hw = data.homework.filter((h) => h.due === day && isOpenHw(h));
   const ex = data.exams.filter((e) => e.date === day && e.result !== "bestanden");
   const cards = data.cards.filter((c) => (c.due || "") <= day).length;
   const parts = [

@@ -94,7 +94,7 @@ export function learningRhythm(logs) {
   for (const l of logs) {
     const min = Number(l.minutes) || 0;
     if (!min || !l.date) continue;
-    weekdays[(new Date(l.date + "T12:00:00").getDay() + 6) % 7] += min;
+    weekdays[wdIdx(l.date)] += min;
     if (!/^\d{2}:\d{2}$/.test(l.at || "")) continue;
     let h = Number(l.at.slice(0, 2)); if (h < 5) h += 24;
     const i = DAYPARTS.findIndex(([, a, b]) => h >= a && h < b);
