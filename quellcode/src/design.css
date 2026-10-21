@@ -152,7 +152,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .rows { display: flex; flex-direction: column; gap: .5rem; }
 .row { position: relative; background: var(--surface); border-radius: var(--r-row); padding: .8rem .9rem .8rem 1.15rem; overflow: hidden; }
 .row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--mod, var(--surface-3)); }
-.row.row-muted { opacity: .62; }
+.row.row-muted { opacity: .8; } /* erledigt: blasser, Schrift aber noch gut lesbar (Kontrast ≥ 4,5:1) */
 .row-title { font-weight: 600; font-size: .9375rem; line-height: 1.3; }
 .row-meta { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row-main { width: 100%; text-align: left; border-radius: 8px; }
@@ -277,6 +277,8 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .grid-now::before { content: ""; position: absolute; left: -3px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 .ev { position: absolute; left: 2px; right: 2px; border-radius: 8px; padding: .2rem .3rem; background: var(--mod); color: var(--on-module); overflow: hidden; text-align: left; font-size: .65rem; line-height: 1.2; z-index: 2; }
 .ev b { display: block; font-weight: 700; font-size: .68rem; }
+/* schmale Spalte (Handy): zu lange Wörter enden mit „…“ statt mitten im Buchstaben abgeschnitten */
+.ev > b, .ev > span:not(.ev-resize) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ev.ev-done { background: color-mix(in srgb, var(--mod) 45%, var(--surface)); color: var(--text); }
 .ev.ev-cancelled { background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--surface-3) 6px 12px); color: var(--muted); text-decoration: line-through; }
 .ev.ev-review { box-shadow: inset 0 0 0 2px var(--warn); }
@@ -304,7 +306,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .month-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .month-head span { text-align: center; font-size: .7rem; font-weight: 600; color: var(--muted); }
 .month-day { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 3.6rem; padding: .3rem; border-radius: 10px; background: var(--surface); color: var(--text); text-align: left; }
-.month-day.other { opacity: .45; }
+.month-day.other { opacity: .7; }
 .month-day.off { background: repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--surface-2) 6px 12px); color: var(--muted); }
 .month-day.today { box-shadow: inset 0 0 0 2px var(--accent); }
 .month-day.has-exam { box-shadow: inset 0 0 0 2px var(--danger); }
@@ -314,6 +316,8 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .mdot { width: 7px; height: 7px; border-radius: 50%; background: var(--mod, var(--accent)); }
 .mdot-done { opacity: .35; }
 .mdot-exam { background: var(--danger); width: 9px; height: 9px; }
+/* Zahlen nur als Bild: der Name des Tages nennt sie schon, Sprachsteuerung sieht so nur das Datum */
+:is(.mdot-more, .month-ses)::after { content: attr(data-n); }
 .mdot-more { font-size: .55rem; color: var(--muted); line-height: 7px; }
 .month-ses { position: absolute; right: .3rem; bottom: .2rem; font-size: .6rem; color: var(--faint); font-variant-numeric: tabular-nums; }
 .mdot-uni { border-radius: 1px; transform: rotate(45deg); width: 7px; height: 7px; }
@@ -336,6 +340,7 @@ kbd, .kbd { font-family: var(--font-body); font-size: .75rem; font-weight: 600; 
 .sembar-exam { display: inline-block; width: 7px; height: 7px; background: var(--danger); }
 .sembar-uni { display: inline-block; width: 6px; height: 6px; background: var(--ink); transform: rotate(45deg); }
 .sembar-hol { display: inline-block; width: 6px; height: 2px; background: var(--muted); }
+.sembar-hw[data-n]::after { content: attr(data-n); } /* Zahl nur als Bild: der Name der Woche nennt sie schon (Sprachsteuerung sieht nur KW und VL-Woche) */
 .sembar-hw { font-size: .55rem; line-height: 1; font-weight: 700; color: var(--warn-text); font-variant-numeric: tabular-nums; }
 .sembar-legend { display: flex; flex-wrap: wrap; gap: .25rem .75rem; font-size: .65rem; color: var(--faint); }
 .sembar-legend > span { display: inline-flex; align-items: center; gap: 4px; }
@@ -733,3 +738,13 @@ html { overscroll-behavior-x: none; }
 .sheet-table th, .sheet-table td { padding: .2rem .4rem; text-align: left; border-bottom: 1px solid var(--line); }
 .sheet-table thead th { color: var(--muted); font-weight: 600; }
 .sheet-table th[scope=row] { font-weight: 500; }
+/* Handy: kleine Knöpfe und Links bekommen eine unsichtbar größere Tippfläche (mind. 32 px hoch), das Aussehen bleibt gleich */
+@media (pointer: coarse) {
+  .btn, .seg-item, .md-tool { min-height: 2rem; }
+  .md-tool { min-width: 2rem; }
+  .rate-star { min-width: 2rem; min-height: 2rem; }
+  label:has(> input[type="checkbox"]) { min-height: 2rem; }
+  :is(.chip, .tri-btn, .link-btn, .group-toggle, .ext-link, .row-main, .todo-check, .tap) { position: relative; }
+  :is(.chip, .tri-btn, .link-btn, .group-toggle, .ext-link, .row-main, .tap)::before { content: ""; position: absolute; inset: -6px 0; }
+  .todo-check::before { content: ""; position: absolute; inset: -4px; }
+}

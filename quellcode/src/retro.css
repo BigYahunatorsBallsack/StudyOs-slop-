@@ -122,6 +122,7 @@
 :root[data-theme="retro"][data-palette="papier"]::before { content: none; }
 :root[data-theme="retro"][data-palette="papier"] body::before { filter: grayscale(1) sepia(.5); opacity: .16; }
 :root[data-theme="retro"][data-palette="papier"] .px-sky { opacity: .35; }
+:root[data-theme="retro"][data-palette="papier"] .row.row-muted { opacity: .88; } /* helles Papier verträgt weniger Ausbleichen */
 :root[data-theme="retro"][data-palette="papier"] body::after { background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(70, 50, 20, .035) 2px 3px); }
 :root[data-theme="retro"][data-palette="papier"] ::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--text); }
 :root[data-theme="retro"][data-palette="papier"] .page-title { text-shadow: 2px 2px 0 color-mix(in srgb, var(--accent) 22%, transparent); }
