@@ -4,7 +4,8 @@
    Jede offene Ebene (Fenster, Termin-Karte, Vollbild, Modulseite, anderer Bereich als „Heute“) belegt einen eigenen
    Verlaufseintrag (pushState). Zurück entfernt ihn, popstate schließt dann die oberste Ebene. Schließt man eine Ebene
    per Knopf, geht der Stapel selbst zurück (history.go), und dieses popstate schließt nichts weiter.
-   Abgeglichen wird gesammelt nach dem Rendern: Schließen und gleich wieder Öffnen (Notiz → Bearbeiten) behält den
+   Öffnen legt den Eintrag sofort an (sonst träfe ein schnelles Zurück noch die Ebene darunter). Schließen wird gesammelt
+   direkt nach dem Rendern abgeglichen (Mikrotask): Schließen und gleich wieder Öffnen (Notiz → Bearbeiten) behält den
    Eintrag, statt zurück- und wieder vorzugehen.
 
    Ebenen haben eine Stufe (BEREICH < SEITE < FENSTER); Zurück schließt immer die höchste, bei gleicher Stufe die zuletzt geöffnete. */
@@ -20,7 +21,7 @@ const depthOf = (state) => (state && typeof state[KEY] === "number" ? state[KEY]
  * angelegt wurden; dann warten wir mit dem Anlegen bis zum ersten Antippen (onActivate).
  * @param {{ history: any, target: any, defer?: (f: () => void) => void, timer?: (f: () => void, ms: number) => any, clearTimer?: (t: any) => void, activated?: () => boolean, onActivate?: (f: () => void) => void }} o
  */
-export function createBackStack({ history, target, defer = (f) => { setTimeout(f, 0); }, timer = setTimeout, clearTimer = clearTimeout,
+export function createBackStack({ history, target, defer = (f) => { queueMicrotask(f); }, timer = setTimeout, clearTimer = clearTimeout,
   activated = () => true, onActivate = (f) => { void f; } }) {
   /* base: Tiefe des Eintrags, auf dem die App gestartet ist (nach einem Neuladen können darunter alte Einträge liegen) */
   let base = depthOf(history.state), have = base, pending = null, late = null, pendingTimer = 0, scheduled = false, seq = 0, waiting = false;
@@ -81,7 +82,7 @@ export function createBackStack({ history, target, defer = (f) => { setTimeout(f
     add(level, close) {
       const layer = { level, seq: ++seq, close };
       layers.push(layer);
-      schedule();
+      sync(); /* gleich anlegen; im selben Rendern geschlossene Ebenen sind schon abgezogen, ihr Eintrag wird weiterverwendet */
       return () => { const n = layers.length; layers = layers.filter((l) => l !== layer); if (layers.length !== n) schedule(); };
     },
     size: () => layers.length,

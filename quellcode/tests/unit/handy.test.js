@@ -41,6 +41,17 @@ describe("Zurück-Geste schließt Fenster (lib/backstack.js)", () => {
     expect(s.size()).toBe(0);
   });
 
+  it("Öffnen legt den Eintrag sofort an, damit ein schnelles Zurück das Fenster trifft", () => {
+    const { h, s, settle } = setup();
+    const log = [];
+    s.add(LEVEL.BEREICH, () => log.push("bereich"));
+    let off;
+    off = s.add(LEVEL.FENSTER, () => { log.push("fenster"); off(); });
+    expect(h.index).toBe(2); /* ohne den Abgleich abzuwarten */
+    h.back(); settle();
+    expect(log).toEqual(["fenster"]);
+  });
+
   it("per Knopf schließen entfernt den Eintrag wieder, ohne doppelt zurückzugehen", () => {
     const { h, s, settle } = setup();
     let closed = 0;

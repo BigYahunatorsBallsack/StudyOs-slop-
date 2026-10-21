@@ -1,5 +1,5 @@
 /* Zurück-Geste für offene Ebenen (siehe lib/backstack.js) und Fenster nach unten wegwischen */
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { LEVEL, createBackStack } from "../lib/backstack.js";
 import { sheetDragCloses } from "../lib/gestures.js";
 
@@ -33,7 +33,8 @@ function getStack() {
 export function useBackClose(open, onClose, level = LEVEL.FENSTER) {
   const ref = useRef(onClose);
   ref.current = onClose;
-  useEffect(() => {
+  /* vor dem Zeichnen anmelden: Sobald das Fenster zu sehen ist, steht auch sein Verlaufseintrag */
+  useLayoutEffect(() => {
     if (!open) return undefined;
     const s = getStack();
     return s ? s.add(level, () => ref.current && ref.current()) : undefined;

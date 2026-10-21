@@ -718,7 +718,9 @@ test('Anhang an eine Hausaufgabe (lokal) und Probeklausur', async ({ page }) => 
   await expect.poll(() => page.evaluate(async () => (await window.STUDYOS_ENV.load()).homework[0].files?.[0]?.name)).toBe('blatt3.pdf');
   await dlg.getByRole('button', { name: 'Abbrechen' }).click();
   await expect(page.getByText('1 Anhang')).toBeVisible();
-  // Probeklausur
+  // Probeklausur. Vorher den Verlaufseintrag des Formulars abräumen lassen (Zurück-Geste, ui/back.js): einen Seitenwechsel
+  // mitten in diesem Zurückgehen bricht der Browser sonst ab
+  await expect.poll(() => page.evaluate(() => history.state && history.state.studyosBack)).toBe(1);
   await page.goto('./?aktion=pruefungen');
   await page.getByRole('button', { name: 'Probeklausur' }).click();
   const mock = page.getByRole('dialog', { name: /Probeklausur/ });
