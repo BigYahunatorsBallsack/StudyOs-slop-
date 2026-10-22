@@ -193,7 +193,9 @@ async function save(payload) {
     }
     await txRequest(db, 'app', 'readwrite', (s) => s.put(row));
     storageMode = 'idb';
-    localWrite(row);
+    /* Nicht über einen jüngeren Spiegel schreiben (z. B. von saveSync beim Verlassen, während dieser Vorgang noch lief) */
+    const stamp = localStamp();
+    if (!stamp || stamp <= row.updated) localWrite(row);
     if (channel) channel.postMessage({ type: 'saved', updated: row.updated });
     return true;
   } catch (err) {
