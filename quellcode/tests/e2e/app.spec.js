@@ -200,7 +200,8 @@ test('Timer läuft nach dem Neuladen weiter, ohne die App ständig neu zu render
   await page.goto('./');
   await nav(page, 'Lernen').click();
   await page.getByRole('button', { name: 'Starten' }).click();
-  await page.waitForTimeout(1200);
+  /* erst neu laden, wenn der laufende Timer gespeichert ist */
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('studyos-timer-v1') || '{}').running)).toBe(true);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Zum Timer' })).toContainText(/Fokus 2[45]:\d\d/);
   // Der Seitenkopf darf sich nicht jede halbe Sekunde neu aufbauen: Element-Identität bleibt gleich
@@ -1642,22 +1643,29 @@ test('Duplizieren im Schnellmenü und Notiz-Vorlage am Termin', async ({ page })
   await nav(page, 'Woche').click();
   await page.getByRole('tab', { name: 'Liste' }).click();
   const row = page.locator('.swipe .row', { hasText: 'MI HS 1' });
-  await row.click({ button: 'right' });
-  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Notiz' }).click();
+  /* Das Schnellmenü einer Zeile öffnet sich höchstens alle 0,8 s (Android meldet langes Drücken doppelt):
+     Rechtsklick wiederholen, bis es offen ist, statt eine feste Zeit zu warten */
+  const menu = page.getByRole('dialog', { name: /Diskrete Strukturen/ });
+  const openMenu = () => expect(async () => {
+    if (!(await menu.isVisible())) await row.click({ button: 'right' });
+    await expect(menu).toBeVisible({ timeout: 500 });
+  }).toPass({ intervals: [300], timeout: 10000 });
+  await openMenu();
+  await menu.getByRole('button', { name: 'Notiz' }).click();
   const form = page.getByRole('dialog', { name: 'Notiz anlegen' });
   await expect(form.getByLabel('Titel')).toHaveValue(/^DS Vorlesung \d\d\.\d\d\.\d{4}$/);
   await expect(form.getByLabel('Inhalt')).toHaveValue(/^# Vorlesung, .*\n10:00–12:00, MI HS 1\n/);
   await form.getByRole('button', { name: 'Speichern' }).click();
   await expect.poll(async () => (await stored(page)).notes.map((n) => n.sessionId)).toEqual(['s1']);
-  await row.click({ button: 'right' });
-  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Notiz' }).click();
+  await openMenu();
+  await menu.getByRole('button', { name: 'Notiz' }).click();
   await expect(page.getByRole('dialog', { name: 'Notiz bearbeiten' })).toBeVisible();
   await page.keyboard.press('Escape');
 
-  /* Termin duplizieren: nicht besucht, nicht nachbereitet (das Schnellmenü öffnet sich höchstens alle 0,8 s) */
-  await page.waitForTimeout(900);
-  await row.click({ button: 'right' });
-  await page.getByRole('dialog', { name: /Diskrete Strukturen/ }).getByRole('button', { name: 'Duplizieren' }).click();
+  /* Termin duplizieren: nicht besucht, nicht nachbereitet */
+  await expect(page.getByRole('dialog', { name: 'Notiz bearbeiten' })).toHaveCount(0);
+  await openMenu();
+  await menu.getByRole('button', { name: 'Duplizieren' }).click();
   await expect(page.getByRole('dialog', { name: /bearbeiten/ })).toBeVisible();
   await expect.poll(async () => (await stored(page)).sessions.length).toBe(2);
   expect((await stored(page)).sessions[1]).toMatchObject({ room: 'MI HS 1', attended: false, reviewed: false });

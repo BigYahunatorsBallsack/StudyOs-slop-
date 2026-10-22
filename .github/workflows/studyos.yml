@@ -46,8 +46,21 @@ jobs:
         run: npm run build && node tests/deno/run-function.mjs deno
       - name: CSS-Klassen
         run: python3 tools/css_check.py .
+      # Browser zwischenspeichern (Schlüssel: Playwright-Version aus package-lock); Systempakete kommen bei Treffer separat
+      - name: Playwright-Version
+        id: pw
+        run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium
       - name: Playwright-Browser
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Playwright-Systempakete
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: E2E-Tests
         run: npm run test:e2e
       # Screenshot-Vergleich: blockiert vorerst nicht. Weichen die Bilder nur durch eine andere Chromium-Version ab,
