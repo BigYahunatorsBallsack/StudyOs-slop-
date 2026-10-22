@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Behoben: Termin-Karte in der PC-Doppelansicht:** Die Karte zu einem Termin bleibt jetzt innerhalb der Wochenspalte, statt über ihren Rand und die Bildlaufleiste zu ragen. Scrollt man die Wochenspalte, schließt sie sich wie beim Scrollen der Seite.
 - **Erinnerungen zuverlässiger (Supabase-Funktion neu einspielen):** Ein fehlerhafter Datensatz oder ein hängender Push-Dienst hält den Versand für alle anderen nicht mehr auf, ein gerade eingeschaltetes Gerät geht nicht mehr verloren. Im Fristen-Kalender-Abo erscheinen Titel mit Semikolon, Umlauten oder Emoji korrekt. Ein abgelehnter TomTom-Schlüssel wird als solcher gemeldet statt als „Adresse nicht gefunden“. Sicherheit: Kalender-Abos werden auch bei Weiterleitungen nur von TUM-Adressen geladen.
 - **Akku sparen im Retro-Look:** Timer-Begleiter und flackernde Serien-Flamme sehen genau gleich aus, brauchen aber rund ein Drittel der Rechenzeit. Bei laufendem Timer aktualisiert Lernen nur noch Restzeit und Ring.
 - **Behoben: Probeklausur:** Die Felder für Kartenzahl und Minuten lassen sich leeren und neu tippen, Enter startet die Runde. Nach Abgabe und bei „Noch eine Runde“ bleibt die Tastatur im Fenster.
