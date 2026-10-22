@@ -85,7 +85,8 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
     ...data.exams.filter((e) => e.retakeDate && e.retakeDate >= t && e.result === "nicht bestanden").map((e) => ({ e, date: e.retakeDate, retake: true })),
   ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
   const minToday = sum(data.logs.filter((l) => l.date === t), (l) => l.minutes);
-  const minWeek = sum(data.logs.filter((l) => l.date >= weekStart(t) && l.date <= t), (l) => l.minutes);
+  const mon = weekStart(t); /* einmal statt je Lerneinheit (nach Jahren zigtausende) */
+  const minWeek = sum(data.logs.filter((l) => l.date >= mon && l.date <= t), (l) => l.minutes);
   const streak = streakOf(data.logs);
   const goalMin = (Number(data.settings.weeklyGoal) || 0) * 60;
   const cardsDue = data.cards.filter((c) => c.due <= t).length;

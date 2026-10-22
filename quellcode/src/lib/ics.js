@@ -5,7 +5,8 @@ import { uniDates } from "./tumdates.js";
 
 /* ICS-Parser (z. B. Kalender-Export aus TUMonline) */
 export function parseICS(text) {
-  const lines = text.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "").split(/\r?\n/);
+  /* Zeilenenden auch nur mit CR (ältere Mac-Programme); Folgezeilen beginnen mit Leerzeichen oder Tab */
+  const lines = text.replace(/\r\n?[ \t]|\n[ \t]/g, "").split(/\r\n|\n|\r/);
   /** @type {any[]} */ const events = []; /** @type {any} */ let cur = null;
   /* in einem Durchgang, sonst würde aus „\\n“ (Backslash, dann n) ein Leerzeichen */
   const unesc = (v) => v.replace(/\\([nN,;\\])/g, (_, c) => (c === "n" || c === "N" ? " " : c)).trim();
@@ -16,13 +17,14 @@ export function parseICS(text) {
     return { date: iso(d), time: m[4] ? clockOf(d) : "", ...(m[7] && m[4] && { utc: d.getTime() }) };
   };
   let alarm = false;
+  /* Namen von Eigenschaften und Blöcken sind ohne Rücksicht auf Groß-/Kleinschreibung (RFC 5545, 2.1) */
   for (const line of lines) {
-    if (line.startsWith("BEGIN:VEVENT")) { cur = /** @type {any} */ ({ exdates: [] }); alarm = false; continue; }
-    if (line.startsWith("END:VEVENT")) { if (cur) events.push(cur); cur = null; continue; }
+    if (/^BEGIN:VEVENT/i.test(line)) { cur = /** @type {any} */ ({ exdates: [] }); alarm = false; continue; }
+    if (/^END:VEVENT/i.test(line)) { if (cur) events.push(cur); cur = null; continue; }
     if (!cur) continue;
     /* Erinnerungen (VALARM) haben eigene SUMMARY/DESCRIPTION, die nicht den Termin überschreiben dürfen */
-    if (line.startsWith("BEGIN:VALARM")) { alarm = true; continue; }
-    if (line.startsWith("END:VALARM")) { alarm = false; continue; }
+    if (/^BEGIN:VALARM/i.test(line)) { alarm = true; continue; }
+    if (/^END:VALARM/i.test(line)) { alarm = false; continue; }
     if (alarm) continue;
     const i = line.indexOf(":"); if (i < 0) continue;
     const key = line.slice(0, i).split(";")[0].toUpperCase(), val = line.slice(i + 1);
@@ -33,6 +35,7 @@ export function parseICS(text) {
     else if (key === "URL") cur.url = val.trim();
     else if (key === "DTSTART") cur.start = parseDT(val);
     else if (key === "DTEND") cur.end = parseDT(val);
+    else if (key === "DURATION") cur.duration = val.trim();
     else if (key === "RRULE") cur.rrule = val;
     else if (key === "EXDATE") val.split(",").forEach((x) => { const p = parseDT(x); if (p) cur.exdates.push(p.date); });
     else if (key === "UID") cur.uid = val.trim();
@@ -44,32 +47,55 @@ export function parseICS(text) {
   const out = [];
   for (const e of events) {
     if (!e.start) continue;
+    /* Dauer statt Ende (DURATION:PT1H30M), wie manche Kalender exportieren: Ende daraus berechnen */
+    const dur = !e.end && e.start.time && /^\+?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i.exec(e.duration || "");
+    if (dur) {
+      const ms = ((((+dur[1] || 0) * 7 + (+dur[2] || 0)) * 24 + (+dur[3] || 0)) * 60 + (+dur[4] || 0)) * 60000 + (+dur[5] || 0) * 1000;
+      const end = new Date((e.start.utc ?? new Date(`${e.start.date}T${e.start.time}:00`).getTime()) + ms);
+      e.end = { date: iso(end), time: clockOf(end), ...(e.start.utc && { utc: end.getTime() }) };
+    }
     const uid = e.uid || `${e.summary || ""}|${e.start.date}|${e.start.time}`;
     const base = { uid, cancelled: !!e.cancelled, summary: e.summary || "Ohne Titel", room: e.location || "", start: e.start.time || "08:00", end: e.end?.time || e.start.time || "10:00", course: e.categories || "", allDay: !e.start.time, description: e.description || "", url: /^https?:\/\//i.test(e.url || "") ? e.url : "" };
-    if (e.rrule && /FREQ=WEEKLY/i.test(e.rrule)) {
+    const freq = (/FREQ=(\w+)/i.exec(e.rrule || "") || [])[1]?.toUpperCase();
+    if (freq === "WEEKLY" || freq === "DAILY") {
       const get = (k) => (new RegExp(k + "=([^;]+)", "i").exec(e.rrule) || [])[1];
       const until = get("UNTIL") ? parseDT(get("UNTIL"))?.date : null;
       const count = get("COUNT") ? +get("COUNT") : null;
-      const step = (+get("INTERVAL") || 1) * 7;
       const DAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
       const byday = (get("BYDAY") || "").split(",").map((x) => DAYS.indexOf(x.replace(/[^A-Za-z]/g, "").slice(-2).toUpperCase())).filter((i) => i >= 0);
-      const wdays = byday.length ? [...new Set(byday)].sort((a, b) => a - b) : [wdIdx(e.start.date)];
-      const maxWeeks = until || count ? 120 : 20; /* ohne Ende: ein Semester vorausplanen */
-      let weekMon = weekStart(e.start.date), n = 0, weeks = 0;
-      outer: while (weeks < maxWeeks && (!until || weekMon <= until)) {
-        for (const wd of wdays) {
-          const d = addDays(weekMon, wd);
-          if (d < e.start.date) continue;
-          if ((until && d > until) || (count && n >= count)) break outer;
-          n++;
-          /* Serie mit UTC-Beginn (…Z): Jedes Vorkommen liegt zur selben UTC-Zeit (RFC 5545), über die Zeitumstellung
-             hinweg also eine Stunde früher oder später nach Ortszeit. Mit Ortszeit/TZID bleibt die Uhrzeit gleich. */
-          const shift = e.start.utc ? diffDays(e.start.date, d) * 86400000 : 0;
-          const at = shift ? new Date(e.start.utc + shift) : null, end = at && e.end?.utc ? new Date(e.end.utc + shift) : null;
-          const occ = at ? { ...base, date: iso(at), start: clockOf(at), ...(end && { end: clockOf(end) }) } : { ...base, date: d };
-          if (!e.exdates.includes(occ.date) && !overridden.has(`${uid}|${occ.date}`)) out.push({ ...occ, occurrence: occ.date });
+      let n = 0;
+      /* ein Vorkommen ausgeben; false, wenn die Serie zu Ende ist */
+      const emit = (d) => {
+        if ((until && d > until) || (count && n >= count)) return false;
+        n++;
+        /* Serie mit UTC-Beginn (…Z): Jedes Vorkommen liegt zur selben UTC-Zeit (RFC 5545), über die Zeitumstellung
+           hinweg also eine Stunde früher oder später nach Ortszeit. Mit Ortszeit/TZID bleibt die Uhrzeit gleich. */
+        const shift = e.start.utc ? diffDays(e.start.date, d) * 86400000 : 0;
+        const at = shift ? new Date(e.start.utc + shift) : null, end = at && e.end?.utc ? new Date(e.end.utc + shift) : null;
+        const occ = at ? { ...base, date: iso(at), start: clockOf(at), ...(end && { end: clockOf(end) }) } : { ...base, date: d };
+        if (!e.exdates.includes(occ.date) && !overridden.has(`${uid}|${occ.date}`)) out.push({ ...occ, occurrence: occ.date });
+        return true;
+      };
+      if (freq === "WEEKLY") {
+        const step = (+get("INTERVAL") || 1) * 7;
+        const wdays = byday.length ? [...new Set(byday)].sort((a, b) => a - b) : [wdIdx(e.start.date)];
+        const maxWeeks = until || count ? 120 : 20; /* ohne Ende: ein Semester vorausplanen */
+        let weekMon = weekStart(e.start.date), weeks = 0;
+        outer: while (weeks < maxWeeks && (!until || weekMon <= until)) {
+          for (const wd of wdays) {
+            const d = addDays(weekMon, wd);
+            if (d < e.start.date) continue;
+            if (!emit(d)) break outer;
+          }
+          weekMon = addDays(weekMon, step); weeks++;
         }
-        weekMon = addDays(weekMon, step); weeks++;
+      } else {
+        /* täglich, z. B. Blockkurse (FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;COUNT=10); BYDAY schränkt die Tage ein */
+        const step = +get("INTERVAL") || 1, maxDays = until || count ? 840 : 140;
+        for (let i = 0, d = e.start.date; i < maxDays; i += step, d = addDays(d, step)) {
+          if (byday.length && !byday.includes(wdIdx(d))) continue;
+          if (!emit(d)) break;
+        }
       }
     } else out.push({ ...base, date: e.start.date, occurrence: e.recurrence || e.start.date });
   }

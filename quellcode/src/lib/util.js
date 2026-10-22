@@ -11,7 +11,8 @@ export const iso = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffse
 /** Lokales Datum (JJJJ-MM-TT) eines Zeitstempels wie „2026-10-19T23:30:00.000Z“; reine Daten bleiben, wie sie sind */
 export const dayOf = (s) => { const v = String(s || ""); if (v.length <= 10) return v; const t = new Date(v); return Number.isNaN(t.getTime()) ? v.slice(0, 10) : iso(t); };
 
-export const addDays = (s, n) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); };
+/* Kein gültiges Datum (z. B. leer oder „2026-13-45“ aus einer kaputten Sicherung): unverändert zurück statt Absturz in iso() */
+export const addDays = (s, n) => { const d = new Date(s + "T00:00:00"); if (Number.isNaN(d.getTime())) return s; d.setDate(d.getDate() + n); return iso(d); };
 
 /** Gibt es dieses Datum „JJJJ-MM-TT“ im Kalender? (31.02. oder 29.02. außerhalb von Schaltjahren nicht) */
 export const validDate = (s) => {

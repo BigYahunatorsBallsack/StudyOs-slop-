@@ -59,11 +59,11 @@ export const parseTags = (str) => [...new Set(String(str || "").split(/[,;\n]/).
 export const allTags = (cards) => [...new Set(cards.flatMap((c) => parseTags(c.tags)))].sort((a, b) => a.localeCompare(b, "de"));
 
 /** CSV mit Anführungszeichen, Zeilenumbrüchen in Feldern und Erkennung von Tab, Semikolon oder Komma. */
-export function parseCsv(text) {
+export function parseCsv(text, sep = "") {
   const t = String(text || "").replace(/^\uFEFF/, "");
   const firstLine = t.split(/\r?\n/)[0] || "";
   const counts = ["\t", ";", ","].map((d) => /** @type {[string, number]} */ ([d, firstLine.split(d).length - 1])).sort((a, b) => b[1] - a[1]);
-  const delim = counts[0][1] > 0 ? counts[0][0] : ";";
+  const delim = sep || (counts[0][1] > 0 ? counts[0][0] : ";");
   const rows = [];
   let row = [], field = "", quoted = false;
   const endRow = () => { row.push(field); field = ""; if (row.some((x) => x.trim() !== "")) rows.push(row); row = []; };
@@ -82,15 +82,37 @@ export function parseCsv(text) {
   return rows;
 }
 
-/** Spalten: Vorderseite, Rückseite, Tags (optional). Eine Kopfzeile wird erkannt und übersprungen. */
+/* Anki „Notizen als Klartext“ (ab Anki 2.1.54) beginnt mit Kopfzeilen wie „#separator:tab“, „#html:true“, „#tags column:3“,
+   „#deck column:1“. Ohne sie wurde das Trennzeichen aus der ersten Kopfzeile geraten und keine einzige Karte erkannt. */
+const ANKI_SEP = { tab: "\t", comma: ",", semicolon: ";", pipe: "|", space: " ", colon: ":" };
+function ankiHeader(text) {
+  const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/), head = {};
+  let n = 0;
+  for (; n < lines.length && /^#[a-z ]+:/i.test(lines[n]); n++) { const i = lines[n].indexOf(":"); head[lines[n].slice(1, i).trim().toLowerCase()] = lines[n].slice(i + 1).trim(); }
+  return { head, body: n ? lines.slice(n).join("\n") : text };
+}
+/* Anki-Felder mit HTML (#html:true): Zeilenumbrüche behalten, Auszeichnung entfernen, Zeichen-Entitäten auflösen */
+const ENT = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+const fromHtml = (s) => s.replace(/<br\s*\/?>|<\/(?:div|p|li)>/gi, "\n").replace(/<[^>]*>/g, "")
+  .replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (m, e) => (e[0] === "#" ? String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : +e.slice(1)) : ENT[e.toLowerCase()] ?? m)).replace(/\n{3,}/g, "\n\n");
+
+/** Spalten: Vorderseite, Rückseite, Tags (optional). Eine Kopfzeile wird erkannt und übersprungen, ebenso die Kopfzeilen eines Anki-Exports. */
 export function parseCardsCsv(text) {
-  let rows = parseCsv(text);
+  const { head, body } = ankiHeader(text);
+  const sep = head.separator ? ANKI_SEP[head.separator.toLowerCase()] || head.separator.slice(0, 1) : "";
+  let rows = parseCsv(body, sep);
   if (rows.length && /^(front|vorderseite|frage)$/i.test((rows[0][0] || "").trim())) rows = rows.slice(1);
+  /* Spalten für Deck, Notiztyp und GUID (1-basiert) überspringen; Anki trennt Tags mit Leerzeichen */
+  const meta = new Set(["guid", "notetype", "deck"].map((k) => Number(head[k + " column"]) - 1).filter((i) => i >= 0));
+  const tagCol = Number(head["tags column"]) - 1;
+  const html = /^true$/i.test(head.html || "");
   const cards = [], skipped = [];
   rows.forEach((r, i) => {
-    const front = (r[0] || "").trim(), back = (r[1] || "").trim();
+    const cols = r.filter((_, j) => !meta.has(j) && j !== tagCol);
+    const clean = (v) => (html ? fromHtml(v || "") : v || "").trim();
+    const front = clean(cols[0]), back = clean(cols[1]);
     if (!front || (!back && !hasCloze(front))) { skipped.push(i + 1); return; }
-    cards.push({ front, back, tags: parseTags(r[2]).join(", ") });
+    cards.push({ front, back, tags: parseTags(tagCol >= 0 ? String(r[tagCol] || "").trim().split(/\s+/).join(",") : cols[2]).join(", ") });
   });
   return { cards, skipped };
 }
