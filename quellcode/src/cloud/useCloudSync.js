@@ -245,7 +245,9 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       return true;
     }),
     syncNow: () => run(true), /* von Hand: immer ganz abgleichen, ohne den schnellen Vergleich */
-    pushDevice, pushMsg, pushBlocker: cloud ? pushBlocker() : null,
+    pushDevice, pushMsg,
+    /* erst beim Lesen (nur die Cloud-Ansicht braucht es): matchMedia bei jedem App-Render kostete spürbar Zeit */
+    get pushBlocker() { return cloud ? pushBlocker() : null; },
     pushStep,
     enablePush: wrap(async () => {
       setPushMsg("");
