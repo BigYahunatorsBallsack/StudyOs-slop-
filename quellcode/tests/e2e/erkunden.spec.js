@@ -12,6 +12,7 @@ test('Heute: Abschnitt zuklappen und mittendrin „Bewegung aus“ – der Absch
   const body = page.locator('#' + (await toggle.getAttribute('aria-controls')));
   await toggle.click();
   await expect(body).toHaveClass(/group-closing/);
+  await expect.poll(() => body.evaluate((el) => el.getAnimations().some((a) => a.playState === 'running'))).toBe(true); // erst abbrechen, wenn sie wirklich läuft
   await page.evaluate(() => { document.documentElement.dataset.motion = 'off'; }); // bricht die Animation ab (animationcancel)
   await expect(body).toBeHidden();
   await expect(body).toHaveClass(/group-closed/);

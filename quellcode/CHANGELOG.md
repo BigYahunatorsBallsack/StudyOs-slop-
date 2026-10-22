@@ -1,6 +1,10 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Behoben: „Speichern“ am PC:** Ein Klick speichert sofort, auch wenn eine Teilaufgabe oder ein Partner noch nicht mit Enter übernommen war (vorher brauchte es einen zweiten Klick).
+- **Behoben: Seite seitlich verschiebbar:** Auf schmalen Handys rutschen bei langen Wochentiteln („vorlesungsfrei“, „Donnerstag“) die Knöpfe in die nächste Zeile. Lange Links als Raum, in Prüfungsnotizen oder Notiztiteln brechen um, Fristen im Wochenraster machen die Seite nicht mehr breiter.
+- **Behoben: kleinere Darstellungsfehler:** Ein Abschnitt auf „Heute“ bleibt nicht mehr halb zugeklappt hängen, wenn man mittendrin „Bewegung aus“ wählt. „Als Tabelle“ in der Modulübersicht lässt sich am Handy leichter antippen. In der Gameboy-Palette ist die Stundensumme des heutigen Tags besser lesbar.
+- **Bewegung „Neon“:** Das flackernde Leer-Bild behält wieder die Farbe der Palette und kostet kaum noch Rechenzeit.
 - **Erinnerungen zuverlässiger (Supabase-Funktion neu einspielen):** Ein fehlerhafter Datensatz oder ein hängender Push-Dienst hält den Versand für alle anderen nicht mehr auf, ein gerade eingeschaltetes Gerät geht nicht mehr verloren. Im Fristen-Kalender-Abo erscheinen Titel mit Semikolon, Umlauten oder Emoji korrekt. Ein abgelehnter TomTom-Schlüssel wird als solcher gemeldet statt als „Adresse nicht gefunden“. Sicherheit: Kalender-Abos werden auch bei Weiterleitungen nur von TUM-Adressen geladen.
 - **Akku sparen im Retro-Look:** Timer-Begleiter und flackernde Serien-Flamme sehen genau gleich aus, brauchen aber rund ein Drittel der Rechenzeit. Bei laufendem Timer aktualisiert Lernen nur noch Restzeit und Ring.
 - **Behoben: Probeklausur:** Die Felder für Kartenzahl und Minuten lassen sich leeren und neu tippen, Enter startet die Runde. Nach Abgabe und bei „Noch eine Runde“ bleibt die Tastatur im Fenster.
