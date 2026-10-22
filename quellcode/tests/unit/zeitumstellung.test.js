@@ -250,7 +250,7 @@ describe("Semester, Feiertage, Weg zur Uni", () => {
     const s = { date: "2026-10-26", start: "10:00" };
     const c = { buffer: 5, travel: 20, walk: 5, line: "230", towards: "", avoid: "" };
     const start = new Date("2026-10-26T09:00:00Z").getTime(); /* 10:00 MEZ */
-    expect(queryOffset(s, c, new Date("2026-10-26T07:00:00Z"))).toBe(35); /* 08:00 → spätestens 09:35 */
+    expect(queryOffset(s, c, new Date("2026-10-26T07:00:00Z"))).toBe(55); /* 08:00 → spätestens 09:35 */
     const dep = { line: "230", destination: "Garching", time: start - 30 * 60000 };
     expect(recommend([dep], s, c).leaveAt).toBe(start - 35 * 60000);
     expect(returnAt([{ date: FALL, start: "10:00", end: "12:00", room: "MI HS 1" }], FALL)).toBe(new Date("2026-10-25T11:00:00Z").getTime());

@@ -1,7 +1,7 @@
 /* Weg zur Uni, auf dem Server: Vor der Abfahrt prüft der Erinnerungslauf (alle 15 Minuten) die Echtzeit.
    Muss man wegen Verspätung oder Ausfall früher los als nach Fahrplan, gibt es eine Push-Nachricht.
    Außerdem „Jetzt losgehen“: im letzten Lauf vor dem Losgehen eine Nachricht mit Abfahrt bzw. Fahrzeit mit Verkehr. */
-import { recommend, vehicle } from "../lib/transit.js";
+import { recommend, typesFor, vehicle } from "../lib/transit.js";
 import { mvg } from "./mvg.js";
 import { drive, driveProvider } from "./drive.js";
 import { zonedInstant } from "./reminders.js";
@@ -38,11 +38,11 @@ function reason(plan, main, feeder, tz) {
 async function departures(c, startMs, t, fetchImpl) {
   const offset = (ms) => Math.max(0, Math.round((ms - t) / MIN) - 45);
   const mainLatest = startMs - (c.buffer + c.travel) * MIN;
-  const main = await mvg({ kind: "departures", station: c.station.id, types: TYPES, offset: offset(mainLatest), limit: 60 }, fetchImpl);
+  const main = await mvg({ kind: "departures", station: c.station.id, types: typesFor(c.line, TYPES), offset: offset(mainLatest), limit: 60 }, fetchImpl);
   if (main.error) return null;
   let feeder = null;
   if (c.feeder && c.feeder.station && c.feeder.station.id) {
-    const r = await mvg({ kind: "departures", station: c.feeder.station.id, types: TYPES, offset: offset(mainLatest - (c.feeder.transfer + c.feeder.travel) * MIN), limit: 60 }, fetchImpl);
+    const r = await mvg({ kind: "departures", station: c.feeder.station.id, types: typesFor(c.feeder.line, TYPES), offset: offset(mainLatest - (c.feeder.transfer + c.feeder.travel) * MIN), limit: 60 }, fetchImpl);
     if (r.error) return null;
     feeder = r.data;
   }
