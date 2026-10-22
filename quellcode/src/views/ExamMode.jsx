@@ -1,5 +1,5 @@
 /* Probeklausur: Karten eines Moduls unter Zeitdruck, ohne Lernstand zu ändern; danach Auswertung nach Themen */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { evaluate, gradeOf, pickCards } from "../lib/mock.js";
 import { hasCloze, renderCloze } from "../lib/cards.js";
 import { isOcc } from "../lib/occlusion.js";
@@ -28,6 +28,12 @@ export function ExamMode({ db, moduleId, onClose }) {
   });
   const topicName = (id) => db.data.topics.find((t) => t.id === id)?.title || "";
   const result = useMemo(() => (run?.done ? evaluate(run.cards, Object.fromEntries(run.cards.map((c) => [c.id, run.answers[c.id] ?? 0])), topicName) : null), [run?.done]);
+  /* Aufdecken und Bewerten entfernen den gedrückten Knopf: Fokus auf die Karte statt aus dem Dialog heraus */
+  const stage = useRef(null);
+  useEffect(() => {
+    const a = document.activeElement;
+    if (run && !run.done && (!a || a === document.body)) stage.current?.focus({ preventScroll: true });
+  }, [run?.i, run?.revealed]);
   const markWrong = () => {
     const ids = new Set(result.wrong.map((c) => c.id));
     db.withUndo(`${ids.size} Karten auf heute gesetzt.`, (d) => ({ ...d, cards: d.cards.map((c) => (ids.has(c.id) ? { ...c, due: iso() } : c)) }));
@@ -80,10 +86,10 @@ export function ExamMode({ db, moduleId, onClose }) {
     <Modal title={`Probeklausur ${m?.name || ""}`} onClose={onClose}>
       <div className="flex items-center justify-between text-xs text-slate-400">
         <span className="font-num">Karte {run.i + 1} von {run.cards.length}</span>
-        <span className={`font-num text-sm font-semibold ${left < 60 ? "text-rose-300" : "text-slate-200"}`} role="timer" aria-label="Restzeit">{fmtClock(left)}</span>
+        <span className={`font-num text-sm font-semibold ${left < 60 ? "text-rose-300" : "text-slate-200"}`} role="timer" aria-label={`Restzeit ${fmtClock(left)}`}>{fmtClock(left)}</span>
       </div>
       <Bar value={run.i} max={run.cards.length} label="Fortschritt" className="mt-2" />
-      <div className="surface mt-3 min-h-[140px]">
+      <div ref={stage} tabIndex={-1} className="surface mt-3 min-h-[140px]" style={{ outline: "none" }}>
         {isOcc(c) ? <><p className="mb-2 text-sm font-semibold">{c.front}</p><OcclusionImage db={db} card={c} revealed={run.revealed} /></>
           : <Markdown text={hasCloze(c.front) ? renderCloze(c.front, run.revealed) : c.front} />}
         {run.revealed && c.back && <><hr className="my-3 border-slate-800" /><Markdown text={c.back} /></>}

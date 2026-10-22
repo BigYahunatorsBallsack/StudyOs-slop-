@@ -11,9 +11,15 @@ import { Select } from "./select.jsx";
 /* Geladene Bilder bleiben für die Sitzung als Objekt-URL im Speicher: beim Lernen folgen oft mehrere Karten desselben Bildes */
 const urls = new Map();
 const uploading = new Set();
+/* Laden zwei Ansichten dasselbe Bild zugleich, entsteht nur eine Objekt-URL */
+const loading = new Map();
 
-async function loadUrl(img, cloud) {
-  if (urls.has(img.id)) return urls.get(img.id);
+function loadUrl(img, cloud) {
+  if (urls.has(img.id)) return Promise.resolve(urls.get(img.id));
+  if (!loading.has(img.id)) loading.set(img.id, fetchUrl(img, cloud).finally(() => loading.delete(img.id)));
+  return loading.get(img.id);
+}
+async function fetchUrl(img, cloud) {
   let blob = await getLocal(img.id);
   if (!blob && img.cloud && cloud?.canFiles?.()) {
     blob = new Blob([await cloud.downloadFile(img.id)], { type: img.type });
@@ -86,11 +92,11 @@ const stageStyle = (img) => ({ aspectRatio: `${img.w || 4} / ${img.h || 3}`, max
 export function OcclusionImage({ db, card, revealed }) {
   const { img, boxes, target, mode } = card.occ;
   const { url, status, msg } = useOccImage(db, img);
-  const sorted = sortBoxes(boxes);
+  const sorted = sortBoxes(Array.isArray(boxes) ? boxes : []);
   const n = sorted.findIndex((b) => b.id === target) + 1;
   return (
     <div className="occ-stage" style={stageStyle(img)}>
-      {url ? <img src={url} alt={`Bild zu „${card.front}“, gesucht ist Bereich ${n} von ${sorted.length}`} className="occ-img" draggable={false} />
+      {url ? <img src={url} alt={`Bild zu „${card.front}“${n ? `, gesucht ist Bereich ${n} von ${sorted.length}` : ""}`} className="occ-img" draggable={false} />
         : <p className="occ-missing">{status === "loading" ? "Bild lädt …" : status === "error" ? `Bild konnte nicht geladen werden${msg ? `: ${msg}` : "."}` : img.cloud ? "Das Bild liegt in der Cloud. Entsperre den Cloud-Sync, um es zu laden." : "Das Bild liegt nur auf dem Gerät, auf dem die Karte angelegt wurde."}</p>}
       {sorted.filter((b) => mode !== "one" || b.id === target).map((b) => {
         const t = b.id === target;
@@ -108,7 +114,7 @@ export function OcclusionEditor({ db, initial, onClose }) {
   const lastMod = data.meta?.lastModule && data.modules.some((m) => m.id === data.meta.lastModule) ? data.meta.lastModule : "";
   const [img, setImg] = useState(editing ? initial.occ.img : null);
   const [fresh, setFresh] = useState(null); /* neu gewähltes Bild: { blob, url } */
-  const [boxes, setBoxes] = useState(editing ? sortBoxes(initial.occ.boxes) : []);
+  const [boxes, setBoxes] = useState(editing && Array.isArray(initial.occ.boxes) ? sortBoxes(initial.occ.boxes) : []);
   const [sel, setSel] = useState(editing ? initial.occ.target : null);
   const [draft, setDraft] = useState(null);
   const [moduleId, setModuleId] = useState(initial.moduleId || lastMod || data.modules[0]?.id || "");
