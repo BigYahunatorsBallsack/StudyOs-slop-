@@ -70,7 +70,8 @@ export function moduleLinks(m, settings = {}) {
   /** @type {Array<{ name: string, url: string, auto?: boolean }>} */
   const out = own.map((l) => ({ name: l.name, url: l.url }));
   const add = (name, url) => { if (url && !out.some((l) => sameUrl(l.url, url))) out.push({ name, url, auto: true }); };
-  add("Aufzeichnungen", m?.liveUrl);
+  /* nur http(s): liveUrl kann aus Import oder Sync stammen (kein javascript:) */
+  add("Aufzeichnungen", /^https?:\/\//i.test(m?.liveUrl || "") ? m.liveUrl : null);
   const hasArtemis = own.some((l) => linkName(l.url) === "Artemis");
   if (!hasArtemis) for (const f of settings.artemisFeeds || []) if (f.moduleId === m?.id) add("Artemis", artemisCourseUrl(f.url));
   return out;

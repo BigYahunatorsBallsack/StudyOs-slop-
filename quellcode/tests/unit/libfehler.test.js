@@ -1,6 +1,7 @@
 /* Randfälle der Logik-Schicht, die früher falsch liefen: ungültige Daten in der Schnelleingabe, ICS mit Erinnerungen
    und maskierten Zeichen, Prüfungen ohne Datum, kaputte Uhrzeiten aus alten Datenständen, abgelaufene Fristen von heute */
 import { describe, expect, it } from "vitest";
+import { moduleLinks } from "../../src/lib/modlinks.js";
 import { parseQuick, quickToEntity } from "../../src/lib/quickadd.js";
 import { buildICS, fold, parseICS } from "../../src/lib/ics.js";
 import { buildPlan } from "../../src/lib/plan.js";
@@ -216,4 +217,9 @@ describe("validDate", () => {
     expect(["2024-02-29", "2000-02-29", "2026-12-31", "2026-04-30"].every(validDate)).toBe(true);
     expect(["2026-02-29", "1900-02-29", "2026-04-31", "2026-00-10", "2026-1-1", "", null, "2026-10-21T10:00"].some(validDate)).toBe(false);
   });
+});
+
+it("moduleLinks: Aufzeichnungs-Link nur mit http(s)", () => {
+  expect(moduleLinks({ liveUrl: "javascript:alert(1)" })).toEqual([]);
+  expect(moduleLinks({ liveUrl: "https://live.rbg.tum.de/x" })).toEqual([{ name: "Aufzeichnungen", url: "https://live.rbg.tum.de/x", auto: true }]);
 });
