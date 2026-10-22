@@ -1,6 +1,27 @@
 const CACHE = 'studyos-shell-__HASH__';
-const SHELL = __SHELL__;
-self.addEventListener('install', (event) => { event.waitUntil((async () => { const cache = await caches.open(CACHE); await Promise.all(SHELL.map(async (url) => { const response = await fetch(new Request(url, { cache: 'reload' })); if (!response.ok) throw new Error('Precache failed: ' + url); await cache.put(url, response); })); if (!self.registration.active) await self.skipWaiting(); })()); });
+const SHELL = __SHELL__; /* [Adresse, Inhalts-Hash] */
+/* Vorab laden, aber jede Datei nur einmal übers Netz: Liegt sie mit gleichem Inhalts-Hash schon im alten Cache, wird sie
+   übernommen (ein Update lädt nur, was sich geändert hat). Sonst darf der HTTP-Cache sie liefern – die Seite hat sie beim
+   ersten Besuch gerade erst geholt –, aber nur, wenn der Inhalt zu dieser Version passt; sonst frisch vom Server. */
+const HASH_HEADER = 'x-studyos-hash';
+const hex = (buf) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
+async function precache(cache, url, hash) {
+  const old = await caches.match(url);
+  if (old && old.headers.get(HASH_HEADER) === hash) { await cache.put(url, old); return; }
+  for (const mode of ['default', 'reload']) {
+    const response = await fetch(new Request(url, { cache: mode }));
+    if (!response.ok) throw new Error('Precache failed: ' + url);
+    const body = await response.arrayBuffer();
+    if (hex(await crypto.subtle.digest('SHA-256', body)).slice(0, hash.length) !== hash) continue;
+    /* der Körper ist schon entpackt: Kompressions- und Längenangaben gelten für ihn nicht mehr */
+    const headers = new Headers(response.headers);
+    headers.delete('content-encoding'); headers.delete('content-length'); headers.set(HASH_HEADER, hash);
+    await cache.put(url, new Response(body, { status: response.status, statusText: response.statusText, headers }));
+    return;
+  }
+  throw new Error('Precache: Inhalt passt nicht zur Version: ' + url);
+}
+self.addEventListener('install', (event) => { event.waitUntil((async () => { const cache = await caches.open(CACHE); await Promise.all(SHELL.map(([url, hash]) => precache(cache, url, hash))); if (!self.registration.active) await self.skipWaiting(); })()); });
 self.addEventListener('activate', (event) => { event.waitUntil((async () => { const keys = await caches.keys(); await Promise.all(keys.filter((key) => key.startsWith('studyos-shell-') && key !== CACHE).map((key) => caches.delete(key))); await self.clients.claim(); })()); });
 self.addEventListener('message', (event) => { if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting(); });
 /* Teilen-Ziel (manifest share_target): Dateien in die Anhang-Datenbank, Rest in den Eingangs-Cache, dann zur App */
