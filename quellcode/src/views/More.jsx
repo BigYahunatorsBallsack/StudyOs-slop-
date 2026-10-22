@@ -84,12 +84,15 @@ export function HomeworkAll({ db }) {
 
 export function Review({ db }) {
   const { data } = db, t = iso();
+  /* Nur die Lerneinheiten der letzten 14 Tage: nach Jahren sind es sonst zigtausende, je Tag und Modul erneut durchsucht */
+  const since = addDays(t, -13), recent = data.logs.filter((l) => l.date >= since && l.date <= t);
   const metrics = (from, to) => {
     const inR = (x) => x && x >= from && x <= to;
     const held = data.sessions.filter((s) => inR(s.date) && isHeld(s) && isActive(s));
+    const logs = recent.filter((l) => inR(l.date));
     return {
-      minutes: sum(data.logs.filter((l) => inR(l.date)), (l) => l.minutes),
-      units: data.logs.filter((l) => inR(l.date)).length,
+      minutes: sum(logs, (l) => l.minutes),
+      units: logs.length,
       reviewed: data.sessions.filter((s) => inR(s.reviewedAt)).length,
       hwDone: data.homework.filter((h) => inR(h.doneAt)).length,
       held: held.length, heldReviewed: held.filter((s) => s.reviewed).length,
@@ -98,9 +101,9 @@ export function Review({ db }) {
   };
   const from = addDays(t, -6), cur = metrics(from, t), prev = metrics(addDays(t, -13), addDays(t, -7));
   const days = Array.from({ length: 7 }, (_, i) => addDays(from, i));
-  const dayMin = days.map((d) => sum(data.logs.filter((l) => l.date === d), (l) => l.minutes));
+  const dayMin = days.map((d) => sum(recent.filter((l) => l.date === d), (l) => l.minutes));
   const maxDay = Math.max(30, ...dayMin);
-  const perMod = data.modules.map((m) => ({ m, min: sum(data.logs.filter((l) => l.moduleId === m.id && l.date >= from && l.date <= t), (l) => l.minutes) })).filter((x) => x.min > 0).sort((a, b) => b.min - a.min);
+  const perMod = data.modules.map((m) => ({ m, min: sum(recent.filter((l) => l.moduleId === m.id && l.date >= from && l.date <= t), (l) => l.minutes) })).filter((x) => x.min > 0).sort((a, b) => b.min - a.min);
   const delta = (a, b) => { const d = a - b; if (!d) return <span className="text-slate-500">± 0</span>; return <span className={d > 0 ? "text-emerald-400" : "text-rose-400"}>{d > 0 ? "+" : "−"}{Math.abs(d)}</span>; };
   return (
     <div className="space-y-4">

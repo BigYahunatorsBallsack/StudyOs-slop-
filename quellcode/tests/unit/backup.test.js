@@ -18,6 +18,6 @@ describe("Cloud-Sicherung", () => {
   });
   it("kodiert und dekodiert einen Datenstand", () => {
     const d = { ...emptyData(), notes: [{ id: "n1", title: "Ä Notiz" }] };
-    expect(decodeBackup(encodeBackup(d)).notes).toEqual([{ id: "n1", title: "Ä Notiz" }]);
+    expect(decodeBackup(encodeBackup(d)).notes).toEqual([{ id: "n1", title: "Ä Notiz", text: "" }]);
   });
 });

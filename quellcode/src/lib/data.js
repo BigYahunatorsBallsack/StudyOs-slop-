@@ -49,6 +49,29 @@ export function upgradeSettings(stored = {}) {
   };
 }
 
+/* Textfelder, die die Ansichten ohne Prüfung lesen (sortieren mit localeCompare, slice, Vergleich mit Datumstext), mit Ersatzwert.
+   Aus älteren, von Hand bearbeiteten oder fremden Sicherungen kommen sie manchmal als null, Zahl oder gar nicht; dann
+   stürzte die App nach dem Import bei jedem Start in ein leeres Bild. Gültige Einträge bleiben dieselben Objekte.
+   Ersatzwert `undefined`: Das Feld darf fehlen (z. B. Abgabe ohne Frist), nur Zahlen werden zu Text; `null`: heute. */
+const TEXT_FIELDS = {
+  modules: { name: "" }, sessions: { date: "", start: "", end: "", type: "" }, homework: { title: "", status: "ausgegeben", due: undefined, issued: undefined },
+  topics: { title: "", state: "nicht begonnen" }, logs: { date: "", kind: "" }, notes: { title: "", text: "" },
+  cards: { front: "", back: "", due: null, lastReview: undefined }, exams: { date: "", registerBy: undefined, retakeDate: undefined }, blocks: { date: "", start: "", end: "" },
+};
+function textFields(list, fields, today) {
+  const keys = Object.keys(fields);
+  return list.map((x) => {
+    let out = x;
+    for (const k of keys) {
+      const v = x[k], def = fields[k];
+      if (typeof v === "string" || (def === undefined && v == null)) continue;
+      if (out === x) out = { ...x };
+      out[k] = typeof v === "number" ? String(v) : def === null ? today : def === undefined ? null : def;
+    }
+    return out;
+  });
+}
+
 /* Ältere Sicherungen auf das aktuelle Datenformat bringen */
 export function migrate(obj) {
   const base = emptyData();
@@ -58,6 +81,8 @@ export function migrate(obj) {
   out.modules = out.modules.map((m, i) => ({ color: PALETTE[i % PALETTE.length], bonusPct: null, ...m }));
   out.cards = out.cards.map((c) => ({ ease: 2.5, interval: 0, reps: 0, due: iso(), ...c }));
   out.exams = out.exams.map((e) => ({ attempt: 1, freeWeekdays: [], ...e }));
+  const today = iso();
+  for (const c of COLLS) out[c] = textFields(out[c], TEXT_FIELDS[c], today);
   out.deleted = Array.isArray(obj.deleted) ? obj.deleted.filter((t) => t && (COLLS.includes(t.c) || t.c === TRASH_TOMB) && t.id && typeof t.at === "string") : [];
   return out;
 }

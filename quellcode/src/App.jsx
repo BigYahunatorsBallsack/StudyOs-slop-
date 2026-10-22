@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, laz
 import { useCloudSync } from "./cloud/useCloudSync.js";
 import { blockDone } from "./lib/blocks.js";
 import { COLL, COLLS, DATA_VERSION, DONE_HW } from "./lib/constants.js";
-import { buildWeeklySeries } from "./lib/data.js";
+import { buildWeeklySeries, emptyData } from "./lib/data.js";
 import { ENV } from "./lib/env.js";
 import { dayOf, diffDays, fmtMin, fmtShort, iso, uid } from "./lib/util.js";
 import { usePersistence } from "./app/usePersistence.js";
@@ -177,6 +177,7 @@ export default function App() {
       if (await sheetIn(msg)) return;
       const note = { ...sharedNote(msg, iso()), id: uid() };
       saveEntity("note", note, true);
+      uploadShared("notes", note.id, note.files);
       toast(note.files.length ? `Als Notiz mit ${note.files.length} ${note.files.length === 1 ? "Anhang" : "Anhängen"} gespeichert.` : "Als Notiz gespeichert.");
       setTimeout(() => openForm("note", note, false), 0);
     });
@@ -219,6 +220,7 @@ export default function App() {
     const files = sharedNote(msg, iso()).files;
     const hw = { id: uid(), moduleId: s.moduleId, title: s.title, issued: iso(), due: s.due, status: "ausgegeben", files, ...(s.dueTime && { dueTime: s.dueTime }), ...(s.subtasks.length && { subtasks: s.subtasks }) };
     saveEntity("homework", hw, true);
+    uploadShared("homework", hw.id, files);
     toast(`Abgabe „${hw.title}“ angelegt${s.guessedDue ? ", Frist bitte prüfen" : ""}.`, { label: "Rückgängig", run: () => removeEntity("homework", hw.id) }, 8000);
     setTimeout(() => openForm("homework", dataRef.current.homework.find((x) => x.id === hw.id) || hw, false), 0);
     return true;
@@ -275,6 +277,10 @@ export default function App() {
       return { ...d, sessions: [...d.sessions, ...buildWeeklySeries(base, repeatUntil, d.settings)] };
     }
     const item = { ...vals }; delete item.repeatUntil;
+    /* Während das Formular offen war, auf einem anderen Gerät gelöscht (per Sync hier angekommen): die Bearbeitung nicht
+       stillschweigend verwerfen, sondern den Eintrag wieder anlegen (sein neuer Zeitstempel gewinnt gegen die Löschung) */
+    const gone = !isNew && coll && item.id && !d[coll].some((x) => x.id === item.id);
+    if (gone) setTimeout(() => toast(`„${item.title || item.name || item.front || "Eintrag"}“ war auf einem anderen Gerät gelöscht und ist mit deiner Änderung wieder da.`), 0);
     if (isNew) {
       item.id = item.id || uid(); item.created = iso();
       if (kind === "module") d.meta.lastModule = item.id;
@@ -327,6 +333,7 @@ export default function App() {
         } }, 15000), 0);
       }
     }
+    if (gone) return { ...d, [coll]: [...d[coll], item] };
     if (kind === "session" && !isNew) {
       const r = saveSessionEdit(d.sessions, item, !!extra.applySeries);
       if (r.count) setTimeout(() => toast(`Auch ${r.count} folgende ${r.count === 1 ? "Termin" : "Termine"} geändert.`), 0);
@@ -406,11 +413,30 @@ export default function App() {
     toast(`Von einem anderen Gerät ${what}: ${names}.`, { label: "Meine behalten", run: () => { change((d) => restoreConflicts(d, list)); toast("Deine Fassung ist wiederhergestellt."); } }, 20000);
   };
   const [timerBusy, setTimerBusy] = useState(false); /* läuft ein Timer-Durchgang? dann öfter synchronisieren */
-  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict, fastPoll: timerBusy });
+  /* Anmeldung mit einem anderen Konto als dem, dem die Daten hier gehören: leer anfangen statt zu vermischen (Stand als Wiederherstellungspunkt) */
+  const onSwitchAccount = (owner) => replaceAll(emptyData(), `Vor dem Kontowechsel (${owner})`, { stamp: false });
+  const cloud = useCloudSync({ ready, enabled: !loadError, data, getLocal, applyLocal: applyRemote, onPushEnabled, onConflict, onSwitchAccount, fastPoll: timerBusy });
   /* Bilder in Notizen/Karten von anderen Geräten nachladen */
   const cloudRef = useRef(cloud);
   cloudRef.current = cloud;
   useEffect(() => { setRemoteFiles((id) => (cloudRef.current.canFiles?.() ? cloudRef.current.downloadFile(id) : null)); }, []);
+  /* Geteilte Dateien (Teilen-Ziel) wie angehängte verschlüsselt in die Cloud laden, damit andere Geräte sie öffnen können;
+     beim Öffnen per Teilen ist der Sync oft noch nicht entsperrt, dann sobald er bereit ist */
+  const shareQueue = useRef([]);
+  const uploadShared = (coll, id, files) => {
+    if (coll && files?.length) shareQueue.current.push({ coll, id, files });
+    if (!cloudRef.current.canFiles?.()) return;
+    for (const job of shareQueue.current.splice(0)) {
+      for (const f of job.files) {
+        getFile(f.id).then(async (blob) => {
+          if (!blob || !cloudRef.current.canFiles?.()) return;
+          await cloudRef.current.uploadFile(f.id, new Uint8Array(await blob.arrayBuffer()));
+          patch(job.coll, job.id, (x) => ({ files: (x.files || []).map((y) => (y.id === f.id ? { ...y, cloud: true } : y)) }));
+        }).catch(() => { /* bleibt „nur auf diesem Gerät“, mit Knopf „Hochladen“ */ });
+      }
+    }
+  };
+  useEffect(() => { if (cloud.phase === "ready") uploadShared(); }, [cloud.phase]);
   const syncOn = cloud.phase === "ready" && ready && !loadError;
   const syncHold = !ready || cloud.phase === "loading" || (syncOn && !cloud.settled);
   /* Timer geräteübergreifend: nur mit eingerichtetem Cloud-Sync (siehe app/useTimer.js) */

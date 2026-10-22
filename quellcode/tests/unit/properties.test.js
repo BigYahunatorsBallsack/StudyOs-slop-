@@ -110,7 +110,9 @@ describe("migrate (Eigenschaften)", () => {
       for (const c of COLLS) {
         const valid = (Array.isArray(b[c]) ? b[c] : []).filter((x) => x && typeof x === "object" && x.id);
         expect(out[c].map((x) => x.id)).toEqual(valid.map((x) => x.id));
-        expect(out[c].map((x) => x.title)).toEqual(valid.map((x) => x.title));
+        /* Titel, die die Ansichten als Text lesen, werden zu Text (fehlend: leer), sonst bleiben sie unverändert */
+        const text = ["homework", "topics", "notes"].includes(c);
+        expect(out[c].map((x) => x.title)).toEqual(valid.map((x) => (text && typeof x.title !== "string" ? "" : x.title)));
       }
       expect(out.deleted.every((t) => COLLS.includes(t.c) && typeof t.at === "string")).toBe(true);
     }), { numRuns: 300 });

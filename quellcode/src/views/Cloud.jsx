@@ -11,6 +11,7 @@ export function CloudCard({ cloud, settings = {}, patchSettings, onRestore }) {
   const [code, setCode] = useState("");
   const [pass, setPass] = useState("");
   const [pass2, setPass2] = useState("");
+  const [keepLocal, setKeepLocal] = useState(false);
   if (!cloud || !cloud.available) return null;
   const err = cloud.error && <p role="alert" className="mt-2 text-xs text-rose-400">{cloud.error}</p>;
 
@@ -45,11 +46,17 @@ export function CloudCard({ cloud, settings = {}, patchSettings, onRestore }) {
         <>
           <p className="text-xs text-slate-400">Angemeldet als <b className="text-slate-200">{cloud.user?.email}</b>.</p>
           {cloud.remoteExists ? (
-            <p className="mt-1 text-xs text-slate-400">In der Cloud liegen schon Daten. Gib die Sync-Passphrase ein, die du auf deinem ersten Gerät festgelegt hast. Deine Daten auf diesem Gerät werden zusammengeführt, nicht überschrieben.</p>
+            <p className="mt-1 text-xs text-slate-400">In der Cloud liegen schon Daten. Gib die Sync-Passphrase ein, die du auf deinem ersten Gerät festgelegt hast.{cloud.foreign && !keepLocal ? "" : " Deine Daten auf diesem Gerät werden zusammengeführt, nicht überschrieben."}</p>
           ) : (
             <p className="mt-1 text-xs text-slate-400">Lege eine Sync-Passphrase fest. Sie verschlüsselt deine Daten, bevor sie das Gerät verlassen; Supabase kann sie nicht lesen. Du gibst sie auf jedem Gerät einmal ein. <b className="text-amber-300">Vergisst du sie, sind die Cloud-Daten verloren</b> (deine Geräte behalten ihre Daten).</p>
           )}
-          <form className="mt-3 grid grid-cols-2 gap-2" onSubmit={(e) => { e.preventDefault(); cloud.setPassphrase(pass, pass2).then((ok) => ok && (setPass(""), setPass2(""))); }}>
+          {cloud.foreign && (
+            <div className="notice notice-warn mt-2 text-xs">
+              <p>Die Daten auf diesem Gerät gehören zu <b>{cloud.foreign}</b>. Damit sie nicht in diesem Konto landen, ersetzt die Anmeldung sie durch dessen Cloud-Daten. Der bisherige Stand bleibt unter „Wiederherstellungspunkte“.</p>
+              <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={keepLocal} onChange={(e) => setKeepLocal(e.target.checked)} /> Stattdessen die Daten dieses Geräts übernehmen</label>
+            </div>
+          )}
+          <form className="mt-3 grid grid-cols-2 gap-2" onSubmit={(e) => { e.preventDefault(); cloud.setPassphrase(pass, pass2, keepLocal).then((ok) => ok && (setPass(""), setPass2(""), setKeepLocal(false))); }}>
             <input type="password" autoComplete={cloud.remoteExists ? "current-password" : "new-password"} aria-label="Sync-Passphrase" placeholder={cloud.remoteExists ? "Sync-Passphrase" : "Passphrase (mind. 8 Zeichen)"} className={`${inputCls} col-span-2 ${cloud.remoteExists ? "" : "sm:col-span-1"}`} value={pass} onChange={(e) => setPass(e.target.value)} />
             {!cloud.remoteExists && <input type="password" autoComplete="new-password" aria-label="Sync-Passphrase wiederholen" placeholder="Wiederholen" className={`${inputCls} col-span-2 sm:col-span-1`} value={pass2} onChange={(e) => setPass2(e.target.value)} />}
             <div className="col-span-2 flex flex-wrap gap-2">

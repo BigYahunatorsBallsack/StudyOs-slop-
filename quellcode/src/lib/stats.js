@@ -78,10 +78,13 @@ export function learningRhythm(logs) {
   const parts = DAYPARTS.map(([label]) => ({ label, minutes: 0 }));
   const weekdays = Array.from({ length: 7 }, () => 0);
   let timed = 0;
+  const wdOf = new Map(); /* Wochentag je Datum nur einmal berechnen: viele Einheiten teilen sich einen Tag */
   for (const l of logs) {
     const min = Number(l.minutes) || 0;
     if (!min || !l.date) continue;
-    weekdays[wdIdx(l.date)] += min;
+    let wd = wdOf.get(l.date);
+    if (wd === undefined) wdOf.set(l.date, (wd = wdIdx(l.date)));
+    weekdays[wd] += min;
     if (!/^\d{2}:\d{2}$/.test(l.at || "")) continue;
     let h = Number(l.at.slice(0, 2)); if (h < 5) h += 24;
     const i = DAYPARTS.findIndex(([, a, b]) => h >= a && h < b);
@@ -93,8 +96,11 @@ export function learningRhythm(logs) {
 
 /** Pro bestandenem, benotetem Modul: Lernstunden je ECTS und Note */
 export function effortVsGrade(data) {
+  /* Minuten je Modul in einem Durchgang statt je Modul alle Lerneinheiten */
+  const mins = new Map();
+  for (const l of data.logs) mins.set(l.moduleId, (mins.get(l.moduleId) || 0) + (Number(l.minutes) || 0));
   return data.modules.filter((m) => m.status === "bestanden" && Number(String(m.grade).replace(",", ".")) >= 1 && Number(m.ects) > 0).map((m) => {
-    const h = data.logs.filter((l) => l.moduleId === m.id).reduce((s, l) => s + (Number(l.minutes) || 0), 0) / 60;
+    const h = (mins.get(m.id) || 0) / 60;
     return { id: m.id, name: m.name, color: m.color, grade: Number(String(m.grade).replace(",", ".")), hours: h, perEcts: h / Number(m.ects) };
   }).filter((x) => x.hours > 0).sort((a, b) => a.grade - b.grade);
 }

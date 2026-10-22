@@ -1,6 +1,11 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Nach Jahren voller Daten schnell:** Lerneinheiten und Karteikarten öffnen sofort statt nach bis zu 30 Sekunden. Lange Listen zeigen 100 Einträge, „Weitere anzeigen“ lädt nach, Summen und „Alle auswählen“ gelten weiter für alle. Speichern, Start, Heute, Wochenrückblick, jede Änderung mit Sync und das Herunterladen aus der Cloud sind bei großen Datenständen spürbar schneller.
+- **Behoben: Kontowechsel:** Meldest du dich auf einem Gerät mit einem anderen Konto an, werden die Daten nicht mehr vermischt. Die Daten des alten Kontos werden ersetzt (mit Wiederherstellungspunkt), Zusammenführen gibt es nur auf Wunsch. Abmelden schaltet die Erinnerungen dieses Kontos auf dem Gerät ab.
+- **Behoben: gleichzeitig gelöscht:** Wurde ein Eintrag auf einem anderen Gerät gelöscht, während du ihn bearbeitet hast, geht deine Änderung beim Speichern nicht mehr verloren; der Eintrag ist mit Hinweis wieder da.
+- **Behoben: geteilte Dateien:** Per „Teilen“ empfangene Dateien landen bei eingerichtetem Sync verschlüsselt in der Cloud und sind auf allen Geräten verfügbar.
+- **Behoben: Importe:** Sicherungen mit leeren oder falschen Feldern führen nicht mehr zu einem leeren Bildschirm. Der Kalender-Import versteht tägliche Serien (z. B. Blockkurse), Termine mit Dauer statt Ende und klein geschriebene Dateien. Der Karteikarten-Import liest den Anki-Export „Notizen als Klartext“ samt Tags und Formatierung.
 - **Behoben: „Speichern“ am PC:** Ein Klick speichert sofort, auch wenn eine Teilaufgabe oder ein Partner noch nicht mit Enter übernommen war (vorher brauchte es einen zweiten Klick).
 - **Behoben: Seite seitlich verschiebbar:** Auf schmalen Handys rutschen bei langen Wochentiteln („vorlesungsfrei“, „Donnerstag“) die Knöpfe in die nächste Zeile. Lange Links als Raum, in Prüfungsnotizen oder Notiztiteln brechen um, Fristen im Wochenraster machen die Seite nicht mehr breiter.
 - **Behoben: kleinere Darstellungsfehler:** Ein Abschnitt auf „Heute“ bleibt nicht mehr halb zugeklappt hängen, wenn man mittendrin „Bewegung aus“ wählt. „Als Tabelle“ in der Modulübersicht lässt sich am Handy leichter antippen. In der Gameboy-Palette ist die Stundensumme des heutigen Tags besser lesbar.
