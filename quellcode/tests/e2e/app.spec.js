@@ -12,6 +12,13 @@ const onWeekday = async (page) => {
   const d = new Date();
   if (d.getDay() % 6 === 0) { d.setDate(d.getDate() + (d.getDay() === 6 ? 2 : 1)); d.setHours(10, 0, 0, 0); await page.clock.setSystemTime(d); }
 };
+/* Werktag um 10 Uhr: was von der Tageszeit abhängt (z. B. „Als Nächstes“), steht dann sicher da */
+const onWeekdayMorning = async (page) => {
+  const d = new Date();
+  if (d.getDay() % 6 === 0) d.setDate(d.getDate() + (d.getDay() === 6 ? 2 : 1));
+  d.setHours(10, 0, 0, 0);
+  await page.clock.setSystemTime(d);
+};
 test.beforeEach(async ({ page }) => {
   await page.route('https://tum-dev.github.io/**', (r) => r.fulfill({ json: MENSA }));
   await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: [] })); /* Wetter: nie ins Netz */
@@ -900,7 +907,7 @@ test('Knopf auf „Als Nächstes“ bleibt nach dem Antippen in der Modulfarbe (
 });
 
 test('Heute: Aufzeichnung direkt aus der Nachbereitung, Abschnitte einklappen; Retro-Animationen umschalten', async ({ page }) => {
-  await onWeekday(page);
+  await onWeekdayMorning(page);
   await loadDemo(page);
   await expect.poll(async () => (await stored(page))?.modules?.length ?? 0).toBeGreaterThan(0);
   await page.evaluate(async () => {
