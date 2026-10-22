@@ -1,6 +1,6 @@
 // Baut dist/ aus src/: bündelt die App, kopiert das CSS und setzt den Cache-Namen des
 // Service Workers aus einem Hash der ausgelieferten Dateien (damit Updates sicher ankommen).
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync, cpSync, readdirSync, rmSync } from 'node:fs';
 import { SUPABASE_URL } from './src/lib/cloud-config.js';
@@ -42,7 +42,9 @@ writeFileSync('dist/index.html', readFileSync('dist/index.html', 'utf8').replace
 // 2) CSS: Utilities + Designsystem; Schrift für den Offline-Betrieb mitliefern
 // Farbschema „Retro“ (src/retro.css) kommt danach. Es ist das einzige Farbschema: index.html lädt seine Pixel-Schriften
 // vorab, der Service Worker hält sie offline bereit. Bricolage (design.css) braucht Retro nicht, sie bleibt nur als Datei dabei.
-writeFileSync('dist/style.css', ['src/style.css', 'src/design.css', 'src/retro.css'].map((f) => readFileSync(f, 'utf8')).join('\n'));
+// Minifiziert (ohne Kommentare und Leerraum): style.css blockiert das erste Bild, gzip 36 → 28 KB.
+const css = ['src/style.css', 'src/design.css', 'src/retro.css'].map((f) => readFileSync(f, 'utf8')).join('\n');
+writeFileSync('dist/style.css', (await transform(css, { loader: 'css', minify: true, legalComments: 'none' })).code);
 mkdirSync('dist/fonts', { recursive: true });
 copyFileSync('node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2', 'dist/fonts/bricolage-grotesque-latin-wght.woff2');
 for (const [pkg, file] of [['silkscreen', 'silkscreen-latin-400'], ['silkscreen', 'silkscreen-latin-700'], ['jetbrains-mono', 'jetbrains-mono-latin-400'], ['jetbrains-mono', 'jetbrains-mono-latin-700'], ['vt323', 'vt323-latin-400']]) {
@@ -62,7 +64,10 @@ const shell = ['index.html', 'app.js', ...chunks, 'style.css', ...fonts, 'manife
 const h = createHash('sha256');
 for (const f of [...shell, 'extras.js', 'katex/katex.min.css']) h.update(f).update(readFileSync('dist/' + f));
 const hash = h.digest('hex').slice(0, 12);
-writeFileSync('dist/sw.js', readFileSync('src/sw.template.js', 'utf8').replace('__HASH__', hash).replace('__SHELL__', JSON.stringify(['./', ...shell.map((f) => './' + f)])));
+// Jede Shell-Datei mit eigenem Inhalts-Hash: Der Service Worker übernimmt bei einem Update unveränderte Dateien aus dem alten Cache
+const fileHash = (f) => createHash('sha256').update(readFileSync('dist/' + f)).digest('hex').slice(0, 16);
+const shellList = [['./', fileHash('index.html')], ...shell.map((f) => ['./' + f, fileHash(f)])];
+writeFileSync('dist/sw.js', readFileSync('src/sw.template.js', 'utf8').replace('__HASH__', hash).replace('__SHELL__', JSON.stringify(shellList)));
 console.log(`Build fertig · v${pkg.version} · ${chunks.length} Chunks · Cache studyos-shell-${hash}`);
 
 // 4) Supabase Edge Function als eine Datei (zum Einfügen im Dashboard oder für `supabase functions deploy`)
