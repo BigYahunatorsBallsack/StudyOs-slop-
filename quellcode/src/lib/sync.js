@@ -66,8 +66,10 @@ function flatten(c) {
     const out = { ...x };
     for (const l of lists) {
       if (!Array.isArray(x[l])) continue;
-      out[l + "#"] = x[l].map((e) => e.id);
-      for (const { id, ...rest } of x[l]) out[`${l}:${id}`] = rest;
+      /* kaputte Elemente (null, Zahlen) überspringen, statt beim Bearbeiten oder Zusammenführen abzubrechen */
+      const items = x[l].filter((e) => e && typeof e === "object");
+      out[l + "#"] = items.map((e) => e.id);
+      for (const { id, ...rest } of items) out[`${l}:${id}`] = rest;
     }
     return out;
   };
@@ -172,7 +174,8 @@ export function stampChanges(prev, next, now = nowIso()) {
     }
   }
   /* aus dem Papierkorb verschwunden (wiederhergestellt, endgültig gelöscht, abgelaufen): Grabstein, damit das andere Gerät ihn nicht zurückbringt */
-  for (const id of trashRemoved(prev.meta?.trash, next.meta?.trash)) { tombs.set(`${TRASH_TOMB}:${id}`, { c: TRASH_TOMB, id, at: now }); changed = true; }
+  const arr = (v) => (Array.isArray(v) ? v : []); /* beschädigter Papierkorb (kein Array) darf das Speichern nicht verhindern */
+  for (const id of trashRemoved(arr(prev.meta?.trash), arr(next.meta?.trash))) { tombs.set(`${TRASH_TOMB}:${id}`, { c: TRASH_TOMB, id, at: now }); changed = true; }
   if (!changed) return next;
   out.deleted = pruneTombs(tombs, now);
   return out;

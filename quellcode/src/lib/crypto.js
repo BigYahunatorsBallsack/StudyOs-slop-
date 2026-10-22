@@ -63,10 +63,12 @@ export class KeyMismatchError extends Error {}
 export async function decryptWithKey(envelope, k) {
   if (!isEncryptedBackup(envelope)) throw new Error("Der Cloud-Datensatz ist nicht verschlüsselt oder beschädigt.");
   if (envelope.salt !== k.salt || Number(envelope.iterations) !== k.iterations) throw new KeyMismatchError("Die Passphrase wurde auf einem anderen Gerät geändert. Bitte neu eingeben.");
+  let plain;
   try {
-    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(envelope.iv) }, k.key, fromB64(envelope.data));
-    return JSON.parse(dec.decode(plain));
+    plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(envelope.iv) }, k.key, fromB64(envelope.data));
   } catch {
     throw new KeyMismatchError("Falsche Passphrase oder beschädigte Cloud-Daten.");
   }
+  /* Entschlüsseln hat geklappt, also stimmt der Schlüssel: kaputter Inhalt ist kein Grund, die Passphrase neu zu verlangen */
+  try { return JSON.parse(dec.decode(plain)); } catch { throw new Error("Die Cloud-Daten sind beschädigt und wurden nicht übernommen."); }
 }

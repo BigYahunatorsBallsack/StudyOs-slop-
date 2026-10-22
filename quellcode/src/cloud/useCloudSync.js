@@ -29,6 +29,7 @@ function withTimeout(promise, ms, message) {
   return Promise.race([promise, new Promise((_, reject) => { t = setTimeout(() => reject(new Error(message)), ms); })]).finally(() => clearTimeout(t));
 }
 const INTERVAL_MS = 5 * 60 * 1000;
+const BACKUP_RETRY_MS = 60 * 60 * 1000; /* nach einer fehlgeschlagenen Wochensicherung frühestens dann wieder versuchen */
 const FAST_MS = 20 * 1000;
 const SETTLE_MS = 8000; /* so lange wartet der Timer höchstens auf den ersten Sync nach dem Start */
 const LAST_KEY = "studyos-cloud-last";
@@ -36,7 +37,9 @@ const BACKUP_KEY = "studyos-cloud-backup"; /* Name der letzten Cloud-Sicherung d
 const STAMPS_KEY = "studyos-cloud-stamps"; /* Zeitstempel nach dem letzten Sync, übersteht das Neuladen */
 
 const loadStamps = (uid) => { try { return decodeStamps(localStorage.getItem(STAMPS_KEY), uid); } catch { return null; } };
-const saveStamps = (map, uid) => { try { localStorage.setItem(STAMPS_KEY, encodeStamps(map, uid)); } catch {} };
+/* Passt der Text nicht mehr in den Speicher, den alten entfernen: veraltete Zeitstempel meldeten sonst nach dem Neuladen
+   Konflikte, die keine sind (ohne Zeitstempel meldet der erste Sync einfach nichts) */
+const saveStamps = (map, uid) => { try { localStorage.setItem(STAMPS_KEY, encodeStamps(map, uid)); } catch { try { localStorage.removeItem(STAMPS_KEY); } catch {} } };
 const dropStamps = () => { try { localStorage.removeItem(STAMPS_KEY); } catch {} };
 
 export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict, fastPoll = false }) {
@@ -56,11 +59,16 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   const syncedRef = useRef(null); /* Zeitstempel nach dem letzten erfolgreichen Sync, für den Konflikthinweis */
   const onConflictRef = useRef(onConflict); onConflictRef.current = onConflict;
   const uidRef = useRef(null);
+  /* Kennung des Cloud-Stands nach dem letzten Lauf (für den schnellen Vergleich ohne Herunterladen) und eine Generation,
+     die bei Abmelden, Löschen, neuer Passphrase oder anderem Nutzer weiterzählt: ein laufender Sync schreibt dann nicht mehr */
+  const tagRef = useRef(null), genRef = useRef(0);
+  const reset = () => { genRef.current++; tagRef.current = null; lastFp.current = null; };
   const [settled, setSettled] = useState(false); /* erster Sync seit dem Start versucht (egal mit welchem Ergebnis) */
 
   /* Anmeldestatus, gespeicherten Schlüssel und Zeitstempel des letzten Syncs laden */
   const enterUser = useCallback(async (u) => {
     setUser(u);
+    if ((u ? u.id : null) !== uidRef.current) reset();
     uidRef.current = u ? u.id : null;
     syncedRef.current = u ? loadStamps(u.id) : null;
     if (!u) { keyRef.current = null; setPhase((p) => (p === "code-sent" ? p : "signed-out")); return; }
@@ -96,38 +104,45 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     await Promise.all(old.map((id) => cloud.files.remove(id)));
     return name;
   }, [cloud, getLocal]);
+  const backupFailRef = useRef(0);
   const weeklyBackup = useCallback(async () => {
     if (getLocal().settings?.cloudBackup === false) return;
     let last = null; try { last = localStorage.getItem(BACKUP_KEY); } catch {}
     if (last === backupName(iso())) return;
-    await uploadBackup();
+    /* nicht nach jedem Sync (bei laufendem Timer alle 20 s) erneut alles verschlüsseln und hochladen, wenn es gerade scheiterte */
+    if (Date.now() - backupFailRef.current < BACKUP_RETRY_MS) return;
+    try { await uploadBackup(); backupFailRef.current = 0; } catch (e) { backupFailRef.current = Date.now(); throw e; }
   }, [getLocal, uploadBackup]);
 
   /* Ein Synchronisationslauf; gleichzeitige Anfragen werden zu einem Folgelauf zusammengefasst */
-  const run = useCallback(async () => {
+  const run = useCallback(async (force = false) => {
     if (!cloud || !keyRef.current || !enabledRef.current) return;
     if (running.current) { again.current = true; return; }
     if (typeof navigator !== "undefined" && navigator.onLine === false) { setStatus("offline"); setSettled(true); return; }
     running.current = true;
     setStatus("syncing");
+    const gen = genRef.current;
     try {
-      const res = await syncOnce({ remote: cloud.remote, key: keyRef.current, getLocal, applyLocal, synced: syncedRef.current });
-      lastFp.current = res.fingerprint; syncedRef.current = res.stamps;
-      if (uidRef.current) saveStamps(res.stamps, uidRef.current);
+      const known = !force && tagRef.current && lastFp.current ? { tag: tagRef.current, fingerprint: lastFp.current } : null;
+      const res = await syncOnce({ remote: cloud.remote, key: keyRef.current, getLocal, applyLocal, synced: syncedRef.current, known, canWrite: () => genRef.current === gen });
+      if (genRef.current !== gen) { setStatus("idle"); return; } /* inzwischen abgemeldet, gelöscht oder neue Passphrase */
+      lastFp.current = res.fingerprint; syncedRef.current = res.stamps; tagRef.current = res.tag || null;
+      if (uidRef.current && !res.skipped) saveStamps(res.stamps, uidRef.current);
       if (res.conflicts.length && onConflictRef.current) onConflictRef.current(res.conflicts);
       const at = new Date().toISOString();
       setLastSync(at); try { localStorage.setItem(LAST_KEY, at); } catch {}
       setStatus("idle"); setError("");
       weeklyBackup().catch(() => {}); /* stört den Sync nicht, Fehler zeigt die Sicherungsliste */
     } catch (e) {
+      if (genRef.current !== gen) { setStatus("idle"); return; }
       if (e instanceof KeyMismatchError) {
-        keyRef.current = null; await clearKeys(); setRemoteExists(true); setPhase("need-key");
+        reset(); keyRef.current = null; await clearKeys(); setRemoteExists(true); setPhase("need-key");
       }
       setStatus("error"); setError(e.message || String(e));
     } finally {
       running.current = false;
       setSettled(true);
-      if (again.current) { again.current = false; setTimeout(run, 0); }
+      if (again.current) { again.current = false; setTimeout(() => run(), 0); }
     }
   }, [cloud, getLocal, applyLocal, weeklyBackup]);
 
@@ -141,7 +156,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     const onOnline = () => run();
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("online", onOnline);
-    const id = setInterval(run, INTERVAL_MS);
+    const id = setInterval(() => run(), INTERVAL_MS);
     return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("online", onOnline); clearInterval(id); };
   }, [active, run, getLocal]);
 
@@ -159,7 +174,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   /* Auslöser: lokale Änderung (entprellt). Ergebnisse eines Syncs selbst lösen keinen weiteren aus. */
   useEffect(() => {
     if (!active || fingerprint(data) === lastFp.current) return;
-    const id = setTimeout(run, DEBOUNCE_MS);
+    const id = setTimeout(() => run(), DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [active, data, run]);
 
@@ -225,11 +240,11 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
         k = await deriveSyncKey(pass, newSalt());
       }
       await saveKey(user.id, k);
-      keyRef.current = k; lastFp.current = null;
+      reset(); keyRef.current = k;
       setPhase("ready");
       return true;
     }),
-    syncNow: () => run(),
+    syncNow: () => run(true), /* von Hand: immer ganz abgleichen, ohne den schnellen Vergleich */
     pushDevice, pushMsg, pushBlocker: cloud ? pushBlocker() : null,
     pushStep,
     enablePush: wrap(async () => {
@@ -334,7 +349,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     },
     calUrl: (token) => cloud.calUrl(token),
     signOut: wrap(async () => {
-      keyRef.current = null; lastFp.current = null;
+      reset(); keyRef.current = null;
       await clearKeys(); await cloud.signOut();
       setUser(null); setPhase("signed-out"); setStatus("idle");
       try { localStorage.removeItem(LAST_KEY); } catch {}
@@ -343,8 +358,10 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       return true;
     }),
     deleteCloud: wrap(async () => {
-      await cloud.remote.remove();
-      keyRef.current = null; lastFp.current = null;
+      /* zuerst: ein gerade laufender Sync darf die Daten danach nicht wieder hochladen */
+      const k = keyRef.current;
+      reset(); keyRef.current = null;
+      try { await cloud.remote.remove(); } catch (e) { keyRef.current = k; throw e; }
       syncedRef.current = null; dropStamps();
       await clearKeys();
       setRemoteExists(false); setPhase("need-key"); setStatus("idle");

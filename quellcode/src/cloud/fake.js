@@ -1,5 +1,7 @@
 /* Ersatz-Backend nur für automatisierte Tests: Wenn die Testumgebung `window.__studyosFakeCloud`
    bereitstellt, spricht die App damit statt mit Supabase. Im echten Betrieb nie aktiv. */
+import { rowTag } from "../lib/cloudsync.js";
+
 export function createFakeCloud(call) {
   const KEY = "studyos-fake-user";
   const listeners = new Set();
@@ -37,6 +39,7 @@ export function createFakeCloud(call) {
     async signOut() { set(null); },
     remote: {
       get: () => call("get", uid()),
+      peek: async () => { const r = await call("get", uid()); return r ? rowTag(r.version, r.payload) : null; },
       insert: (payload) => call("insert", uid(), payload),
       update: (payload, version) => call("update", uid(), payload, version),
       remove: () => call("remove", uid()),
