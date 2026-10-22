@@ -422,6 +422,29 @@ test('Wochenraster: Maus kurz über Termin zeigt Karte, dort abhaken; Klick öff
   await ctx.close();
 });
 
+test('Wochenraster auf dem Handy: Termin-Karte rutscht nicht unter die Leiste unten', async ({ page }) => {
+  await loadDemo(page);
+  await sessionToday(page, '18:00', '19:00'); /* spät am Tag: tief im Raster, die Seite lässt sich weit genug scrollen */
+  await nav(page, 'Woche').click();
+  await page.getByRole('tab', { name: 'Raster' }).click();
+  const ev = page.locator('.grid-col.today .ev').last();
+  await ev.tap();
+  const card = page.locator('.popover');
+  await expect(card).toBeVisible();
+  const h = (await card.boundingBox()).height;
+  await ev.tap();
+  await expect(card).toHaveCount(0);
+  /* Termin so weit unten, dass die Karte darunter gerade noch ins Fenster passt, aber hinter der Leiste läge */
+  const bar = await page.locator('.tabbar').boundingBox();
+  await page.evaluate(() => { document.querySelector('main').style.paddingBottom = '100vh'; }); /* Platz zum Scrollen */
+  await ev.evaluate((el, y) => window.scrollBy({ top: el.getBoundingClientRect().bottom - y, behavior: 'instant' }), bar.y - h + 30);
+  const a = await ev.boundingBox();
+  await page.touchscreen.tap(a.x + a.width / 2, a.y + a.height / 2); /* ohne Nachscrollen */
+  await expect(card).toBeVisible();
+  const c = await card.boundingBox();
+  expect(c.y + c.height).toBeLessThanOrEqual(bar.y);
+});
+
 test('Wochenraster auf dem Handy: Antippen öffnet die Karte statt des Formulars', async ({ page }) => {
   await loadDemo(page);
   await sessionToday(page, '10:00', '12:00');

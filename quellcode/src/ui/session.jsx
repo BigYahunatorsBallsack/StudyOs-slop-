@@ -54,6 +54,9 @@ export function SessionPopover({ s, db, anchor, area, onClose, onEnter, onLeave,
     let left = anchor.right + 8;
     if (left + w > R) left = anchor.left - w - 8; /* rechts kein Platz: links daneben */
     if (left < L) left = Math.min(Math.max(L, anchor.left + anchor.width / 2 - w / 2), R - w); /* sonst darunter/darüber */
+    /* Die schwebende Navigationsleiste unten verdeckt sonst den unteren Teil der Karte */
+    const bar = document.querySelector(".tabbar")?.getBoundingClientRect();
+    if (bar && bar.height && bar.left < left + w && bar.right > left && bar.top - 8 - T >= h) B = Math.min(B, bar.top - 8);
     let top = beside(left) ? anchor.top : anchor.bottom + 8;
     if (top + h > B) top = Math.max(T, beside(left) ? B - h : anchor.top - h - 8);
     setPos({ left, top });
