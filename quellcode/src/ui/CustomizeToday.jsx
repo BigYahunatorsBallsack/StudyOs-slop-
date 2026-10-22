@@ -11,6 +11,16 @@ export function CustomizeToday({ db, onClose }) {
 
   const save = (order, hidden = layout.filter((b) => b.hidden).map((b) => b.id)) => db.patchSettings({ todayOrder: order, todayHidden: hidden });
   const move = (from, to) => save(moveBlock(layout, from, to));
+  /* Mit den Pfeilen: Landet der Bereich ganz oben oder unten, wird der gedrückte Knopf gesperrt und verlöre den Fokus.
+     Dann den anderen Pfeil derselben Zeile fokussieren. */
+  const moveKey = (from, to, id) => {
+    move(from, to);
+    requestAnimationFrame(() => {
+      const a = document.activeElement;
+      if (a && a !== document.body && !a.disabled) return;
+      list.current?.querySelector(`[data-row="${id}"] [data-dir="${to < from ? "down" : "up"}"]`)?.focus();
+    });
+  };
   const toggle = (id, show) => save(layout.map((b) => b.id), layout.filter((b) => (b.id === id ? !show : b.hidden)).map((b) => b.id));
 
   /* Ziehen am Griff: Zielposition aus der Mitte der Zeilen unter dem Finger */
@@ -39,16 +49,16 @@ export function CustomizeToday({ db, onClose }) {
       <p className="mb-3 text-sm text-slate-400">Haken weg blendet einen Bereich aus. Am Griff ziehen oder mit den Pfeilen verschieben. „Weg zur Uni“ und „Mensa“ erscheinen nur, wenn sie eingerichtet sind.</p>
       <ul ref={list} className="customize" aria-label="Bereiche auf Heute">
         {shown.map((b, i) => (
-          <li key={b.id} className={`customize-row ${drag?.id === b.id ? "customize-drag" : ""}`}>
-            <button type="button" className="customize-grip" aria-label={`${b.label} ziehen`} onPointerDown={(e) => onDown(e, b.id)} onPointerMove={onMoveP} onPointerUp={onUp} onPointerCancel={() => setDrag(null)}>
+          <li key={b.id} data-row={b.id} className={`customize-row ${drag?.id === b.id ? "customize-drag" : ""}`}>
+            <button type="button" className="customize-grip" tabIndex={-1} aria-label={`${b.label} ziehen`} onPointerDown={(e) => onDown(e, b.id)} onPointerMove={onMoveP} onPointerUp={onUp} onPointerCancel={() => setDrag(null)}>
               <span aria-hidden="true">⠿</span>
             </button>
             <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
               <input type="checkbox" className="h-4 w-4 accent-sky-500" checked={!b.hidden} onChange={(e) => toggle(b.id, e.target.checked)} />
               <span className="truncate">{b.label}</span>
             </label>
-            <button type="button" className="btn btn-ghost btn-icon" aria-label={`${b.label} nach oben`} disabled={i === 0} onClick={() => move(i, i - 1)}><span aria-hidden="true">↑</span></button>
-            <button type="button" className="btn btn-ghost btn-icon" aria-label={`${b.label} nach unten`} disabled={i === shown.length - 1} onClick={() => move(i, i + 1)}><span aria-hidden="true">↓</span></button>
+            <button type="button" className="btn btn-ghost btn-icon" data-dir="up" aria-label={`${b.label} nach oben`} disabled={i === 0} onClick={() => moveKey(i, i - 1, b.id)}><span aria-hidden="true">↑</span></button>
+            <button type="button" className="btn btn-ghost btn-icon" data-dir="down" aria-label={`${b.label} nach unten`} disabled={i === shown.length - 1} onClick={() => moveKey(i, i + 1, b.id)}><span aria-hidden="true">↓</span></button>
           </li>
         ))}
       </ul>

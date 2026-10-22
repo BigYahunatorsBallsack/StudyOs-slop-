@@ -7,7 +7,8 @@ import { uniDates } from "./tumdates.js";
 export function parseICS(text) {
   const lines = text.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "").split(/\r?\n/);
   /** @type {any[]} */ const events = []; /** @type {any} */ let cur = null;
-  const unesc = (v) => v.replace(/\\n/gi, " ").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\").trim();
+  /* in einem Durchgang, sonst würde aus „\\n“ (Backslash, dann n) ein Leerzeichen */
+  const unesc = (v) => v.replace(/\\([nN,;\\])/g, (_, c) => (c === "n" || c === "N" ? " " : c)).trim();
   const parseDT = (v) => {
     const m = /(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?(Z)?/.exec(v || ""); if (!m) return null;
     let d = m[4] ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : new Date(+m[1], +m[2] - 1, +m[3]);
@@ -15,10 +16,15 @@ export function parseICS(text) {
     return { date: iso(d), time: m[4] ? hm(d) : "", ...(m[7] && m[4] && { utc: d.getTime() }) };
   };
   const hm = (d) => String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  let alarm = false;
   for (const line of lines) {
-    if (line.startsWith("BEGIN:VEVENT")) { cur = /** @type {any} */ ({ exdates: [] }); continue; }
+    if (line.startsWith("BEGIN:VEVENT")) { cur = /** @type {any} */ ({ exdates: [] }); alarm = false; continue; }
     if (line.startsWith("END:VEVENT")) { if (cur) events.push(cur); cur = null; continue; }
     if (!cur) continue;
+    /* Erinnerungen (VALARM) haben eigene SUMMARY/DESCRIPTION, die nicht den Termin überschreiben dürfen */
+    if (line.startsWith("BEGIN:VALARM")) { alarm = true; continue; }
+    if (line.startsWith("END:VALARM")) { alarm = false; continue; }
+    if (alarm) continue;
     const i = line.indexOf(":"); if (i < 0) continue;
     const key = line.slice(0, i).split(";")[0].toUpperCase(), val = line.slice(i + 1);
     if (key === "SUMMARY") cur.summary = unesc(val);
@@ -71,15 +77,32 @@ export function parseICS(text) {
   return out.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
 }
 
+/* Zeilen über 75 Byte (UTF-8) umbrechen, Folgezeilen mit einem Leerzeichen (RFC 5545, 3.1); Zeichen bleiben ganz */
+const enc = new TextEncoder();
+export function fold(line) {
+  if (enc.encode(line).length <= 75) return line;
+  const out = [];
+  let cur = "", n = 0;
+  for (const ch of line) {
+    const b = enc.encode(ch).length;
+    if (n + b > (out.length ? 74 : 75)) { out.push(cur); cur = ""; n = 0; }
+    cur += ch; n += b;
+  }
+  out.push(cur);
+  return out.join("\r\n ");
+}
+
 export const guessType = (s) => /zentral/i.test(s) ? "Zentralübung" : /tutor/i.test(s) ? "Tutorium" : /übung|uebung|\bUE\b|exercise/i.test(s) ? "Übung" : /praktikum/i.test(s) ? "Praktikum" : "Vorlesung";
 
 /* ICS-Export: Abgaben, Prüfungen und Termine für den Handy-Kalender (mit Erinnerungen) */
 export function buildICS(data, { homework = true, hw = homework, exams = true, sessions = false, uni = true } = {}) {
-  const esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+  const esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/\r?\n|\r/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
   const d8 = (s) => s.replace(/-/g, "");
   const t6 = (s) => (s || "00:00").replace(":", "") + "00";
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
-  const mod = (id) => data.modules.find((m) => m.id === id)?.name || "Allgemein";
+  const names = new Map();
+  for (const m of data.modules) if (!names.has(m.id)) names.set(m.id, m.name);
+  const mod = (id) => names.get(id) || "Allgemein";
   const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//StudyOS//DE", "CALSCALE:GREGORIAN", "X-WR-CALNAME:StudyOS"];
   const ev = (lines) => L.push("BEGIN:VEVENT", `DTSTAMP:${stamp}`, ...lines, "END:VEVENT");
   if (hw) data.homework.filter((h) => h.due && !DONE_HW.has(h.status)).forEach((h) => ev([
@@ -87,8 +110,9 @@ export function buildICS(data, { homework = true, hw = homework, exams = true, s
     `SUMMARY:${esc(`Abgabe: ${h.title} (${mod(h.moduleId)})`)}`, "TRANSP:TRANSPARENT",
     "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc("Abgabe morgen: " + h.title)}`, "TRIGGER:-PT15H", "END:VALARM",
   ]));
-  if (exams) data.exams.forEach((e) => { const start = e.time || "09:00"; const [hh, mm] = start.split(":").map(Number); const endH = String(Math.min(23, hh + 2)).padStart(2, "0"); ev([
-    `UID:exam-${e.id}@studyos`, `DTSTART:${d8(e.date)}T${t6(start)}`, `DTEND:${d8(e.date)}T${endH}${String(mm).padStart(2, "0")}00`,
+  /* Prüfungen ohne Datum ergäben ein ungültiges „DTSTART:T090000“; Ende zwei Stunden später, höchstens 23:59 */
+  if (exams) data.exams.filter((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.date || "")).forEach((e) => { const start = /^\d{2}:\d{2}$/.test(e.time || "") ? e.time : "09:00"; const [hh, mm] = start.split(":").map(Number); const end = hh + 2 > 23 ? "235900" : `${String(hh + 2).padStart(2, "0")}${String(mm).padStart(2, "0")}00`; ev([
+    `UID:exam-${e.id}@studyos`, `DTSTART:${d8(e.date)}T${t6(start)}`, `DTEND:${d8(e.date)}T${end}`,
     `SUMMARY:${esc("Prüfung: " + mod(e.moduleId))}`, ...(e.room ? [`LOCATION:${esc(e.room)}`] : []),
     "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc("Prüfung morgen: " + mod(e.moduleId))}`, "TRIGGER:-P1D", "END:VALARM",
   ]); });
@@ -103,5 +127,5 @@ export function buildICS(data, { homework = true, hw = homework, exams = true, s
     ...(x.kind === "fee" || x.end ? ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc("Morgen: " + x.title)}`, "TRIGGER:-PT15H", "END:VALARM"] : []),
   ]));
   L.push("END:VCALENDAR");
-  return L.join("\r\n") + "\r\n";
+  return L.map(fold).join("\r\n") + "\r\n";
 }

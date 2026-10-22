@@ -2,13 +2,32 @@
 /* Nur Auth und Datenbank-Client statt des ganzen supabase-js (Realtime, Storage, Functions braucht StudyOS nicht).
    Beide werden erst geladen, wenn sie gebraucht werden (ca. 120 KB weniger beim Start ohne Cloud-Sync). */
 import { SUPABASE_KEY, SUPABASE_URL, SYNC_TABLE } from "../lib/cloud-config.js";
+import { rowTag } from "../lib/cloudsync.js";
 
 export class CloudError extends Error {}
+
+/* Anfragen an Datenbank und Anmeldung brechen nach dieser Zeit ab: Eine hängende Verbindung (Funkloch, WLAN-Anmeldeseite)
+   würde sonst den Sync-Lauf für immer blockieren, und alle weiteren Läufe warteten nur auf ihn. */
+export const REQUEST_TIMEOUT_MS = 30000;
+const TIMEOUT_MSG = "Supabase antwortet nicht (Zeitüberschreitung). Bist du offline oder ist die Verbindung sehr langsam?";
+/** fetch mit Zeitlimit; ein vom Aufrufer übergebenes Abbruch-Signal gilt weiter. */
+export function fetchWithTimeout(input, init = {}, ms = REQUEST_TIMEOUT_MS, fetchImpl = (...a) => fetch(...a)) {
+  if (typeof AbortController === "undefined") return fetchImpl(input, init);
+  const ctl = new AbortController(), outer = init && init.signal;
+  let timedOut = false;
+  const t = setTimeout(() => { timedOut = true; ctl.abort(); }, ms);
+  const onAbort = () => ctl.abort();
+  if (outer) { if (outer.aborted) ctl.abort(); else outer.addEventListener("abort", onAbort, { once: true }); }
+  return fetchImpl(input, { ...init, signal: ctl.signal })
+    .catch((e) => { throw timedOut ? new CloudError(TIMEOUT_MSG) : e; })
+    .finally(() => { clearTimeout(t); if (outer) outer.removeEventListener("abort", onAbort); });
+}
 
 /* Supabase-Fehler in verständliche deutsche Meldungen übersetzen */
 function explain(error) {
   const msg = String(error?.message || error || "");
   const status = Number(error?.status) || 0;
+  if (msg.includes(TIMEOUT_MSG)) return new CloudError(TIMEOUT_MSG); /* aus fetchWithTimeout, ggf. von supabase-js umverpackt */
   if (/fetch|network|load failed|Failed to fetch/i.test(msg)) return new CloudError("Keine Verbindung zu Supabase. Bist du offline, oder ist das Projekt pausiert (im Supabase-Dashboard „Resume project“)?");
   if (status === 429 || /rate limit|security purposes|only request this after/i.test(msg)) return new CloudError("Zu viele Anfragen. Warte eine Minute und versuch es erneut.");
   if (/expired|invalid|otp/i.test(msg) && /token|otp|code/i.test(msg)) return new CloudError("Der Code ist falsch oder abgelaufen. Fordere einen neuen an.");
@@ -35,7 +54,7 @@ export function createSupabaseCloud() {
   let authP = null;
   const getAuth = () => (authP ||= loadLibs().then(({ AuthClient }) => {
     const a = new AuthClient({
-      url: SUPABASE_URL + "/auth/v1", headers: { apikey: SUPABASE_KEY },
+      url: SUPABASE_URL + "/auth/v1", headers: { apikey: SUPABASE_KEY }, fetch: (input, init) => fetchWithTimeout(input, init),
       persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit", storageKey: AUTH_KEY,
     });
     a.onAuthStateChange((_event, session) => { const u = toUser(session); uid = u?.id || null; authListeners.forEach((cb) => cb(u)); });
@@ -45,9 +64,9 @@ export function createSupabaseCloud() {
   /* Versatz der Geräteuhr zur Serverzeit, aus dem Date-Header der Antworten (Sekundengenau; Mitte der Anfrage als Bezug).
      Fehlt der Header (z. B. nicht per CORS freigegeben), bleibt er unbekannt und der Sync nutzt nur die Geräteuhr. */
   let serverOffset = NaN;
-  const timedFetch = async (...args) => {
+  const timedFetch = async (/** @type {any[]} */ ...args) => {
     const t0 = Date.now();
-    const res = await fetch(...args);
+    const res = await fetchWithTimeout(args[0], args[1]);
     const server = Date.parse(res.headers?.get?.("date") || "");
     if (Number.isFinite(server)) serverOffset = server + 500 - (t0 + Date.now()) / 2;
     return res;
@@ -198,6 +217,12 @@ export function createSupabaseCloud() {
         const { data, error } = await (await db()).from(SYNC_TABLE).select("version,payload").eq("user_id", await userId()).maybeSingle();
         if (error) throw explain(error);
         return data;
+      },
+      /* nur Versionsnummer und IV (wenige Bytes) statt des ganzen verschlüsselten Datensatzes */
+      async peek() {
+        const { data, error } = await (await db()).from(SYNC_TABLE).select("version,iv:payload->>iv").eq("user_id", await userId()).maybeSingle();
+        if (error) throw explain(error);
+        return data ? rowTag(data.version, { iv: data.iv }) : null;
       },
       async insert(payload) {
         const { error } = await (await db()).from(SYNC_TABLE).insert({ user_id: await userId(), version: 1, payload });

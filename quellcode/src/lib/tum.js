@@ -31,22 +31,40 @@ export function gopStatus(data) {
   const stage = stages.find((s) => s.ects > passed) || stages[stages.length - 1] || null;
   const need = stage ? Math.max(0, stage.ects - passed) : 0;
   const open = modules.filter((m) => m.status !== "bestanden").map((m) => {
-    const exams = data.exams.filter((e) => e.moduleId === m.id).sort((a, b) => a.date.localeCompare(b.date));
+    const exams = data.exams.filter((e) => e.moduleId === m.id).sort((a, b) => (a.date || "9").localeCompare(b.date || "9"));
     return { ...m, exam: exams[0] || null };
   });
   /* kleinste Kombinationen offener Module, die die fehlenden ECTS bringen */
-  const combos = [];
-  if (need > 0) {
-    const n = open.length;
-    for (let mask = 1; mask < 1 << n; mask++) {
-      const pick = open.filter((_, i) => mask & (1 << i));
-      if (sum(pick, (m) => Number(m.ects) || 0) < need) continue;
-      if (combos.some((c) => c.every((x) => pick.includes(x)))) continue;
-      combos.push(pick);
-    }
-    combos.sort((a, b) => a.length - b.length);
+  const combos = need > 0 ? minimalCombos(open, need) : [];
+  return { modules, passed, stage, stages, need, reached: !!stage && need === 0, open, enough: sum(open, (m) => Number(m.ects) || 0) >= need, combos, curriculum };
+}
+
+/* Spätere Indizes zuerst vergleichen: dieselbe Reihenfolge wie beim Hochzählen einer Bitmaske */
+const colex = (a, b) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+
+/**
+ * Die ersten `limit` minimalen Kombinationen (keine echte Teilmenge reicht schon), die mindestens `need` ECTS bringen,
+ * kleinste zuerst. Statt alle 2^n Teilmengen zu prüfen, geht es Größe für Größe und hört auf, sobald genug gefunden sind;
+ * Größen, bei denen selbst die größten Module nicht reichen, werden übersprungen.
+ */
+export function minimalCombos(open, need, limit = 4) {
+  const ects = open.map((m) => Number(m.ects) || 0), n = open.length;
+  const desc = [...ects].sort((a, b) => b - a);
+  /** @type {number[][]} */ const found = [];
+  let best = 0, budget = 200000;
+  for (let k = 1; k <= n && found.length < limit && budget > 0; k++) {
+    best += desc[k - 1];
+    if (best < need) continue;
+    /** @type {number[][]} */ const level = [], pick = [];
+    const rec = (start, total) => {
+      if (budget-- <= 0) return;
+      if (pick.length === k) { if (total >= need && !found.some((c) => c.every((i) => pick.includes(i)))) level.push([...pick]); return; }
+      for (let i = start; i <= n - (k - pick.length); i++) { pick.push(i); rec(i + 1, total + ects[i]); pick.pop(); }
+    };
+    rec(0, 0);
+    found.push(...level.sort(colex));
   }
-  return { modules, passed, stage, stages, need, reached: !!stage && need === 0, open, enough: sum(open, (m) => Number(m.ects) || 0) >= need, combos: combos.slice(0, 4), curriculum };
+  return found.slice(0, limit).map((c) => c.map((i) => open[i]));
 }
 
 /**

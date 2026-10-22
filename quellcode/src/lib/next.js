@@ -18,7 +18,7 @@ export function nextUp(data, today = iso(), now = nowHM()) {
 
   const open = data.homework.filter((h) => h.due && isOpenHw(h)).sort((a, b) => a.due.localeCompare(b.due));
   const urgent = open.find((h) => h.due <= today);
-  if (urgent) return { type: "homework", item: urgent, moduleId: urgent.moduleId, when: urgent.due < today ? `Überfällig seit ${diffDays(urgent.due, today)} ${diffDays(urgent.due, today) === 1 ? "Tag" : "Tagen"}` : `Abgabe heute${urgent.dueTime ? ` ${urgent.dueTime}` : ""}` };
+  if (urgent) return { type: "homework", item: urgent, moduleId: urgent.moduleId, when: urgent.due < today ? `Überfällig seit ${diffDays(urgent.due, today)} ${diffDays(urgent.due, today) === 1 ? "Tag" : "Tagen"}` : urgent.dueTime && toMin(urgent.dueTime) < nowMin ? `Überfällig seit ${urgent.dueTime}` : `Abgabe heute${urgent.dueTime ? ` ${urgent.dueTime}` : ""}` };
 
   const laterToday = ses.find((s) => s.date === today && toMin(s.start) > nowMin);
   if (laterToday) {

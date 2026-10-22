@@ -46,9 +46,9 @@ export function achievements(data) {
 }
 
 /** Kennzahlen eines Zeitraums (beide Enden eingeschlossen). */
-export function periodStats(data, from, to) {
+export function periodStats(data, from, to, today = iso()) {
   const inR = (x) => !!x && x >= from && x <= to;
-  const held = data.sessions.filter((s) => inR(s.date) && s.date <= iso() && !s.cancelled);
+  const held = data.sessions.filter((s) => inR(s.date) && s.date <= today && !s.cancelled);
   const days = new Map();
   data.logs.forEach((l) => { if (inR(l.date)) days.set(l.date, (days.get(l.date) || 0) + (Number(l.minutes) || 0)); });
   const best = [...days].sort((a, b) => b[1] - a[1])[0] || null;
@@ -72,7 +72,7 @@ export function weekCard(data, today = iso()) {
   if (wd !== 6 && wd !== 0) return null;
   const from = wd === 6 ? weekStart(today) : addDays(weekStart(today), -7);
   const to = addDays(from, 6);
-  const cur = periodStats(data, from, to), prev = periodStats(data, addDays(from, -7), addDays(from, -1));
+  const cur = periodStats(data, from, to, today), prev = periodStats(data, addDays(from, -7), addDays(from, -1), today);
   if (!cur.minutes && !cur.reviewed && !cur.hwDone && !cur.cards) return null;
   return { from, to, current: wd === 6, ...cur, prevMinutes: prev.minutes };
 }

@@ -19,7 +19,8 @@ export function useFeeds({ ready, loadError, cloud, data, dataRef, change }) {
     change((d) => (d === base ? res.next : compute(d).next));
     return res.stats;
   };
-  /* Stundenplan-Abo abrufen und abgleichen; automatisch, wenn der letzte Abruf über 6 Stunden her ist */
+  /* Stundenplan-Abo abrufen und abgleichen; automatisch, wenn der letzte Abruf über 6 Stunden her ist.
+     Fehler landen in `lastError`; ist es derselbe wie zuletzt, bleibt der Stand unverändert (kein Speichern, kein Sync). */
   syncFeedRef.current = async ({ manual } = {}) => {
     const feed = dataRef.current.settings.icsFeed;
     if (!feed || !feed.url || cloud.phase !== "ready") return null;
@@ -31,7 +32,8 @@ export function useFeeds({ ready, loadError, cloud, data, dataRef, change }) {
       });
     } catch (e) {
       if (manual) throw e;
-      change((d) => (d.settings.icsFeed ? { ...d, settings: { ...d.settings, icsFeed: { ...d.settings.icsFeed, lastError: e.message || String(e) } } } : d));
+      const msg = e.message || String(e);
+      change((d) => (d.settings.icsFeed && d.settings.icsFeed.lastError !== msg ? { ...d, settings: { ...d.settings, icsFeed: { ...d.settings.icsFeed, lastError: msg } } } : d));
       return null;
     }
   };
@@ -49,7 +51,8 @@ export function useFeeds({ ready, loadError, cloud, data, dataRef, change }) {
       });
     } catch (e) {
       if (manual) throw e;
-      change((d) => (d.settings.moodleFeed ? { ...d, settings: { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, lastError: e.message || String(e) } } } : d));
+      const msg = e.message || String(e);
+      change((d) => (d.settings.moodleFeed && d.settings.moodleFeed.lastError !== msg ? { ...d, settings: { ...d.settings, moodleFeed: { ...d.settings.moodleFeed, lastError: msg } } } : d));
       return null;
     }
   };
@@ -71,7 +74,8 @@ export function useFeeds({ ready, loadError, cloud, data, dataRef, change }) {
         total.added += st.added; total.updated += st.updated; total.exams += st.exams || 0;
       } catch (e) {
         if (manual) throw e;
-        change((d) => ({ ...d, settings: { ...d.settings, artemisFeeds: (d.settings.artemisFeeds || []).map((x) => (x.id === f.id ? { ...x, lastError: e.message || String(e) } : x)) } }));
+        const msg = e.message || String(e);
+        change((d) => ((d.settings.artemisFeeds || []).some((x) => x.id === f.id && x.lastError !== msg) ? { ...d, settings: { ...d.settings, artemisFeeds: d.settings.artemisFeeds.map((x) => (x.id === f.id ? { ...x, lastError: msg } : x)) } } : d));
       }
     }
     return total;

@@ -1,5 +1,5 @@
 /* Stundenplan-Abo (z. B. TUMonline): Link eintragen, Veranstaltungen Modulen zuordnen, automatisch aktuell halten */
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { parseICS } from "../lib/ics.js";
 import { guessMapping, NEW, SKIP, unmappedSummaries } from "../lib/feed.js";
 import { cleanTitle, feedSummary, isMoodleDeadline, unmappedCourses } from "../lib/moodle.js";
@@ -10,14 +10,16 @@ import { Select } from "../ui/select.jsx";
 const examsMsg = (r) => (r?.exams ? `, ${r.exams} ${r.exams === 1 ? "Prüfung" : "Prüfungen"} eingetragen` : "");
 const fmtWhen = (s) => (s ? new Date(s).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "noch nie");
 
+/* ids je Liste eindeutig: Stundenplan- und Moodle-Abo können dieselbe Veranstaltung zugleich zeigen */
 function MappingList({ summaries, map, setMap, modules }) {
+  const base = useId();
   return (
     <ul className="rows mt-3">
-      {summaries.map((s) => (
+      {summaries.map((s, i) => (
         <li key={s} className="row" style={{ "--mod": modules.find((m) => m.id === map[s])?.color }}>
           <p className="row-title">{s}</p>
-          <label className="sr-only" htmlFor={"feed-" + s}>Modul für {s}</label>
-          <Select id={"feed-" + s} className="field mt-2 w-full text-sm" value={map[s] ?? NEW} onChange={(e) => setMap({ ...map, [s]: e.target.value })}>
+          <label className="sr-only" htmlFor={`${base}-${i}`}>Modul für {s}</label>
+          <Select id={`${base}-${i}`} className="field mt-2 w-full text-sm" value={map[s] ?? NEW} onChange={(e) => setMap({ ...map, [s]: e.target.value })}>
             <option value={NEW}>Neues Modul anlegen</option>
             <option value={SKIP}>Nicht übernehmen</option>
             {modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}

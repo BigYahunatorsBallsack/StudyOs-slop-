@@ -57,17 +57,17 @@ export function CleanupCard({ db }) {
           {s.count > 0 && (
             <Group title={`Doppelte Termine (${s.count})`}
               lines={s.groups.map((g) => `${fmtShort(g.keep.date)} ${g.keep.start} · ${g.keep.type || "Termin"}${mod.get(g.keep.moduleId) ? ` · ${mod.get(g.keep.moduleId)}` : ""} (${g.remove.length + 1}×)`)}
-              action={<button className={btnGhost} onClick={() => del(`${plural(s.count, "doppelter Termin", "doppelte Termine")} gelöscht.`, (d) => removeDuplicateSessions(d), "Doppelte Termine")}>Löschen</button>} />
+              action={<button className={btnGhost} aria-label="Doppelte Termine löschen" onClick={() => del(`${plural(s.count, "doppelter Termin", "doppelte Termine")} gelöscht.`, (d) => removeDuplicateSessions(d), "Doppelte Termine")}>Löschen</button>} />
           )}
           {c.count > 0 && (
             <Group title={`Doppelte Karteikarten (${c.count})`}
               lines={c.groups.map((g) => `${g.keep.front}${mod.get(g.keep.moduleId) ? ` · ${mod.get(g.keep.moduleId)}` : ""} (${g.remove.length + 1}×)`)}
-              action={<button className={btnGhost} onClick={() => del(`${plural(c.count, "doppelte Karte", "doppelte Karten")} gelöscht.`, (d) => removeDuplicateCards(d), "Doppelte Karteikarten")}>Löschen</button>} />
+              action={<button className={btnGhost} aria-label="Doppelte Karteikarten löschen" onClick={() => del(`${plural(c.count, "doppelte Karte", "doppelte Karten")} gelöscht.`, (d) => removeDuplicateCards(d), "Doppelte Karteikarten")}>Löschen</button>} />
           )}
           {n.count > 0 && (
             <Group title={`Leere Notizen (${n.count})`}
               lines={n.items.map((x) => `Leere Notiz${mod.get(x.moduleId) ? ` · ${mod.get(x.moduleId)}` : ""}${x.updated ? ` · ${new Date(x.updated).toLocaleDateString("de-DE")}` : ""}`)}
-              action={<button className={btnGhost} onClick={() => del(`${plural(n.count, "leere Notiz", "leere Notizen")} gelöscht.`, (d) => removeEmptyNotes(d), "Leere Notizen")}>Löschen</button>} />
+              action={<button className={btnGhost} aria-label="Leere Notizen löschen" onClick={() => del(`${plural(n.count, "leere Notiz", "leere Notizen")} gelöscht.`, (d) => removeEmptyNotes(d), "Leere Notizen")}>Löschen</button>} />
           )}
           {orphans && orphans.length > 0 && (
             <Group title={`Verwaiste Anhänge (${orphans.length}, ${fmtSize(orphanSize)})`}

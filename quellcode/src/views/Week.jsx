@@ -216,7 +216,9 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
     document.addEventListener("pointerdown", away, true); document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", esc); };
   }, [slot]);
-  useEffect(() => setSlot(null), [days[0]]);
+  /* Andere Woche bzw. anderer Tag: offene Auswahl und Termin-Karte gehören zur alten Ansicht (die Karte stünde sonst
+     an der Stelle eines Termins, der gar nicht mehr zu sehen ist, etwa nach › per Tastatur oder Wischen im Tag) */
+  useEffect(() => { setSlot(null); hover.close(); }, [days[0]]);
   const addAt = (kind) => {
     const { date, min } = slot;
     setSlot(null);
@@ -225,6 +227,10 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
   /* Am PC: Termine und Lernblöcke ziehen (verschieben) oder am unteren Rand ziehen (verlängern) */
   const [drag, setDrag] = useState(null); /* Vorschau { id, date, start, end } */
   const dragRef = useRef(null), gridRef = useRef(null), swallowClick = useRef(false);
+  /* Die Fenster-Listener fürs Ziehen hängen nur einmal: aktuelle App-Aktionen über eine Ref (vorher wurden sie bei jeder
+     Datenänderung neu angemeldet, und das Abmelden nahm mitten im Ziehen die Markierung „grid-dragging“ weg) */
+  const live = useRef(null);
+  live.current = { db, close: hover.close };
   /* Mehrfachauswahl: Antippen hakt Termine (bzw. Lernblöcke) an, statt Karte oder Formular zu öffnen */
   const selKind = db.sel?.kind, picked = (kind, id) => selKind === kind && db.sel.ids.includes(id);
   const startDrag = (e, ev) => {
@@ -239,7 +245,7 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
       const g = dragRef.current;
       if (!g) return;
       if (!g.active && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 5) return;
-      if (!g.active) { g.active = true; hover.close(); document.body.classList.add("grid-dragging"); }
+      if (!g.active) { g.active = true; live.current.close(); document.body.classList.add("grid-dragging"); }
       const col = g.mode === "move" && [...(gridRef.current?.querySelectorAll("[data-day]") || [])].find((c) => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; });
       g.next = { date: col ? col.dataset.day : g.item.date, ...dragTo(g.item, g.mode, ((e.clientY - g.y0) / hpRef.current) * 60) };
       setDrag({ id: g.item.id, ...g.next });
@@ -252,7 +258,7 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
       swallowClick.current = true;
       setTimeout(() => { swallowClick.current = false; }, 0);
       setDrag(null);
-      const p = g.next && movePatch(g.item, g.next);
+      const p = g.next && movePatch(g.item, g.next), db = live.current.db;
       if (!p || !Object.keys(p).length) return;
       const prev = Object.fromEntries(Object.keys(p).map((k) => [k, g.item[k] ?? (k === "locked" ? [] : "")]));
       db.patch(g.coll, g.item.id, p);
@@ -262,9 +268,10 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
     };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); document.body.classList.remove("grid-dragging"); };
-  }, [data]);
+  }, []);
   /* Lange drücken (Touch) oder Rechtsklick öffnet das Schnellmenü; Android meldet langes Drücken zusätzlich als Kontextmenü */
   const press = useRef({ timer: 0, at: 0, x: 0, y: 0 });
+  useEffect(() => () => clearTimeout(press.current.timer), []); /* weg (Woche gewechselt): kein Schnellmenü mehr hinterher */
   const menuOf = (kind, id) => {
     const item = data[kind === "block" ? "blocks" : "sessions"].find((x) => x.id === id);
     if (!item || Date.now() - press.current.at < 800) return;
@@ -475,8 +482,8 @@ function BlockSuggestions({ db, days }) {
             <>
               <p className="text-xs text-slate-400">Freie Zeit zwischen deinen Veranstaltungen (mit 15 Minuten Puffer):</p>
               <ul className="mt-2 space-y-2">
-                {list.map((x, i) => { const m = db.mod(x.moduleId); return (
-                  <li key={i} className="flex items-center gap-3" style={{ "--mod": m?.color }}>
+                {list.map((x) => { const m = db.mod(x.moduleId); return (
+                  <li key={x.date + x.start + x.moduleId} className="flex items-center gap-3" style={{ "--mod": m?.color }}>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold">{WD[wdIdx(x.date)]} {x.start}–{x.end}</span>
                       <span className="block truncate text-xs text-slate-400">{x.title}{m ? `, ${m.name}` : ""}</span>

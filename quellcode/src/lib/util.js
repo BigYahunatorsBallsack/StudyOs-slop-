@@ -13,6 +13,14 @@ export const dayOf = (s) => { const v = String(s || ""); if (v.length <= 10) ret
 
 export const addDays = (s, n) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); };
 
+/** Gibt es dieses Datum „JJJJ-MM-TT“ im Kalender? (31.02. oder 29.02. außerhalb von Schaltjahren nicht) */
+export const validDate = (s) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+  if (!m) return false;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+};
+
 export const diffDays = (a, b) => Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000);
 
 export const wdIdx = (s) => (new Date(s + "T00:00:00").getDay() + 6) % 7;
@@ -30,7 +38,7 @@ export const isHeld = (s) => { const t = iso(); return s.date < t || (s.date ===
 
 export const byTime = (a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || ""));
 
-export const byOrder = (a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || a.title.localeCompare(b.title);
+export const byOrder = (a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || String(a.title || "").localeCompare(String(b.title || ""));
 
 export const pct = (v) => (v === null || v === undefined ? "–" : Math.round(v * 100) + " %");
 

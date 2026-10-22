@@ -164,7 +164,7 @@ function Rhythm({ data }) {
           </ul>
         </>
       ) : <p className="text-xs text-slate-500">Tageszeiten erscheinen, sobald du Lernzeit über den Timer oder am selben Tag einträgst.</p>}
-      <div className="mt-4 flex items-end gap-1.5" role="img" aria-label="Lernzeit nach Wochentag">
+      <div className="mt-4 flex items-end gap-1.5" role="img" aria-label={"Lernzeit nach Wochentag: " + r.weekdays.map((m, i) => `${WD[i]} ${fmtMin(m)}`).join(", ")}>
         {r.weekdays.map((m, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-1">
             <div className="w-full rounded-md" style={{ height: `${Math.max(3, (m / maxW) * 64)}px`, background: m ? "var(--accent)" : "var(--surface-2)" }} title={`${WD[i]}: ${fmtMin(m)}`} />
@@ -337,8 +337,8 @@ export function Progress({ db }) {
             <div key={sem} className="mb-3 last:mb-0">
               <div className="mb-1 flex items-baseline justify-between gap-2">
                 <p className="section-title">Semester {sem} <span className="text-sm font-normal text-slate-400">{sum(list, (m) => m.ects)} ECTS{list.every((m) => m.archived) ? ", archiviert" : ""}</span></p>
-                {list.some((m) => !m.archived) ? <button className="link-btn" onClick={() => db.archiveSemester(sem, true)}>Archivieren</button>
-                  : <button className="link-btn" onClick={() => db.archiveSemester(sem, false)}>Zurückholen</button>}
+                {list.some((m) => !m.archived) ? <button className="link-btn" onClick={() => db.archiveSemester(sem, true)} aria-label={`Semester ${sem} archivieren`}>Archivieren</button>
+                  : <button className="link-btn" onClick={() => db.archiveSemester(sem, false)} aria-label={`Semester ${sem} zurückholen`}>Zurückholen</button>}
               </div>
               <ul className="divide-y divide-slate-800">
                 {list.map((m) => (

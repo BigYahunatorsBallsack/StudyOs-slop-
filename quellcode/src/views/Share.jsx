@@ -32,7 +32,7 @@ export function ShareDeck({ db, moduleId, cards, tag }) {
     setBusy(false);
   };
   const revoke = async (token) => {
-    try { await getCloud().shares.remove(token); } catch (e) { setMsg(e.message); return; }
+    try { await getCloud().shares.remove(token); } catch (e) { setMsg(e.message || "Löschen fehlgeschlagen."); return; }
     db.patchSettings({ shares: (data.settings.shares || []).filter((s) => s.token !== token) });
     if (link.includes(token)) setLink("");
   };
@@ -50,7 +50,7 @@ export function ShareDeck({ db, moduleId, cards, tag }) {
           {shares.map((s) => (
             <li key={s.token} className="flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-slate-400">{s.title}, {s.n} Karten, {s.created}</span>
-              {signedIn && <button className="link-btn" onClick={() => revoke(s.token)}>Link löschen</button>}
+              {signedIn && <button className="link-btn" onClick={() => revoke(s.token)} aria-label={`Link löschen: ${s.title}`}>Link löschen</button>}
             </li>
           ))}
         </ul>
@@ -74,7 +74,8 @@ export function ShareImport({ db, token, keyStr, onClose }) {
         const d = await openDeck(await cloud.shares.get(token), keyStr);
         if (!live) return;
         setDeck(d);
-        const match = data.modules.find((m) => d.title.toLowerCase().startsWith(m.name.toLowerCase()));
+        /* ein Modul ohne Namen passt nicht zu jedem Stapel */
+        const match = data.modules.find((m) => m.name && d.title.toLowerCase().startsWith(String(m.name).toLowerCase()));
         setTarget(match ? match.id : "__new");
       } catch (e) { if (live) setErr(e.message || "Konnte den Stapel nicht laden."); }
     })();
@@ -113,8 +114,9 @@ export function ShareImport({ db, token, keyStr, onClose }) {
             <option value="__new">Neues Modul „{deck.title.replace(/\s#\S+$/, "")}“</option>
             {data.modules.filter((m) => !m.archived).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </Select>
+          {!deck.cards.length && <p className="notice notice-warn mt-3">In diesem Stapel sind keine Karten (mehr).</p>}
           <div className="mt-4 flex flex-wrap gap-2">
-            <button className="btn btn-primary" onClick={run}>{deck.cards.length} Karten übernehmen</button>
+            <button className="btn btn-primary" onClick={run} disabled={!deck.cards.length}>{deck.cards.length} Karten übernehmen</button>
             <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
           </div>
         </>

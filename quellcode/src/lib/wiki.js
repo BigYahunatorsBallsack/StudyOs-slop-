@@ -22,5 +22,8 @@ export function findNote(notes, name, moduleId = "") {
 /** Notizen, die auf `note` verlinken. */
 export function backlinks(notes, note) {
   if (!note?.title?.trim()) return [];
-  return notes.filter((n) => n.id !== note.id && linkNames(n.text).some((name) => findNote(notes, name, n.moduleId)?.id === note.id));
+  /* Nur Links mit genau diesem Titel kommen in Frage: die Notizen mit dem Titel einmal suchen statt für jeden Link aller Notizen */
+  const key = norm(note.title), same = notes.filter((n) => norm(n.title) === key);
+  const target = (moduleId) => same.find((n) => (n.moduleId || "") === (moduleId || "")) || same[0];
+  return notes.filter((n) => n.id !== note.id && String(n.text || "").includes("[[") && linkNames(n.text).some((name) => norm(name) === key) && target(n.moduleId)?.id === note.id);
 }

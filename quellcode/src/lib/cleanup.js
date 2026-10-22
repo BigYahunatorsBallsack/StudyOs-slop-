@@ -34,7 +34,7 @@ export function duplicateSessions(data) {
 
 /** Doppelte Karteikarten: gleiche Vorder- und Rückseite im selben Modul (Bildkarten zählen nicht). Behalten wird die meistgelernte. */
 export function duplicateCards(data) {
-  const score = (c) => (Number(c.reps) || 0) + (Number(c.reviews?.length) || 0) / 1000 + (c.lastReview ? 0.0001 : 0);
+  const score = (c) => (Number(c.reps) || 0) + (Number(c.reviews) || 0) / 1000 /* `reviews` ist ein Zähler (schedule), keine Liste */ + (c.lastReview ? 0.0001 : 0);
   return duplicates(data.cards || [], (c) => (isOcc(c) || !norm(c.front) ? null : [c.moduleId || "", norm(c.front), norm(c.back)].join("|")), score);
 }
 

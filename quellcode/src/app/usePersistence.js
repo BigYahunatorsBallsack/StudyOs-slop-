@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { emptyData, migrate } from "../lib/data.js";
 import { ENV } from "../lib/env.js";
+import { mergeData } from "../lib/sync.js";
 
 const errText = (e) => String((e && e.message) || e);
 
@@ -18,6 +19,14 @@ export function usePersistence() {
   const loadedRef = useRef(null);
   const dataRef = useRef(data);
   dataRef.current = data;
+  /* Speichervorgänge nacheinander: Ein langsamer älterer (z. B. mit Tagessicherung) könnte sonst nach einem jüngeren
+     fertig werden und dessen Stand in der Datenbank wieder überschreiben */
+  const queueRef = useRef(Promise.resolve());
+  const persist = (d) => {
+    const p = queueRef.current.then(() => ENV.save(d));
+    queueRef.current = p.catch(() => {});
+    return p;
+  };
 
   /* Laden beim Start (nur installierte Version) */
   useEffect(() => {
@@ -30,7 +39,7 @@ export function usePersistence() {
         loadedRef.current = d;
         if (sessionKeys(d.sessions) !== sessionKeys(stored.sessions)) {
           setSaveState("saving");
-          ENV.save(d).then(() => { if (alive) { loadedRef.current = d; setSaveState("saved"); } }).catch(() => { if (alive) setSaveState("error"); });
+          persist(d).then(() => { if (alive) { loadedRef.current = d; setSaveState("saved"); } }).catch(() => { if (alive) setSaveState("error"); });
         }
       } else {
         /* Noch nichts gespeichert: der leere Anfangsstand gilt als gespeichert, damit beim Schließen
@@ -50,7 +59,15 @@ export function usePersistence() {
         setReady(true);
       });
     }
-    const offExt = ENV.onExternalChange ? ENV.onExternalChange((stored) => { const d = migrate(stored); loadedRef.current = d; setData(d); }) : null;
+    /* Ein anderer Tab hat gespeichert: seinen Stand übernehmen. Gibt es hier noch ungespeicherte Änderungen
+       (Speichern läuft noch oder steht aus), werden beide zusammengeführt, statt die hiesigen zu verwerfen. */
+    const offExt = ENV.onExternalChange ? ENV.onExternalChange((stored) => {
+      let d;
+      try { d = migrate(stored); } catch { return; }
+      const saved = loadedRef.current;
+      loadedRef.current = d;
+      setData((cur) => (cur === saved ? d : mergeData(cur, d).data));
+    }) : null;
     const offUpd = ENV.pwa && ENV.pwa.onUpdate ? ENV.pwa.onUpdate(() => setUpdateReady(true)) : null;
     const offInstall = ENV.pwa && ENV.pwa.onInstallable ? ENV.pwa.onInstallable((v) => setInstallReady(v)) : null;
     return () => { alive = false; offExt && offExt(); offUpd && offUpd(); offInstall && offInstall(); };
@@ -61,7 +78,7 @@ export function usePersistence() {
     if (!ENV || !ready || loadError || data === loadedRef.current) return;
     setSaveState("saving");
     const id = setTimeout(() => {
-      ENV.save(data).then(() => { loadedRef.current = data; setSaveState("saved"); }).catch(() => setSaveState("error"));
+      persist(data).then(() => { loadedRef.current = data; setSaveState("saved"); }).catch(() => setSaveState("error"));
     }, 400);
     return () => clearTimeout(id);
   }, [data, ready, loadError]);
@@ -72,7 +89,7 @@ export function usePersistence() {
       if (!ENV || !ready || loadError || dataRef.current === loadedRef.current) return;
       const d = dataRef.current;
       try { ENV.saveSync && ENV.saveSync(d); } catch {}
-      ENV.save(d).then(() => { loadedRef.current = d; setSaveState("saved"); }).catch(() => {});
+      persist(d).then(() => { loadedRef.current = d; setSaveState("saved"); }).catch(() => {});
     };
     const onVis = () => { if (document.visibilityState === "hidden") flush(); else setClock((c) => c + 1); };
     document.addEventListener("visibilitychange", onVis);
@@ -85,7 +102,7 @@ export function usePersistence() {
   const saveNow = (next) => {
     if (!ENV) { loadedRef.current = next; return; }
     setSaveState("saving");
-    ENV.save(next).then(() => { loadedRef.current = next; setSaveState("saved"); }).catch(() => setSaveState("error"));
+    persist(next).then(() => { loadedRef.current = next; setSaveState("saved"); }).catch(() => setSaveState("error"));
   };
 
   return { data, setData, dataRef, ready, loadError, saveState, saveNow, updateReady, installReady, setInstallReady };
