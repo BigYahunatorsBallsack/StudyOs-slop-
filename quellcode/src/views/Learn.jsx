@@ -232,8 +232,22 @@ function useReviewTime(db, timer) {
 /* Im Vollbild liegt die Abfrage über Kopfzeile und Navigation (eigene Ebene direkt im body, damit keine
    Bereichs-Animation das Festpositionieren stört); seitliches Wischen wechselt dort nie den Bereich */
 function ReviewFrame({ full, children }) {
+  const box = useRef(null);
+  /* Die Seite dahinter ist verdeckt: Tab und Umschalt + Tab bleiben in der Abfrage */
+  useEffect(() => {
+    if (!full) return undefined;
+    const onKey = (e) => {
+      if (e.key !== "Tab" || !box.current || document.querySelector('[role="dialog"]')) return;
+      const list = [...box.current.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])")];
+      if (!list.length) return;
+      const first = list[0], last = list[list.length - 1], inside = box.current.contains(document.activeElement);
+      if (e.shiftKey ? !inside || document.activeElement === first : !inside || document.activeElement === last) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [full]);
   if (!full) return <div className="no-tabswipe">{children}</div>;
-  return createPortal(<div className="card-full no-tabswipe font-ui"><div className="card-full-inner">{children}</div></div>, document.body);
+  return createPortal(<div ref={box} className="card-full no-tabswipe font-ui"><div className="card-full-inner">{children}</div></div>, document.body);
 }
 
 /* Vollbild beim Abfragen: pro Gerät gemerkt */
@@ -269,6 +283,7 @@ export function CardsView({ db, timer, filter, setFilter }) {
       db.withUndo(`${fresh.length} Karten importiert.`, (d) => ({ ...d, cards: [...d.cards, ...fresh] }));
       setCsvMsg(`${fresh.length} Karten importiert${skipped.length ? `, ${skipped.length} Zeilen übersprungen (Zeile ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " …" : ""})` : ""}.`);
     };
+    r.onerror = () => setCsvMsg("Die Datei konnte nicht gelesen werden.");
     r.readAsText(file);
   };
   const exportCsv = async () => {
@@ -326,6 +341,14 @@ export function CardsView({ db, timer, filter, setFilter }) {
   useEffect(() => { if (!current) rt.stop(); }, [!!current]);
 
   /* Nach dem Aufdecken: nach rechts wischen = gewusst (Gut), nach links = nicht gewusst (Nochmal) */
+  /* Aufdecken und Bewerten entfernen den gedrückten Knopf: Der Fokus geht dann auf die Karte statt verloren
+     (Leertaste und Ziffern wirken dort weiter) */
+  const stageRef = useRef(null);
+  useEffect(() => {
+    const a = document.activeElement;
+    if (current && (!a || a === document.body)) stageRef.current?.focus({ preventScroll: true });
+  }, [revealed, turn, !!current]);
+
   const swipe = useSwipe({ onSwipeRight: current && revealed ? () => rate(2) : undefined, onSwipeLeft: current && revealed ? () => rate(0) : undefined });
 
   const m = current ? db.mod(current.moduleId) : null;
@@ -367,7 +390,7 @@ export function CardsView({ db, timer, filter, setFilter }) {
           </div>
           <div className={`card-swipe ${swipe.dragging ? "dragging" : ""}`}>
             <SwipeUnder dx={swipe.dx} rightLabel="Gewusst" leftLabel="Nicht gewusst" />
-            <div key={turn} className="card-stage min-h-[140px] rounded-xl bg-slate-950 p-4" style={{ transform: swipe.dx ? `translateX(${swipe.dx}px) rotate(${swipe.dx / 30}deg)` : undefined }} {...swipe.bind}>
+            <div key={turn} ref={stageRef} tabIndex={-1} className="card-stage min-h-[140px] rounded-xl bg-slate-950 p-4" style={{ outline: "none", transform: swipe.dx ? `translateX(${swipe.dx}px) rotate(${swipe.dx / 30}deg)` : undefined }} {...swipe.bind}>
               {isOcc(current) ? <><p className="mb-2 text-sm font-semibold">{current.front}</p><OcclusionImage db={db} card={current} revealed={revealed} /></>
                 : <Markdown text={hasCloze(current.front) ? renderCloze(current.front, revealed) : current.front} />}
               {revealed && current.back && <><hr className="my-3 border-slate-800" /><div className="text-sky-100"><Markdown text={current.back} /></div></>}
@@ -375,7 +398,7 @@ export function CardsView({ db, timer, filter, setFilter }) {
           </div>
           {revealed && <p className="card-swipe-hint mt-2 text-center text-[11px] text-slate-500">Wischen: rechts gewusst, links nicht gewusst</p>}
           {!revealed ? (
-            <button className={`${btnPrimary} mt-3 w-full`} onClick={() => setRevealed(true)}>Antwort zeigen <span className="font-normal opacity-70">(Leertaste)</span></button>
+            <button className={`${btnPrimary} mt-3 w-full`} onClick={() => setRevealed(true)}>Antwort zeigen <span className="font-normal">(Leertaste)</span></button>
           ) : (
             <div className="mt-3 grid grid-cols-4 gap-2">
               {[["Nochmal", "border-rose-500/50 text-rose-200"], ["Schwer", "border-amber-500/50 text-amber-200"], ["Gut", "border-sky-500/50 text-sky-200"], ["Leicht", "border-emerald-500/50 text-emerald-200"]].map(([l, c], i) => (

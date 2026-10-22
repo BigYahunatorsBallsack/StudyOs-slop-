@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useId, useState, useEffect, useMemo, useRef } from "react";
 import { pickColor } from "../lib/colors.js";
 import { countsOf, demoData, emptyData, normalizeImport } from "../lib/data.js";
 import { buildICS, guessType, parseICS } from "../lib/ics.js";
@@ -269,7 +269,7 @@ function CalendarGroup({ db }) {
       <div data-set="moodle"><MoodleCard db={db} /></div>
       <div data-set="artemis"><ArtemisCard db={db} /></div>
       {db.cloud?.phase === "ready" && <div data-set="calfeed"><CalendarFeed cloud={db.cloud} settings={data.settings} patchSettings={db.patchSettings} /></div>}
-      <div data-set="icsImport"><IcsImport db={db} readFile={(f, cb) => readFileText(f, cb, () => {})} /></div>
+      <div data-set="icsImport"><IcsImport db={db} readFile={readFileText} /></div>
       <div data-set="icsExport">
         <Card title="Kalender exportieren">
           <p className="text-xs text-slate-400">Abgaben und Prüfungen als .ics exportieren und zum Handy-Kalender hinzufügen. Kalender-Erinnerungen werden mitgeliefert. Regelmäßige Lehrtermine können optional mit exportiert werden.</p>
@@ -309,13 +309,17 @@ function BackupGroup({ db }) {
   const createSnapshot = async () => {
     if (!db.env?.snapshot) return;
     setSnapshotBusy(true);
-    await db.env.snapshot("Manuelle Sicherung", data);
-    await refreshSnapshots(); setSnapshotBusy(false); setSnapMsg("Wiederherstellungspunkt auf diesem Gerät erstellt.");
+    try { await db.env.snapshot("Manuelle Sicherung", data); await refreshSnapshots(); setSnapMsg("Wiederherstellungspunkt auf diesem Gerät erstellt."); }
+    catch { setSnapMsg("Wiederherstellungspunkt konnte nicht erstellt werden (Speicher voll?)."); }
+    finally { setSnapshotBusy(false); }
   };
   const restoreSnapshot = async (s) => {
     if (!db.env?.loadSnapshot) return;
-    const full = await db.env.loadSnapshot(s.id);
-    if (full?.payload) { db.replaceAll(normalizeImport(full.payload)); setSnapMsg("Wiederherstellung gestartet. Die Daten werden gespeichert."); }
+    try {
+      const full = await db.env.loadSnapshot(s.id);
+      if (!full?.payload) { setSnapMsg("Dieser Wiederherstellungspunkt ist nicht mehr vorhanden."); return; }
+      db.replaceAll(normalizeImport(full.payload)); setSnapMsg("Wiederherstellung gestartet. Die Daten werden gespeichert.");
+    } catch (e) { setSnapMsg(e.message || "Wiederherstellung fehlgeschlagen."); }
   };
   const json = useMemo(() => (showJson ? JSON.stringify(data, null, 2) : ""), [showJson, data]);
   const counts = countsOf;
@@ -491,6 +495,7 @@ export function IcsImport({ db, readFile }) {
   const [map, setMap] = useState({});
   const [err, setErr] = useState("");
   const [done, setDone] = useState("");
+  const idBase = useId();
   const groups = events ? [...new Set(events.map((e) => e.summary))] : [];
 
   const load = (text) => {
@@ -499,19 +504,19 @@ export function IcsImport({ db, readFile }) {
       const ev = parseICS(text).filter((e) => !e.cancelled);
       if (!ev.length) { setErr("Keine Termine in der Datei gefunden."); setEvents(null); return; }
       const mp = {};
-      [...new Set(ev.map((e) => e.summary))].forEach((s) => { const hit = data.modules.find((m) => s.toLowerCase().includes(m.name.toLowerCase()) || (m.code && s.includes(m.code))); mp[s] = hit ? hit.id : "__skip"; });
+      /* Module ohne Namen passen nicht zu allem */
+      [...new Set(ev.map((e) => e.summary))].forEach((s) => { const hit = data.modules.find((m) => (m.name && s.toLowerCase().includes(String(m.name).toLowerCase())) || (m.code && s.includes(m.code))); mp[s] = hit ? hit.id : "__skip"; });
       setEvents(ev); setMap(mp);
     } catch { setErr("Die Datei konnte nicht gelesen werden."); }
   };
 
   const run = () => {
-    let added = 0, skipped = 0;
-    const next = (() => {
-      const d = { ...data, modules: [...data.modules], sessions: [...data.sessions] };
-      const created = {};
-      groups.forEach((g) => {
-        if (map[g] === "__new") { const m = { id: uid(), name: g, code: "", ects: 6, semester: 1, status: "belegt", grade: null, color: pickColor(d.modules) }; d.modules.push(m); created[g] = m.id; }
-      });
+    /* auf dem aktuellen Stand aufsetzen (nicht auf dem beim Zeichnen), sonst gingen Änderungen dazwischen verloren */
+    const created = Object.fromEntries(groups.filter((g) => map[g] === "__new").map((g) => [g, uid()]));
+    const build = (d0) => {
+      const d = { ...d0, modules: [...d0.modules], sessions: [...d0.sessions] };
+      let added = 0, skipped = 0;
+      for (const g of Object.keys(created)) d.modules.push({ id: created[g], name: g, code: "", ects: 6, semester: 1, status: "belegt", grade: null, color: pickColor(d.modules) });
       events.forEach((e) => {
         const mid = map[e.summary] === "__new" ? created[e.summary] : map[e.summary];
         if (!mid || mid === "__skip") return;
@@ -519,9 +524,10 @@ export function IcsImport({ db, readFile }) {
         d.sessions.push({ id: uid(), moduleId: mid, type: guessType(e.summary), date: e.date, start: e.start, end: e.end, room: e.room, prepared: false, attended: false, reviewed: false, reviewedAt: null });
         added++;
       });
-      return d;
-    })();
-    db.withUndo(`${added} Termine importiert.`, () => next);
+      return { d, added, skipped };
+    };
+    const { added, skipped } = build(db.getData ? db.getData() : data);
+    db.withUndo(`${added} Termine importiert.`, (d0) => build(d0).d);
     setDone(`${added} Termine importiert${skipped ? `, ${skipped} Duplikate übersprungen` : ""}.`);
     setEvents(null);
   };
@@ -529,18 +535,18 @@ export function IcsImport({ db, readFile }) {
   return (
     <Card title="Kalender importieren (ICS)">
       <p className="text-xs text-slate-400">Für Stundenpläne aus TUMonline oder anderen Kalendern als .ics-Datei. Ob und wo TUMonline einen Export anbietet, prüfst du in deinem Account.</p>
-      <label className={`${btnGhost} mt-3 inline-block cursor-pointer`}>ICS-Datei wählen<input type="file" accept=".ics,text/calendar" className="sr-only" onChange={(e) => { readFile(e.target.files[0], load); e.target.value = ""; }} /></label>
+      <label className={`${btnGhost} mt-3 inline-block cursor-pointer`}>ICS-Datei wählen<input type="file" accept=".ics,text/calendar" className="sr-only" onChange={(e) => { setErr(""); setDone(""); readFile(e.target.files[0], load, setErr); e.target.value = ""; }} /></label>
       {err && <p role="alert" className="mt-2 text-xs text-rose-400">{err}</p>}
       {done && <p role="status" className="mt-2 text-xs text-emerald-300">{done}</p>}
       {events && (
         <div className="mt-3 space-y-3">
           <p className="text-xs text-slate-300">{events.length} Termine in {groups.length} Veranstaltungen gefunden. Ordne sie Modulen zu:</p>
           <ul className="rows">
-            {groups.map((g) => (
+            {groups.map((g, i) => (
               <li key={g} className="rounded-lg bg-slate-800/40 p-2">
                 <p className="text-sm">{g} <span className="text-xs text-slate-500">· {events.filter((e) => e.summary === g).length}× · {guessType(g)}</span></p>
-                <label className="sr-only" htmlFor={"ics-" + g}>Modul für {g}</label>
-                <Select id={"ics-" + g} className={`${inputCls} mt-1`} value={map[g]} onChange={(e) => setMap((m) => ({ ...m, [g]: e.target.value }))}>
+                <label className="sr-only" htmlFor={`${idBase}-${i}`}>Modul für {g}</label>
+                <Select id={`${idBase}-${i}`} className={`${inputCls} mt-1`} value={map[g]} onChange={(e) => setMap((m) => ({ ...m, [g]: e.target.value }))}>
                   <option value="__skip">Nicht importieren</option>
                   <option value="__new">Neues Modul mit diesem Namen</option>
                   {data.modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}

@@ -12,20 +12,24 @@ export function MensaCard({ canteen }) {
   const [pick, setPick] = useState(() => menuDay().date);
   const day = days.find((d) => d.date === pick) || days[0];
   const url = canteen ? menuUrl(canteen, day.date) : null;
-  const [state, setState] = useState(() => { const c = readCache(); return c && c.url === url ? { week: c.week } : { loading: true }; });
+  const [state, setState] = useState(() => { const c = readCache(); return c && c.url === url ? { week: c.week, url } : { loading: true }; });
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!url) return;
     const c = readCache();
-    if (c && c.url === url && Date.now() - c.at < 6 * 3600 * 1000) { setState({ week: c.week }); return; }
+    if (c && c.url === url && Date.now() - c.at < 6 * 3600 * 1000) { setState({ week: c.week, url }); return; }
+    /* Stand derselben Woche bleibt beim Erneuern stehen; eine andere Woche (Wechsel auf Montag) gilt nicht */
+    const same = (s) => s.week && s.url === url;
+    setState((s) => (same(s) ? s : c && c.url === url ? { week: c.week, url } : { loading: true }));
     let live = true;
-    setState((s) => (s.week ? s : { loading: true }));
-    fetch(url, { cache: "no-cache" })
+    const ctl = new AbortController(), stop = setTimeout(() => ctl.abort(), 15000); /* hängt der Dienst: aufgeben */
+    fetch(url, { cache: "no-cache", signal: ctl.signal })
       .then((r) => (r.status === 404 ? { days: [] } : r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((week) => { if (!live) return; writeCache({ url, at: Date.now(), week }); setState({ week }); })
-      .catch(() => { if (live) setState((s) => (s.week ? s : { error: true })); });
-    return () => { live = false; };
+      .then((week) => { if (!live) return; writeCache({ url, at: Date.now(), week }); setState({ week, url }); })
+      .catch(() => { if (live) setState((s) => (same(s) ? s : { error: true })); })
+      .finally(() => clearTimeout(stop));
+    return () => { live = false; clearTimeout(stop); ctl.abort(); };
   }, [url]);
 
   if (!canteen) return null;

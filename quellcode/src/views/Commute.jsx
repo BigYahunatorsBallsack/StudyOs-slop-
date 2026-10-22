@@ -63,13 +63,14 @@ function Weather({ c, session, sessions, leaveAt, pos, tick }) {
     const hit = readWx(url);
     if (hit) setWx(hit);
     if (hit && Date.now() - hit.at < 15 * 60000) return;
-    let live = true;
-    fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then((json) => {
+    /* hängt der Dienst, nach 10 Sekunden aufgeben; beim Verlassen abbrechen */
+    const ctl = new AbortController(), stop = setTimeout(() => ctl.abort(), 10000);
+    fetch(url, { signal: ctl.signal }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then((json) => {
       const v = { url, at: Date.now(), days: parseForecast(json) };
       try { localStorage.setItem(WX, JSON.stringify(v)); } catch { /* egal */ }
-      if (live) setWx(v);
-    }).catch(() => { /* offline oder Dienst weg: keine Wetterzeile */ });
-    return () => { live = false; };
+      if (!ctl.signal.aborted) setWx(v);
+    }).catch(() => { /* offline, abgebrochen oder Dienst weg: keine Wetterzeile */ }).finally(() => clearTimeout(stop));
+    return () => { clearTimeout(stop); ctl.abort(); };
   }, [url, slot]);
   const days = wx?.url === url ? wx.days : null;
   if (!days || !session) return null;
@@ -270,7 +271,8 @@ export function CommuteCard({ db, sessions }) {
   useEffect(() => {
     if (!c || car || incomplete || home) return;
     const hit = readCache(cacheKey);
-    if (hit) setState(transitState(hit, c, session));
+    /* ohne Zwischenstand nicht die Verbindung zur vorher gewählten Veranstaltung stehen lassen */
+    setState(hit ? transitState(hit, c, session) : { main: null, feeder: null, plan: null, err: "" });
   }, [cacheKey, car, incomplete, home]);
   useEffect(() => {
     if (!c || !ready || car || incomplete || home) return;

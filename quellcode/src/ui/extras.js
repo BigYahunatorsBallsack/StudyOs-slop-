@@ -7,13 +7,16 @@ export function loadExtras() {
   if (window.StudyExtras) return Promise.resolve(window.StudyExtras);
   if (promise) return promise;
   promise = new Promise((resolve, reject) => {
-    const css = document.createElement("link");
-    css.rel = "stylesheet"; css.href = "./katex/katex.min.css";
-    document.head.appendChild(css);
+    /* nach einem Fehlschlag (offline) beim nächsten Versuch kein zweites Stylesheet anhängen */
+    if (!document.querySelector('link[data-extras]')) {
+      const css = document.createElement("link");
+      css.rel = "stylesheet"; css.href = "./katex/katex.min.css"; css.dataset.extras = "";
+      document.head.appendChild(css);
+    }
     const s = document.createElement("script");
     s.src = "./extras.js"; s.async = true;
     s.onload = () => resolve(window.StudyExtras || null);
-    s.onerror = () => { promise = null; reject(new Error("Formeln konnten nicht geladen werden.")); };
+    s.onerror = () => { promise = null; s.remove(); reject(new Error("Formeln konnten nicht geladen werden.")); };
     document.head.appendChild(s);
   });
   return promise;
