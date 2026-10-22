@@ -133,8 +133,8 @@ export function ModuleDetail({ db, id, onBack }) {
       <div className="flex items-start gap-3">
         <span className="mt-1 h-8 w-1.5 rounded-full" style={{ background: m.color }} aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-semibold tracking-tight">{m.name}</h2>
-          <p className="text-xs text-slate-400">{m.code ? m.code + " · " : ""}{m.ects} ECTS · Semester {m.semester} · {m.status}{m.grade ? ` · Note ${String(m.grade).replace(".", ",")}` : ""}{isGop(m, gop) ? " · GOP" : ""}</p>
+          <h2 className="break-words text-xl font-semibold tracking-tight">{m.name}</h2>
+          <p className="break-words text-xs text-slate-400">{m.code ? m.code + " · " : ""}{m.ects} ECTS · Semester {m.semester} · {m.status}{m.grade ? ` · Note ${String(m.grade).replace(".", ",")}` : ""}{isGop(m, gop) ? " · GOP" : ""}</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -150,8 +150,8 @@ export function ModuleDetail({ db, id, onBack }) {
           {nextExam && nextExam.result !== "bestanden" && <ExamCountdown e={nextExam} db={db} showModule={false} />}
           <Card title="Als Nächstes">
             <ul className="space-y-2 text-sm">
-              <li className="flex justify-between gap-2"><span className="text-slate-400">Termin</span><span className="text-right">{nextSes ? <>{fmtShort(nextSes.date)} {nextSes.start} · {nextSes.type}{nextSes.room || nextSes.change?.was?.room ? " · " : ""}<RoomLabel s={nextSes} /></> : "–"}</span></li>
-              <li className="flex justify-between gap-2"><span className="text-slate-400">Abgabe</span><span className="text-right">{nextHw ? <>{nextHw.title} · <span className={nextDue.urgent ? nextDue.cls : ""}>{nextDue.when}</span></> : "–"}</span></li>
+              <li className="flex justify-between gap-2"><span className="text-slate-400">Termin</span><span className="min-w-0 break-words text-right">{nextSes ? <>{fmtShort(nextSes.date)} {nextSes.start} · {nextSes.type}{nextSes.room || nextSes.change?.was?.room ? " · " : ""}<RoomLabel s={nextSes} /></> : "–"}</span></li>
+              <li className="flex justify-between gap-2"><span className="text-slate-400">Abgabe</span><span className="min-w-0 break-words text-right">{nextHw ? <>{nextHw.title} · <span className={nextDue.urgent ? nextDue.cls : ""}>{nextDue.when}</span></> : "–"}</span></li>
               <li className="flex justify-between gap-2"><span className="text-slate-400">Prüfung</span><span className="text-right">{nextExam ? `${fmt(nextExam.date)} (in ${diffDays(t, nextExam.date)} T.)` : <button className="text-sky-400 hover:underline" onClick={() => db.openForm("exam", { moduleId: id }, true)}>eintragen</button>}</span></li>
             </ul>
           </Card>

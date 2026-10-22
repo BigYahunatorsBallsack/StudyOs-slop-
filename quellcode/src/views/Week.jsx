@@ -77,12 +77,14 @@ export function WeekView({ db, compact = false }) {
   return (
     <div className="space-y-4">
       {!compact && <PullRefresh db={db} />}
-      <div className="flex items-end justify-between gap-2">
-        <div>
+      {/* Passt das längste Wort des Titels („Donnerstag,“, „vorlesungsfrei“) nicht neben die Knöpfe, rutschen die Knöpfe
+          in die nächste Zeile, statt über den Rand zu ragen (schmale Handys) */}
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="week-head-title">
           <H className={compact ? "section-title" : "page-title"}>{isMonth ? monthName(month) : isDay ? `${WD_LONG[wdIdx(day)]}, ${fmt(day).slice(0, 6)}` : <>{kw}{sem && <span className="sem-week"> · {sem}</span>}</>}</H>
           {!isMonth && <p className="page-sub">{isDay ? `${kw}${sem ? ` · ${sem}` : ""}${day === t ? ", heute" : ""}` : `${fmt(ws)} bis ${fmt(we)}${heldWeek.length ? `, ${reviewed} von ${heldWeek.length} nachbereitet` : ""}`}</p>}
         </div>
-        <div className="flex gap-1">
+        <div className="ml-auto flex gap-1">
           <button className="btn btn-ghost btn-icon" onClick={() => shift(-1)} aria-label={isMonth ? "Vorheriger Monat" : isDay ? "Vorheriger Tag" : "Vorherige Woche"}><span aria-hidden="true" className="block w-4 text-center">‹</span></button>
           <button className="btn btn-ghost" onClick={() => (isMonth ? setMonth(t.slice(0, 7)) : goDay(t))} disabled={isMonth ? month === t.slice(0, 7) : isDay ? day === t : ws === weekStart(t)}>Heute</button>
           <button className="btn btn-ghost btn-icon" onClick={() => shift(1)} aria-label={isMonth ? "Nächster Monat" : isDay ? "Nächster Tag" : "Nächste Woche"}><span aria-hidden="true" className="block w-4 text-center">›</span></button>

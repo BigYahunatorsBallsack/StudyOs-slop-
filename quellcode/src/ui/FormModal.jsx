@@ -12,7 +12,8 @@ import { Select } from "./select.jsx";
 import { SubtaskEditor } from "./subtasks.jsx";
 import { LinkEditor } from "./modlinks.jsx";
 import { PartnerInput } from "./partners.jsx";
-import { lastPartners, partnerSuggestions } from "../lib/partners.js";
+import { cleanPartners, lastPartners, partnerSuggestions, splitNames } from "../lib/partners.js";
+import { newSubtasks } from "../lib/subtasks.js";
 import { canonical } from "../lib/sync.js";
 
 /* Bilder einfügen (Strg+V, Einfügen am Handy, Hineinziehen): als Anhang speichern, in Notizen und Karten auch als Bild einbinden */
@@ -45,6 +46,8 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
     return v;
   });
   const [err, setErr] = useState("");
+  /* Text in Teilaufgaben/Partner, der noch nicht mit Enter übernommen ist: zählt beim Speichern mit */
+  const drafts = useRef({});
   const setField = (k, val) => setVals((v) => { const n = { ...v, [k]: val }; if (k === "moduleId") { if ("topicId" in n) n.topicId = ""; if ("sessionId" in n) n.sessionId = ""; if ("homeworkId" in n) n.homeworkId = ""; if ("partners" in n && !Array.isArray(form.initial?.partners) && canonical(v.partners) === canonical(lastPartners(data, v.moduleId, form.initial?.id))) n.partners = lastPartners(data, val, form.initial?.id); } return n; });
   const fileColl = db ? FILE_COLL[form.kind] : null;
   const [pending, setPending] = useState([]);
@@ -93,19 +96,22 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
 
   const submit = (e) => {
     e.preventDefault();
-    for (const f of fields) if (f.req && (vals[f.k] === "" || vals[f.k] === undefined || vals[f.k] === null || (typeof vals[f.k] === "string" && !vals[f.k].trim()))) return setErr(`Bitte „${f.l}“ ausfüllen.`);
+    const all = { ...vals };
+    if (drafts.current.subtasks?.trim()) all.subtasks = newSubtasks(drafts.current.subtasks, all.subtasks || []);
+    if (drafts.current.partners?.trim()) all.partners = cleanPartners([...(all.partners || []), ...splitNames(drafts.current.partners)]);
+    for (const f of fields) if (f.req && (all[f.k] === "" || all[f.k] === undefined || all[f.k] === null || (typeof all[f.k] === "string" && !all[f.k].trim()))) return setErr(`Bitte „${f.l}“ ausfüllen.`);
     for (const f of fields) if (f.t === "decimal" || f.t === "number") {
-      const n = f.t === "decimal" ? parseDec(vals[f.k]) : vals[f.k] === "" || vals[f.k] === null ? null : Number(vals[f.k]);
+      const n = f.t === "decimal" ? parseDec(all[f.k]) : all[f.k] === "" || all[f.k] === null ? null : Number(all[f.k]);
       if (n === null) continue;
       if (Number.isNaN(n)) return setErr(`„${f.l}“ muss eine Zahl sein.`);
       if (f.min !== undefined && n < f.min) return setErr(`„${f.l}“ muss mindestens ${fmtDec(f.min)} sein.`);
       if (f.max !== undefined && n > f.max) return setErr(`„${f.l}“ darf höchstens ${fmtDec(f.max)} sein.`);
     }
-    const msg = def.validate ? def.validate(vals) : "";
+    const msg = def.validate ? def.validate(all) : "";
     if (msg) return setErr(msg);
     const out = { ...(form.initial || {}) }; const extra = {};
     fields.forEach((f) => {
-      const v = vals[f.k];
+      const v = all[f.k];
       const val = f.t === "decimal" ? parseDec(v) : f.t === "number" || f.num ? (v === "" || v === null ? null : Number(v)) : f.t === "checkbox" ? !!v : f.t === "textarea" ? v : typeof v === "string" ? v.trim() : v;
       if (f.transient) extra[f.k] = val; else out[f.k] = val;
     });
@@ -134,8 +140,8 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
               if (f.t === "select") ctrl = <Select {...common}>{resolve(f, vals).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>;
               else if (f.t === "textarea" && form.kind === "note" && f.k === "text") ctrl = <MarkdownInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} rows={f.rows || 8} placeholder={f.ph} onMakeCard={db?.cardFromText ? (t) => db.cardFromText(t, vals.moduleId) : undefined} />;
               else if (f.t === "textarea") ctrl = <textarea {...common} rows={f.rows || 4} placeholder={f.ph} />;
-              else if (f.t === "subtasks") ctrl = <SubtaskEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} partners={vals.partners} />;
-              else if (f.t === "people") ctrl = <PartnerInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} suggestions={partnerSuggestions(data, vals.moduleId, form.initial?.id)} />;
+              else if (f.t === "subtasks") ctrl = <SubtaskEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} partners={vals.partners} onDraft={(d) => { drafts.current[f.k] = d; }} />;
+              else if (f.t === "people") ctrl = <PartnerInput id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} suggestions={partnerSuggestions(data, vals.moduleId, form.initial?.id)} onDraft={(d) => { drafts.current[f.k] = d; }} />;
               else if (f.t === "links") ctrl = <LinkEditor id={id} value={vals[f.k]} onChange={(v) => setField(f.k, v)} />;
               else if (f.t === "weekdays") ctrl = (
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label={f.l}>
@@ -174,7 +180,9 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
           {fileColl && <p className="mt-2 text-[11px] text-slate-500" role="status">{pasteMsg || "Bilder einfügen: Strg+V oder hineinziehen."}</p>}
           {err && <p role="alert" className="mt-3 text-sm text-rose-400">{err}</p>}
           <div className="form-actions mt-5 flex flex-wrap items-center gap-2">
-            <button type="submit" className={btnPrimary}>Speichern</button>
+            {/* Fokus bleibt beim Drücken im Feld: sonst übernimmt ein Entwurf (Teilaufgabe, Partner) beim Verlassen eine neue Zeile,
+                der Knopf rutscht unter dem Zeiger weg und der Klick geht ins Leere. Den Entwurf nimmt submit mit. */}
+            <button type="submit" className={btnPrimary} onMouseDown={(e) => e.preventDefault()}>Speichern</button>
             <button type="button" className={btnGhost} onClick={onClose}>Abbrechen</button>
             <div className="ml-auto flex gap-2">
               {!form.isNew && form.kind === "session" && form.initial?.seriesId && <ConfirmButton label="Serie löschen" confirmLabel="Ganze Serie löschen?" onConfirm={() => { onDeleteSeries(form.initial.seriesId); onClose(); }} />}

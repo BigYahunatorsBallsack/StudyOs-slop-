@@ -1,5 +1,5 @@
 /* Einklappbare Abschnitte auf „Heute“: der Zustand bleibt auf dem Gerät; beim Schließen erst ausblenden, wenn die Animation durch ist */
-import React, { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 /* Wie oft der umgebende Abschnitt aufgeklappt wurde (0 = seit dem Laden nicht): Inhalte können darauf mit einer Animation antworten */
 const Opens = createContext(0);
@@ -32,6 +32,14 @@ export function Group({ id, title, count, action, className = "", closedByDefaul
     if (!name || name === "none") settle();
   }, [phase]);
   const onEnd = (e) => { if (e.target === e.currentTarget) settle(); };
+  /* Abgebrochene Animation (z. B. „Bewegung aus“ mittendrin): React kennt kein onAnimationCancel, darum direkt am Element */
+  useEffect(() => {
+    const el = body.current;
+    if (!el) return undefined;
+    const f = (e) => { if (e.target === el) settle(); };
+    el.addEventListener("animationcancel", f);
+    return () => el.removeEventListener("animationcancel", f);
+  }, []);
   const bodyId = `heute-${id}`;
   return (
     <section className={`group group-${id} ${className}`}>
@@ -43,7 +51,7 @@ export function Group({ id, title, count, action, className = "", closedByDefaul
         </h3>
         {action}
       </div>
-      <div id={bodyId} ref={body} className={`group-body group-${phase}`} hidden={phase === "closed"} onAnimationEnd={onEnd} onAnimationCancel={onEnd}>
+      <div id={bodyId} ref={body} className={`group-body group-${phase}`} hidden={phase === "closed"} onAnimationEnd={onEnd}>
         <Opens.Provider value={opens}>{children}</Opens.Provider>
       </div>
     </section>
