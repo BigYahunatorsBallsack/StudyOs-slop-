@@ -742,4 +742,5 @@ html { overscroll-behavior-x: none; }
   :is(.chip, .tri-btn, .link-btn, .group-toggle, .ext-link, .row-main, .todo-check, .tap) { position: relative; }
   :is(.chip, .tri-btn, .link-btn, .group-toggle, .ext-link, .row-main, .tap)::before { content: ""; position: absolute; inset: -6px 0; }
   .todo-check::before { content: ""; position: absolute; inset: -4px; }
+  summary.tap::before { inset: -8px 0; } /* kleine Aufklappzeile (text-xs, 16 px hoch) */
 }

@@ -320,7 +320,7 @@ export function SheetPoints({ s, color }) {
         Gefüllt: erreichte Punkte, leer: noch offen.{s.limit !== null ? ` Linie: Bonusgrenze ${p(s.limit)}.` : ""}{s.need !== null ? ` Strich auf offenen Blättern: im Schnitt nötig (${p(s.need)}).` : ""}
       </p>
       <details className="mt-1 text-xs">
-        <summary className="cursor-pointer text-slate-400">Als Tabelle</summary>
+        <summary className="tap cursor-pointer text-slate-400">Als Tabelle</summary>
         <table className="sheet-table mt-2 w-full">
           <thead><tr><th scope="col">Blatt</th><th scope="col">Punkte</th><th scope="col">Anteil</th></tr></thead>
           <tbody>
