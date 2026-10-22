@@ -308,7 +308,7 @@ export function SheetPoints({ s, color }) {
       <div className="sheetbars" role="img" aria-label={`Punkte pro Blatt. ${summary}`} style={{ "--mod": color }}>
         {s.limit !== null && <span className="sheetbars-limit" style={{ bottom: `${s.limit * 100}%` }} aria-hidden="true"><span>{p(s.limit)}</span></span>}
         {s.bars.map((b) => (
-          <span key={b.id} className={`sheetbar ${b.graded ? (ok(b) ? "sheetbar-ok" : "sheetbar-low") : "sheetbar-open"}`}
+          <span key={b.id} className={`sheetbar ${b.graded ? (ok(b) ? "" : "sheetbar-low") : "sheetbar-open"}`}
             title={b.graded ? `${b.title}: ${num(b.points)} von ${num(b.max)} Punkten (${p(b.points / b.max)})` : `${b.title}: noch offen, ${num(b.max)} Punkte möglich`}>
             {b.graded && <span className="sheetbar-fill" style={{ height: `${Math.min(100, (b.points / b.max) * 100)}%` }} />}
             {!b.graded && s.need !== null && <span className="sheetbar-need" style={{ bottom: `${Math.min(100, s.need * 100)}%` }} />}
