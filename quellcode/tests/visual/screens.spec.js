@@ -28,7 +28,9 @@ for (const theme of ['retro']) {
     test(`${view} (${theme})`, async ({ page }) => {
       await setup(page, theme);
       await nav(page, tab).click();
-      await page.waitForTimeout(300);
+      /* Bereich gewechselt und zwei Bilder gezeichnet, statt einer festen Wartezeit */
+      await expect(nav(page, tab)).toHaveAttribute('aria-current', 'page');
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       await expect(page).toHaveScreenshot(`${view}-${theme}.png`, { fullPage: true, animations: 'disabled', maxDiffPixelRatio: 0.02, mask: [page.getByText(/^StudyOS \d/)] });
     });
   }
