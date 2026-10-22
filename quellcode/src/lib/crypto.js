@@ -9,7 +9,12 @@ const toB64 = (buf) => {
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
 };
-const fromB64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+/* Schleife statt Uint8Array.from(…, fn): bei einigen MB Cloud-Daten etwa zehnmal schneller */
+const fromB64 = (b64) => {
+  const s = atob(b64), out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+};
 
 async function deriveKey(pass, salt, iterations) {
   const base = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);

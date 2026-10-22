@@ -18,10 +18,19 @@ function hash(text) {
   return (h >>> 0).toString(36);
 }
 
+/* Teil je Eintrag, gemerkt pro Objekt: Einträge werden nie verändert, sondern ersetzt (siehe stampChanges). Bei vielen Einträgen
+   kostete das Hashen aller Einträge nach jeder kleinen Änderung sonst spürbar Zeit (25 000 Einträge: über 100 ms). */
+const itemParts = new WeakMap();
+const itemPart = (x) => {
+  if (!x || typeof x !== "object") return `${x}`;
+  let p = itemParts.get(x);
+  if (p === undefined) { p = `${x.id}@${x.updated || ""}#${hash(canonical(x))}`; itemParts.set(x, p); }
+  return p;
+};
 /** Kurzer Fingerabdruck des synchronisierten Inhalts: ändert sich, sobald ein Eintrag, eine Löschung,
     die Einstellungen oder der Papierkorb sich ändern. */
 export function fingerprint(d) {
-  const parts = COLLS.map((c) => c + ":" + (d[c] || []).map((x) => `${x.id}@${x.updated || ""}#${hash(canonical(x))}`).sort().join(","));
+  const parts = COLLS.map((c) => c + ":" + (d[c] || []).map(itemPart).sort().join(","));
   parts.push("del:" + (d.deleted || []).map((t) => `${t.c}/${t.id}@${t.at}`).sort().join(","));
   /* EPOCH heißt wie „fehlt“: nie geänderte Einstellungen, sonst gäbe es auf neuen Geräten einen überflüssigen Upload */
   const su = d.meta?.settingsUpdated;
