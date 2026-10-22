@@ -63,12 +63,14 @@ export function minutesBySemester(data) {
 
 /** Kumulierter ECTS-gewichteter Schnitt nach jedem Semester (nur bestandene, benotete Module). */
 export function gradeTimeline(data) {
-  const graded = data.modules.filter((m) => m.status === "bestanden" && Number(m.grade) > 0 && Number(m.ects) > 0);
+  /* Noten wie „1,7“ (Komma) zählen wie in effortVsGrade mit */
+  const gradeOf = (m) => Number(String(m.grade ?? "").replace(",", "."));
+  const graded = data.modules.filter((m) => m.status === "bestanden" && gradeOf(m) > 0 && Number(m.ects) > 0);
   const semesters = [...new Set(graded.map((m) => m.semester || 0))].sort((a, b) => a - b);
   return semesters.map((semester) => {
     const upTo = graded.filter((m) => (m.semester || 0) <= semester);
     const ects = sum(upTo, (m) => m.ects);
-    return { semester, ects, avg: sum(upTo, (m) => m.grade * m.ects) / ects };
+    return { semester, ects, avg: sum(upTo, (m) => gradeOf(m) * Number(m.ects)) / ects };
   });
 }
 

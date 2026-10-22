@@ -4,7 +4,7 @@
    Alles Erkannte wird aus dem Titel entfernt; der Rest ist der Titel.
    Lerneinheiten („1h DS gestern“) liegen in der Vergangenheit: ein Wochentag meint dann den letzten. */
 import { expandRange } from "./subtasks.js";
-import { addDays, iso, uid, wdIdx } from "./util.js";
+import { addDays, iso, uid, validDate, wdIdx, weekStart } from "./util.js";
 
 const WEEKDAYS = [
   ["mo", "montag"], ["di", "dienstag"], ["mi", "mittwoch"], ["do", "donnerstag"], ["fr", "freitag"], ["sa", "samstag"], ["so", "sonntag"],
@@ -77,7 +77,8 @@ function parseDateToken(tokens, i, today) {
     const nx = norm(tokens[i + 1]).replace(/[.,]$/, "");
     if (/^woche$/.test(nx)) return [addDays(today, 7 - wdIdx(today)), 2];
     const wd = WEEKDAYS.findIndex(([a, b]) => nx === a || nx === b);
-    if (wd >= 0) { let d = nextWeekday(today, wd); if (diffWeeks(today, d) === 0) d = addDays(d, 7); return [d, 2]; }
+    /* „nächsten Montag“ = Montag der nächsten Kalenderwoche (am Mittwoch also in 5 Tagen, nicht in 12) */
+    if (wd >= 0) return [addDays(weekStart(today), 7 + wd), 2];
   }
   if (w === "in" && tokens[i + 2] && /^\d+$/.test(tokens[i + 1])) {
     const n = Number(tokens[i + 1]), unit = norm(tokens[i + 2]);
@@ -86,7 +87,7 @@ function parseDateToken(tokens, i, today) {
   }
   const wd = WEEKDAYS.findIndex(([a, b]) => w === a || w === b);
   if (wd >= 0) return [nextWeekday(today, wd), 1, { past: addDays(today, -((wdIdx(today) - wd + 7) % 7)) }];
-  let m = /^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4})?)?$/.exec(w);
+  let m = /^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2})?)?$/.exec(w);
   if (m) {
     const day = Number(m[1]), mon = Number(m[2]);
     if (day < 1 || day > 31 || mon < 1 || mon > 12) return null;
@@ -94,18 +95,20 @@ function parseDateToken(tokens, i, today) {
     let d = `${year}-${pad(mon)}-${pad(day)}`;
     const past = d;
     if (!m[3] && d < today) d = `${year + 1}-${pad(mon)}-${pad(day)}`;
-    return [d, 1, { past }];
+    /* 29.02. ohne Jahr: das nächste Schaltjahr; 31.02. gibt es nie */
+    for (let y = Number(d.slice(0, 4)) + 1; !m[3] && !validDate(d) && y <= year + 4; y++) d = `${y}-${pad(mon)}-${pad(day)}`;
+    if (!validDate(d)) return null;
+    return [d, 1, ...(validDate(past) ? [{ past }] : [])];
   }
   m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(w);
-  if (m) return [w, 1];
+  if (m && validDate(w)) return [w, 1];
   return null;
 }
-const diffWeeks = (a, b) => Math.floor((new Date(b).getTime() - new Date(a).getTime()) / (7 * 86400000));
 
 function parseTimeToken(tok) {
   const w = norm(tok).replace(/uhr$/, "");
   let m = /^(\d{1,2})(?::(\d{2}))?\s*[-–]\s*(\d{1,2})(?::(\d{2}))?$/.exec(w);
-  if (m && Number(m[1]) < 24 && Number(m[3]) < 24) return { start: `${pad(m[1])}:${m[2] || "00"}`, end: `${pad(m[3])}:${m[4] || "00"}` };
+  if (m && Number(m[1]) < 24 && Number(m[3]) < 24 && Number(m[2] || 0) < 60 && Number(m[4] || 0) < 60) return { start: `${pad(m[1])}:${m[2] || "00"}`, end: `${pad(m[3])}:${m[4] || "00"}` };
   m = /^(\d{1,2}):(\d{2})$/.exec(w);
   if (m && Number(m[1]) < 24 && Number(m[2]) < 60) return { start: `${pad(m[1])}:${m[2]}` };
   return null;
@@ -121,7 +124,7 @@ function parseDuration(tokens, i) {
   if (m) return [Number(m[1]), 1];
   if (/^\d+(?:[.,]\d+)?$/.test(w) && tokens[i + 1]) {
     const u = norm(tokens[i + 1]);
-    if (/^(min|minuten)$/.test(u)) return [Number(w), 2];
+    if (/^(min|minuten)$/.test(u)) return [Math.round(Number(w.replace(",", "."))), 2];
     if (/^(h|std|stunde|stunden)$/.test(u)) return [Math.round(Number(w.replace(",", ".")) * 60), 2];
   }
   return null;
@@ -157,7 +160,7 @@ export function parseQuick(text, modules = [], today = iso()) {
       const t = parseTimeToken(tokens[i + 1].includes(":") ? tokens[i + 1] : tokens[i + 1] + ":00");
       if (t && !out.start) { out.start = t.start; used[i] = used[i + 1] = true; if (tokens[i + 2] && /^uhr$/i.test(tokens[i + 2])) used[i + 2] = true; continue; }
     }
-    if (/^\d{1,2}$/.test(tok) && tokens[i + 1] && /^uhr$/i.test(tokens[i + 1]) && !out.start) { out.start = `${pad(tok)}:00`; used[i] = used[i + 1] = true; continue; }
+    if (/^\d{1,2}$/.test(tok) && Number(tok) < 24 && tokens[i + 1] && /^uhr$/i.test(tokens[i + 1]) && !out.start) { out.start = `${pad(tok)}:00`; used[i] = used[i + 1] = true; continue; }
     const t = parseTimeToken(tok);
     if (t && !out.start) { Object.assign(out, t); used[i] = true; if (tokens[i + 1] && /^uhr$/i.test(tokens[i + 1])) used[i + 1] = true; continue; }
     const dur = out.minutes === null && parseDuration(tokens, i);
@@ -218,7 +221,8 @@ export function quickToEntity(q, today = iso()) {
     default: return { kind: "note", vals: { moduleId, sessionId: "", title: q.title || "Notiz", text: "" } };
   }
 }
-const addHours = (hm, h) => { const [a, b] = hm.split(":").map(Number); return `${pad(Math.min(23, a + h))}:${pad(b)}`; };
+/* Ende nach `h` Stunden, höchstens 23:59 (sonst wäre ein Termin um 23:00 null Minuten lang) */
+const addHours = (hm, h) => { const [a, b] = hm.split(":").map(Number); return a + h > 23 ? "23:59" : `${pad(a + h)}:${pad(b)}`; };
 
 /** Fehlende Pflichtangaben für direktes Speichern (sonst Formular öffnen). */
 export function quickMissing(q) {

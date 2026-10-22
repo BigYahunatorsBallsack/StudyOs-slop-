@@ -8,7 +8,7 @@ export const effortOf = (x) => Math.min(3, Math.max(1, Number(x.effort) || 2));
 
 export function buildPlan(data, exam, today = iso()) {
   const daysLeft = diffDays(today, exam.date);
-  if (daysLeft <= 0) return [];
+  if (!(daysLeft > 0)) return []; /* auch ohne (gültiges) Prüfungsdatum: NaN */
   const rank = (x) => TOPIC_STATES.indexOf(x.state) * 10 + (Number(x.rating) || 0);
   const topics = data.topics
     .filter((x) => x.moduleId === exam.moduleId && x.state !== "sicher")

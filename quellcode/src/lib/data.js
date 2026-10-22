@@ -178,7 +178,10 @@ export function searchAll(data, q) {
   const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
   if (!terms.length) return [];
   const hit = (...parts) => { const s = parts.filter(Boolean).join(" ").toLowerCase(); return terms.every((t) => s.includes(t)); };
-  const mod = (id) => data.modules.find((m) => m.id === id);
+  /* läuft bei jedem Tastendruck: Module einmal nach id ablegen statt je Treffer die Liste zu durchsuchen (bei doppelter id gilt wie bei find das erste) */
+  const byId = new Map();
+  for (const m of data.modules) if (!byId.has(m.id)) byId.set(m.id, m);
+  const mod = (id) => byId.get(id);
   const out = [];
   data.modules.forEach((m) => hit(m.name, m.code) && out.push({ kind: "module", label: "Modul", item: m, title: m.name, sub: `${m.ects} ECTS · ${m.status}` }));
   data.homework.forEach((h) => hit(h.title, h.feedback, mod(h.moduleId)?.name) && out.push({ kind: "homework", label: "Hausaufgabe", item: h, title: h.title, sub: `${mod(h.moduleId)?.name || ""} · ${h.status}` }));
