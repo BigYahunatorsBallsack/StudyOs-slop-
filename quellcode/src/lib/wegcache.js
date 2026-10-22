@@ -1,19 +1,22 @@
 /* Weg zur Uni: letzter Stand von Abfahrten und Fahrzeit auf dem Gerät (localStorage), gemeinsam für die Karte auf „Heute“
    und die Abfahrt in der Kopfzeile. Gleichzeitige Abfragen für denselben Schlüssel laufen nur einmal. */
 import { carPlan, firstSessionOn, hhmm, isOnline, queryOffset, recommend } from "./transit.js";
+import { homeQueries, HOMEWARD } from "./homeward.js";
 import { iso } from "./util.js";
 
 export const CACHE = "studyos-weg";
 export const MAX_AGE = 30 * 60000;
+/* Auf der Karte „Weg zur Uni“ darf der letzte Stand älter sein (mit „Stand hh:mm“ dazu), schon abgefahrene fallen ohnehin weg */
+export const SHOW_AGE = 3 * 60 * 60000;
 /* Neuer Stand auf dem Gerät: die Kopfzeile hört mit */
 export const WEG_EVENT = "studyos-weg-neu";
 export const TYPES = "BUS,REGIONAL_BUS,SBAHN,UBAHN,TRAM,BAHN";
 
-export const readCache = (k) => { try { const all = JSON.parse(localStorage.getItem(CACHE) || "{}"); const v = all[k]; return v && Date.now() - v.at < MAX_AGE ? v : null; } catch { return null; } };
+export const readCache = (k, maxAge = MAX_AGE) => { try { const all = JSON.parse(localStorage.getItem(CACHE) || "{}"); const v = all[k]; return v && Date.now() - v.at < maxAge ? v : null; } catch { return null; } };
 export const writeCache = (k, v) => {
   try {
     const all = JSON.parse(localStorage.getItem(CACHE) || "{}");
-    for (const x of Object.keys(all)) if (Date.now() - all[x].at > MAX_AGE) delete all[x];
+    for (const x of Object.keys(all)) if (Date.now() - all[x].at > SHOW_AGE) delete all[x];
     all[k] = { ...v, at: Date.now() };
     localStorage.setItem(CACHE, JSON.stringify(all));
   } catch { /* egal */ }
@@ -49,6 +52,26 @@ export function loadTransit(cloud, c, session) {
     writeCache(key, raw);
     return raw;
   });
+}
+
+/** Schlüssel für den Heimweg mit den Öffis */
+export const HOME_CACHE = `home:${HOMEWARD.station.id}>${HOMEWARD.conn.station.id}`;
+
+/** Heimweg: Bus ab Garching und S-Bahn in Haar in einem Aufruf holen und ablegen; liefert die Rohdaten */
+export function loadHome(cloud) {
+  return once(HOME_CACHE, async () => {
+    const list = homeQueries(TYPES);
+    const [buses, trains] = await (cloud.mvgMany ? cloud.mvgMany(list) : Promise.all(list.map((b) => cloud.mvg(b))));
+    const raw = { buses, trains };
+    writeCache(HOME_CACHE, raw);
+    return raw;
+  });
+}
+
+/** Im Hintergrund vorladen, was gleich gebraucht werden könnte (andere Richtung, andere Veranstaltung), außer es ist noch frisch */
+export function warm(key, run, fresh = 5 * 60000) {
+  if (readCache(key, fresh)) return;
+  run().catch(() => { /* offline: dann eben beim Öffnen laden */ });
 }
 
 /** Fahrzeit mit Verkehr holen und ablegen */
