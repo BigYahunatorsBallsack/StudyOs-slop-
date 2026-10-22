@@ -1,7 +1,8 @@
 /* Gesten für Listenzeilen: nach rechts wischen löst die Hauptaktion aus (z. B. „erledigt“), nach links verschiebt,
    lange drücken (oder Rechtsklick) öffnet das Schnellmenü.
    Ersetzt keine Bedienelemente: Jede Aktion bleibt auch per Knopf erreichbar (Tastatur, Screenreader). */
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { buzz } from "./sfx.js";
 
 const THRESHOLD = 84;
 const LONG_MS = 480;
@@ -13,17 +14,19 @@ export function useSwipe({ onSwipeRight, onSwipeLeft, onLongPress }) {
   const st = useRef(null);
   const swallowClick = useRef(false);
   const longAt = useRef(0);
+  /* Zeile verschwindet während des Drückens (z. B. abgehakt auf einem anderen Gerät): kein Schnellmenü hinterher */
+  useEffect(() => () => clearTimeout(st.current?.timer), []);
 
   const swallow = () => { swallowClick.current = true; setTimeout(() => { swallowClick.current = false; }, 0); };
   const fireLong = () => {
     if (Date.now() - longAt.current < 800) return; /* Android meldet langes Drücken zusätzlich als Kontextmenü */
     longAt.current = Date.now();
-    try { navigator.vibrate && navigator.vibrate(10); } catch {}
+    buzz(10); /* hält sich an „Vibration“ in den Einstellungen */
     onLongPress();
   };
   const down = (e) => {
     if (e.button > 0 || e.target.closest("select, input, textarea, [role=combobox]")) return;
-    const s = { x: e.clientX, y: e.clientY, id: e.pointerId, active: false, timer: 0, long: false };
+    const s = { x: e.clientX, y: e.clientY, id: e.pointerId, active: false, timer: 0, long: false, dx: 0 };
     if (onLongPress && e.pointerType !== "mouse") s.timer = setTimeout(() => { s.long = true; st.current = null; swallowClick.current = true; fireLong(); }, LONG_MS);
     st.current = s;
   };
@@ -40,16 +43,17 @@ export function useSwipe({ onSwipeRight, onSwipeLeft, onLongPress }) {
     }
     const d = Math.max(onSwipeLeft ? -Infinity : 0, Math.min(onSwipeRight ? Infinity : 0, mx));
     const a = Math.abs(d), damped = a > THRESHOLD ? THRESHOLD + (a - THRESHOLD) * 0.35 : a;
-    setDx(Math.sign(d) * damped);
+    s.dx = Math.sign(d) * damped; /* fürs Loslassen: der Zustand kann noch vom letzten Zeichnen stammen */
+    setDx(s.dx);
   };
   const up = () => {
     const s = st.current; st.current = null;
     if (s) clearTimeout(s.timer);
     if (s && s.active) {
       swallow();
-      if (Math.abs(dx) >= THRESHOLD) {
-        try { navigator.vibrate && navigator.vibrate(12); } catch {}
-        (dx > 0 ? onSwipeRight : onSwipeLeft)();
+      if (Math.abs(s.dx) >= THRESHOLD) {
+        buzz(12);
+        (s.dx > 0 ? onSwipeRight : onSwipeLeft)();
       }
     }
     if (swallowClick.current && !(s && s.active)) setTimeout(() => { swallowClick.current = false; }, 0);

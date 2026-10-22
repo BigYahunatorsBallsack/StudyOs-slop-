@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WD } from "../lib/constants.js";
 import { PALETTE } from "../lib/constants.js";
 import { formDef } from "../lib/forms.js";
@@ -20,8 +20,9 @@ const FILE_COLL = { note: "notes", homework: "homework", card: "cards" };
 const MD_FIELDS = { note: ["text"], card: ["front", "back"] };
 
 export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, onClose }) {
-  const def = formDef(form.kind, data);
-  const following = form.kind === "session" && !form.isNew ? followingSimilar(data.sessions, form.initial).length : 0;
+  /* Nicht bei jedem Tastendruck neu: Felder hängen nur an den Daten, die folgenden Termine nur an den Terminen */
+  const def = useMemo(() => formDef(form.kind, data), [form.kind, data]);
+  const following = useMemo(() => (form.kind === "session" && !form.isNew ? followingSimilar(data.sessions, form.initial).length : 0), [form, data.sessions]);
   const fields = def.fields
     .filter((f) => !(f.createOnly && !form.isNew) && !(f.editOnly && form.isNew) && !(f.seriesOnly && !following))
     .map((f) => (f.seriesOnly ? { ...f, l: `${f.l} (${following} ${following === 1 ? "weiterer" : "weitere"})` } : f));
@@ -48,10 +49,11 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
   const fileColl = db ? FILE_COLL[form.kind] : null;
   const [pending, setPending] = useState([]);
   const [pasteMsg, setPasteMsg] = useState("");
-  const pendingRef = useRef(pending), savedRef = useRef(false);
+  const pendingRef = useRef(pending), savedRef = useRef(false), aliveRef = useRef(true);
   pendingRef.current = pending;
   /* abgebrochen: eingefügte Bilder wieder wegräumen */
   useEffect(() => () => {
+    aliveRef.current = false;
     if (savedRef.current) return;
     pendingRef.current.forEach((f) => { removeLocal(f.id); if (f.cloud) db?.cloud?.removeFile?.(f.id); });
   }, []);
@@ -64,6 +66,8 @@ export function FormModal({ form, data, db, onSave, onDelete, onDeleteSeries, on
       try { metas.push((await storeFile(f, db.cloud, pastedName(f))).meta); } catch (e) { setErr(e.message || "Konnte das Bild nicht speichern."); }
     }
     if (!metas.length) return;
+    /* Fenster schon zu, während die Bilder noch gespeichert wurden: sie gehören zu nichts, also gleich wieder weg */
+    if (!aliveRef.current) { metas.forEach((f) => { removeLocal(f.id); if (f.cloud) db?.cloud?.removeFile?.(f.id); }); return; }
     setPending((p) => [...p, ...metas]);
     if (inline) setVals((v) => { const t = v[key] || "", md = metas.map(imageMd).join("\n"); return { ...v, [key]: t.slice(0, pos[0]) + md + t.slice(pos[1]) }; });
     const what = metas.length === 1 ? "Bild" : `${metas.length} Bilder`;
