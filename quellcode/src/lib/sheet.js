@@ -1,7 +1,7 @@
 /* Geteiltes Übungsblatt (PDF) → Abgabe: Modul, Blattnummer, Frist und Aufgaben aus Dateiname und Text erkennen.
    Der Text kommt aus pdfText(); beides ist eine Schätzung, die Abgabe öffnet sich danach zum Prüfen. */
 import { matchModule, norm } from "./quickadd.js";
-import { addDays, iso, uid } from "./util.js";
+import { addDays, iso, uid, validDate } from "./util.js";
 import { withNumber } from "./study.js";
 
 const MONTHS = ["januar", "februar", "marz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"];
@@ -18,16 +18,13 @@ export function findDate(s, today = iso()) {
     const ty = Number(today.slice(0, 4)), cand = `${ty}-${pad(m)}-${pad(d)}`;
     return cand < addDays(today, -60) ? `${ty + 1}-${pad(m)}-${pad(d)}` : cand;
   };
-  let m = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(s);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  m = /\b(\d{1,2})\.\s?(\d{1,2})\.(?:\s?(\d{4}|\d{2})\b)?/.exec(s);
-  if (m && Number(m[2]) <= 12 && Number(m[1]) <= 31) return year(Number(m[1]), Number(m[2]), m[3]);
+  /* jeweils der erste Treffer, der ein echtes Datum ist (nicht „31.11.“ oder „3 Aufgaben“ vor „14. November“) */
+  const first = (re, text, f) => { for (const m of text.matchAll(re)) { const d = f(m); if (d && validDate(d)) return d; } return ""; };
   const t = norm(s);
-  m = /\b(\d{1,2})\.?\s+([a-z]+)\s*(\d{4})?/.exec(t);
-  if (m) { const i = Math.max(MONTHS.indexOf(m[2]), MONTHS_EN.indexOf(m[2])); if (i >= 0) return year(Number(m[1]), i + 1, m[3]); }
-  m = /\b([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})?/.exec(t);
-  if (m) { const i = MONTHS_EN.indexOf(m[1]); if (i >= 0) return year(Number(m[2]), i + 1, m[3]); }
-  return "";
+  return first(/\b(\d{4})-(\d{2})-(\d{2})\b/g, s, (m) => `${m[1]}-${m[2]}-${m[3]}`)
+    || first(/\b(\d{1,2})\.\s?(\d{1,2})\.(?:\s?(\d{4}|\d{2})\b)?/g, s, (m) => year(Number(m[1]), Number(m[2]), m[3]))
+    || first(/\b(\d{1,2})\.?\s+([a-z]+)\s*(\d{4})?/g, t, (m) => { const i = Math.max(MONTHS.indexOf(m[2]), MONTHS_EN.indexOf(m[2])); return i >= 0 ? year(Number(m[1]), i + 1, m[3]) : ""; })
+    || first(/\b([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})?/g, t, (m) => { const i = MONTHS_EN.indexOf(m[1]); return i >= 0 ? year(Number(m[2]), i + 1, m[3]) : ""; });
 }
 
 /**

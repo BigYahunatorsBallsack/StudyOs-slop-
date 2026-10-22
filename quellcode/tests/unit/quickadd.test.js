@@ -31,7 +31,9 @@ describe("Schnelleingabe", () => {
     expect(q("Abgabe DS 1.10.").date).toBe("2027-10-01"); // liegt dieses Jahr schon zurück
     expect(q("Blatt 2 DS 30.10.").date).toBe("2026-10-30");
     expect(q("Abgabe DS in 3 Tagen").date).toBe("2026-10-24");
-    expect(q("Abgabe DS nächsten Montag").date).toBe("2026-11-02");
+    /* „nächsten Montag“ am Mittwoch: Montag der nächsten Woche (in 5 Tagen), nicht der übernächste */
+    expect(q("Abgabe DS nächsten Montag").date).toBe("2026-10-26");
+    expect(q("Abgabe DS nächsten Freitag").date).toBe("2026-10-30");
     expect(q("Abgabe DS 2026-11-05").date).toBe("2026-11-05");
   });
   it("Termin mit Zeitspanne und Art", () => {

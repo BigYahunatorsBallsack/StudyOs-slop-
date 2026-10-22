@@ -137,7 +137,8 @@ export const HOURS_PER_ECTS = 30;
 
 const minutesOf = (s) => {
   const [a, b] = String(s.start || "0:0").split(":").map(Number), [c, d] = String(s.end || s.start || "0:0").split(":").map(Number);
-  return Math.max(0, c * 60 + d - (a * 60 + b));
+  const m = c * 60 + d - (a * 60 + b);
+  return Number.isFinite(m) ? Math.max(0, m) : 0; /* „10“ statt „10:00“ in alten Daten: 0 statt NaN */
 };
 
 /**

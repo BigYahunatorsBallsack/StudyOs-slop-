@@ -28,7 +28,8 @@ export function holidaysOf(y) {
   return map;
 }
 
-export const holidayOf = (date) => (date ? holidaysOf(Number(date.slice(0, 4))).get(date) || null : null);
+/* Nur für echte Daten „JJJJ-…“: aus kaputten Werten älterer Datenstände würde sonst ein ungültiges Datum (RangeError) */
+export const holidayOf = (date) => (/^\d{4}-/.test(String(date || "")) ? holidaysOf(Number(date.slice(0, 4))).get(date) || null : null);
 
 /* Vorlesungsfreie Zeit an der TUM laut tum.de („Termine und Fristen“); Weihnachten jedes Jahr vom 24.12. bis 6.1. */
 export const TUM_BREAKS = [
