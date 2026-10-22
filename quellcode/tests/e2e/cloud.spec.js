@@ -622,6 +622,29 @@ test('Artemis: Abo auch ohne Abgaben, übernimmt sie später automatisch', async
   await A.context.close();
 });
 
+test('Handy: „Synchronisiert“ schiebt die Kopfzeile nicht über den Rand', async ({ browser }) => {
+  test.setTimeout(60000);
+  const backend = createBackend();
+  const A = await newDevice(browser, backend, { touch: true });
+  await addNote(A.page, 'Notiz');
+  await login(A.page);
+  await A.page.getByLabel('Sync-Passphrase', { exact: true }).fill('mein-sync-pw');
+  await A.page.getByLabel('Sync-Passphrase wiederholen').fill('mein-sync-pw');
+  await A.page.getByRole('button', { name: 'Festlegen und hochladen' }).click();
+  await expect(A.page.getByRole('button', { name: 'Jetzt synchronisieren' })).toBeVisible({ timeout: 15000 });
+  /* Laufender Timer in der Kopfzeile: vorher rutschte die Suche aus dem Bild */
+  await A.page.goto('./?aktion=timer');
+  await A.page.getByRole('button', { name: 'Starten' }).click();
+  await nav(A.page, 'Heute').click();
+  await expect(A.page.locator('.sync-dot')).toBeVisible();
+  await expect(A.page.getByRole('status').filter({ hasText: /^Synchronisiert$/ })).toHaveCount(1); /* für Bildschirmleser weiter da */
+  const search = await A.page.getByRole('button', { name: 'Suchen (Strg + K)' }).boundingBox();
+  expect(search.x + search.width).toBeLessThanOrEqual(412);
+  expect(await A.page.evaluate(() => { const r = document.querySelector('.appbar > div'); return r.scrollWidth <= r.clientWidth; })).toBe(true);
+  expect(A.errors).toEqual([]);
+  await A.context.close();
+});
+
 test('Konflikt: Änderung von einem anderen Gerät überschrieben, „Meine behalten“ stellt sie wieder her', async ({ browser }) => {
   test.setTimeout(90000);
   const backend = createBackend();

@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Behoben: Kopfzeile am Handy:** Mit Cloud-Sync steht dort nicht mehr der Text „Synchronisiert“, der die Kopfzeile zuschob, sodass die Suche aus dem Bild rutschte. Den Stand zeigt der farbige Punkt (antippen gleicht ab), am PC bleibt der Text.
 - **Nach Jahren voller Daten schnell:** Lerneinheiten und Karteikarten öffnen sofort statt nach bis zu 30 Sekunden. Lange Listen zeigen 100 Einträge, „Weitere anzeigen“ lädt nach, Summen und „Alle auswählen“ gelten weiter für alle. Speichern, Start, Heute, Wochenrückblick, jede Änderung mit Sync und das Herunterladen aus der Cloud sind bei großen Datenständen spürbar schneller.
 - **Behoben: Kontowechsel:** Meldest du dich auf einem Gerät mit einem anderen Konto an, werden die Daten nicht mehr vermischt. Die Daten des alten Kontos werden ersetzt (mit Wiederherstellungspunkt), Zusammenführen gibt es nur auf Wunsch. Abmelden schaltet die Erinnerungen dieses Kontos auf dem Gerät ab.
 - **Behoben: gleichzeitig gelöscht:** Wurde ein Eintrag auf einem anderen Gerät gelöscht, während du ihn bearbeitet hast, geht deine Änderung beim Speichern nicht mehr verloren; der Eintrag ist mit Hinweis wieder da.
