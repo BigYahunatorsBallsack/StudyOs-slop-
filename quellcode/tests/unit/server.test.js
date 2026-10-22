@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { encryptPayload, sendPush, generateVapidKeys, b64url, fromB64url } from "../../src/server/webpush.js";
 import { zonedInstant, dueReminders, pruneSent, MAX_LATE_MS } from "../../src/server/reminders.js";
-import { createHandler, fetchIcs, serviceKey } from "../../src/server/handler.js";
+import { createHandler, fetchIcs, serviceKey, runReminders } from "../../src/server/handler.js";
+import { buildDeadlineIcs } from "../../src/server/calendar.js";
+import { drive } from "../../src/server/drive.js";
 
 const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -159,7 +161,7 @@ describe("Edge Function", () => {
     expect((await h(req("remind", { method: "POST" }))).status).toBe(401);
     expect((await h(req("remind", { method: "POST", headers: { "x-cron-secret": "falsch-cron!" } }))).status).toBe(401);
     const res = await h(req("remind", { method: "POST", headers: { "x-cron-secret": "geheim-cron" } }));
-    expect(await res.json()).toEqual({ users: 1, sent: 1, failed: 0, removed: 1 });
+    expect(await res.json()).toEqual({ users: 1, sent: 1, failed: 0, removed: 1, errors: 0 });
     expect(w.push[0].subscriptions.map((s) => s.endpoint)).toEqual(["https://push.example.org/ok"]);
     expect(Object.keys(w.push[0].sent)).toHaveLength(1);
     // zweiter Lauf: nichts doppelt
@@ -261,5 +263,101 @@ describe("Kalender-Abo der Fristen", () => {
     expect(ics).not.toContain("1 Termin");
     expect((await h(new Request("https://proj.supabase.co/functions/v1/studyos?action=cal&token=" + "b".repeat(32)))).status).toBe(404);
     expect((await h(new Request("https://proj.supabase.co/functions/v1/studyos?action=cal&token=x';drop"))).status).toBe(404);
+  });
+});
+
+describe("Edge Function: Robustheit", () => {
+  const cron = { method: "POST", headers: { "x-cron-secret": "geheim-cron" } };
+  const hw = (date) => ({ id: "h1", kind: "homework", title: "Blatt 4", date });
+
+  it("eine kaputte Zeile hält die Erinnerungen der anderen nicht auf", async () => {
+    const w = fakeWorld();
+    const s1 = await makeSubscriber("https://push.example.org/a"), s2 = await makeSubscriber("https://push.example.org/b");
+    w.push = [
+      { user_id: "u0", subscriptions: [s1.sub], deadlines: [hw("2026-10-23")], sent: {}, tz: "Mars/Olympus" },
+      { user_id: "u1", subscriptions: [s1.sub], deadlines: { kaputt: true }, sent: {}, tz: "Europe/Berlin" },
+      { user_id: "u2", subscriptions: [s2.sub], deadlines: [hw("2026-10-23")], sent: {}, tz: "Europe/Berlin" },
+    ];
+    const h = createHandler({ env: w.env, fetchImpl: w.fetch, now: () => new Date("2026-10-22T16:05:00Z") });
+    const r = await (await h(req("remind", cron))).json();
+    expect(r).toMatchObject({ users: 3, sent: 1, errors: 1 });
+    expect(w.pushCalls).toEqual(["/b"]);
+  });
+
+  it("überschreibt beim Versand die Geräteliste nicht (ein gerade angemeldetes Gerät bleibt)", async () => {
+    const w = fakeWorld();
+    const s1 = await makeSubscriber("https://push.example.org/a");
+    w.push = [{ user_id: "u1", subscriptions: [s1.sub], deadlines: [hw("2026-10-23")], sent: {}, tz: "Europe/Berlin" }];
+    const patches = [], base = w.fetch;
+    w.fetch = async (url, init = {}) => {
+      if (init.method === "PATCH" && String(url).includes("studyos_push")) patches.push(JSON.parse(init.body));
+      return base(url, init);
+    };
+    const h = createHandler({ env: w.env, fetchImpl: w.fetch, now: () => new Date("2026-10-22T16:05:00Z") });
+    expect((await (await h(req("remind", cron))).json()).sent).toBe(1);
+    expect(patches).toHaveLength(1);
+    expect(Object.keys(patches[0])).toEqual(["sent"]);
+  });
+
+  it("gibt Push-Anfragen ein Zeitlimit mit; ein hängender Dienst zählt als Fehler und wird wiederholt", async () => {
+    const s = await makeSubscriber();
+    const vapid = { ...(await generateVapidKeys()), subject: "mailto:x@example.org" };
+    let signal;
+    await sendPush(s.sub, {}, vapid, { fetchImpl: async (_u, init) => { signal = init.signal; return new Response(null, { status: 201 }); } });
+    expect(signal).toBeInstanceOf(AbortSignal);
+    const q = async (_path, opts = {}) => (opts.method === "PATCH" ? null : [{ user_id: "u1", subscriptions: [s.sub], deadlines: [hw("2026-10-23")], sent: {}, tz: "Europe/Berlin" }]);
+    const fetchImpl = async () => { throw new DOMException("Zeitlimit", "TimeoutError"); };
+    const stats = await runReminders({ q, cfg: { vapid_public: vapid.publicKey, vapid_private: vapid.privateJwk }, now: new Date("2026-10-22T16:05:00Z"), fetchImpl, subject: "mailto:x" });
+    expect(stats).toMatchObject({ sent: 0, failed: 1, errors: 0 });
+  });
+});
+
+describe("Kalender-Abruf: Weiterleitungen und Größe", () => {
+  const cal = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n";
+  it("folgt Weiterleitungen nur zu erlaubten Adressen", async () => {
+    const seen = [];
+    const fetchImpl = async (url, init) => {
+      seen.push(url);
+      expect(init.redirect).toBe("manual");
+      const u = new URL(url);
+      if (u.pathname === "/zu-tum") return new Response(null, { status: 302, headers: { location: "https://cal.tum.app/ok.ics" } });
+      if (u.pathname === "/zu-fremd") return new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data" } });
+      if (u.pathname === "/kreis") return new Response(null, { status: 301, headers: { location: "/kreis" } });
+      return new Response(cal);
+    };
+    expect(await fetchIcs("https://campus.tum.de/zu-tum", fetchImpl)).toEqual({ text: cal });
+    expect(seen).toEqual(["https://campus.tum.de/zu-tum", "https://cal.tum.app/ok.ics"]);
+    expect((await fetchIcs("https://campus.tum.de/zu-fremd", fetchImpl)).status).toBe(502);
+    expect(seen.some((u) => u.includes("169.254"))).toBe(false);
+    expect((await fetchIcs("https://campus.tum.de/kreis", fetchImpl)).status).toBe(502);
+  });
+
+  it("bricht zu große Kalender ab, ohne alles zu laden", async () => {
+    let pulled = 0;
+    const chunk = new TextEncoder().encode("BEGIN:VCALENDAR\r\n" + "X".repeat(1024 * 1024));
+    const huge = new ReadableStream({ pull(c) { pulled++; if (pulled > 50) c.close(); else c.enqueue(chunk); } });
+    const r = await fetchIcs("https://campus.tum.de/gross.ics", async () => new Response(huge));
+    expect(r.status).toBe(413);
+    expect(pulled).toBeLessThan(10);
+    const declared = await fetchIcs("https://campus.tum.de/gross.ics", async () => new Response(cal, { headers: { "content-length": String(50 * 1024 * 1024) } }));
+    expect(declared.status).toBe(413);
+  });
+});
+
+describe("Kalender-Abo: Text nach RFC 5545", () => {
+  it("maskiert Semikolons und faltet nach Bytes, ohne Zeichen zu zerteilen", () => {
+    const title = "Übungsblatt 7; Teil A – " + "äöü🎓".repeat(20);
+    const ics = buildDeadlineIcs([{ id: "h1", kind: "homework", title, module: "Lineare Algebra", date: "2026-10-28" }], "Europe/Berlin", new Date("2026-10-20T10:00:00Z"));
+    const enc8 = new TextEncoder();
+    for (const line of ics.split("\r\n")) expect(enc8.encode(line).length).toBeLessThanOrEqual(75);
+    expect(/[\uD800-\uDBFF]\r\n/.test(ics)).toBe(false);
+    expect(ics.replace(/\r\n /g, "")).toContain(`SUMMARY:Abgabe: Übungsblatt 7\\; Teil A – ${"äöü🎓".repeat(20)} (Lineare Algebra)`);
+  });
+});
+
+describe("Fahrzeit: TomTom-Fehler", () => {
+  it("meldet einen abgelehnten Schlüssel nicht als unbekannte Adresse", async () => {
+    const r = await drive({ from: "Zorneding Schlüsseltest", to: "Garching Schlüsseltest" }, { TOMTOM_KEY: "falsch" }, async () => new Response("{}", { status: 403 }));
+    expect(r).toMatchObject({ status: 502, error: expect.stringMatching(/lehnt den Schlüssel ab/) });
   });
 });

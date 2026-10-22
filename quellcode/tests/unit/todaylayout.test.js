@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TODAY_BLOCKS, isDefaultLayout, moveBlock, todayLayout } from "../../src/lib/todayLayout.js";
+import { TODAY_BLOCKS, moveBlock, todayLayout } from "../../src/lib/todayLayout.js";
 
 const ids = (l) => l.map((b) => b.id);
 
@@ -8,13 +8,11 @@ describe("Heute anpassen", () => {
     const l = todayLayout({});
     expect(ids(l)).toEqual(TODAY_BLOCKS.map(([id]) => id));
     expect(l.some((b) => b.hidden)).toBe(false);
-    expect(isDefaultLayout({})).toBe(true);
   });
   it("gespeicherte Reihenfolge, Ausgeblendete markiert", () => {
     const l = todayLayout({ todayOrder: ["mensa", "next"], todayHidden: ["week"] });
     expect(ids(l).slice(0, 3)).toEqual(["timeline", "mensa", "next"]); // neuer Bereich ohne Vorgänger kommt nach oben
     expect(l.find((b) => b.id === "week").hidden).toBe(true);
-    expect(isDefaultLayout({ todayHidden: ["week"] })).toBe(false);
   });
   it("unbekannte und doppelte fallen weg, fehlende kommen an ihre Standardstelle", () => {
     const l = todayLayout({ todayOrder: ["todo", "alt", "todo", "next", "plan"] });

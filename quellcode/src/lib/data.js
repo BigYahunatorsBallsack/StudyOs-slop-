@@ -1,6 +1,6 @@
 import { COLLS, DATA_VERSION, DEFAULT_SETTINGS, DONE_HW, PALETTE } from "./constants.js";
 import { LEGACY_COMMUTE } from "./transit.js";
-import { addDays, diffDays, fmt, fmtMin, fmtShort, isHeld, iso, sum, uid, weekStart } from "./util.js";
+import { addDays, byTime, diffDays, fmt, fmtMin, fmtShort, isHeld, iso, sum, uid, weekStart } from "./util.js";
 import { offDay } from "./holidays.js";
 import { TRASH_TOMB } from "./trash.js";
 
@@ -192,7 +192,7 @@ export function searchAll(data, q) {
   /* Termine nach Modul, Art und Raum; höchstens 5, die nächsten zuerst, danach die zuletzt vergangenen */
   const today = iso();
   const ses = data.sessions.filter((x) => hit(mod(x.moduleId)?.name, mod(x.moduleId)?.code, x.type, x.room));
-  const soon = ses.filter((x) => x.date >= today).sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
+  const soon = ses.filter((x) => x.date >= today).sort(byTime);
   const past = ses.filter((x) => x.date < today).sort((a, b) => (b.date + (b.start || "")).localeCompare(a.date + (a.start || "")));
   [...soon, ...past].slice(0, 5).forEach((x) => out.push({ kind: "session", label: "Termin", item: x, title: `${mod(x.moduleId)?.name || "Termin"} · ${x.type || "Termin"}`, sub: `${fmtShort(x.date)} ${x.start || ""}${x.room ? " · " + x.room : ""}${x.cancelled ? " · fällt aus" : ""}` }));
   /* Anhänge nach Dateinamen; öffnet die Abgabe bzw. Notiz, an der die Datei hängt */

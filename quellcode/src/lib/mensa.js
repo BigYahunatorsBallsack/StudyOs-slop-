@@ -8,10 +8,7 @@ export const CANTEENS = [
 ];
 export const canteenName = (id) => (CANTEENS.find(([k]) => k === id) || [id, id])[1];
 
-/** ISO-Kalenderwoche und -Jahr eines Datums (YYYY-MM-DD) */
-export const isoWeek = isoYearWeek;
-
-export const menuUrl = (canteen, dateStr) => { const { year, week } = isoWeek(dateStr); return `https://tum-dev.github.io/eat-api/${canteen}/${year}/${String(week).padStart(2, "0")}.json`; };
+export const menuUrl = (canteen, dateStr) => { const { year, week } = isoYearWeek(dateStr); return `https://tum-dev.github.io/eat-api/${canteen}/${year}/${String(week).padStart(2, "0")}.json`; };
 
 const DIET = [["VEGAN", "vegan"], ["VEGETARIAN", "vegetarisch"]];
 const MEAT = new Set(["MEAT", "PORK", "BEEF", "POULTRY", "LAMB", "VEAL", "WILD_MEAT", "GAME"]);

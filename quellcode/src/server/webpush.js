@@ -74,6 +74,8 @@ export async function sendPush(subscription, message, vapid, { ttl = 24 * 3600, 
       Urgency: urgency,
     },
     body,
+    /* ein hängender Push-Dienst darf den Erinnerungslauf für alle anderen nicht aufhalten */
+    signal: AbortSignal.timeout(10000),
   });
   return { ok: res.status >= 200 && res.status < 300, status: res.status, gone: res.status === 404 || res.status === 410 };
 }

@@ -1,5 +1,5 @@
 /* TUM-spezifische Helfer: Räume in NavigaTUM, Grundlagen- und Orientierungsprüfung (GOP) */
-import { sum } from "./util.js";
+import { pad2, sum } from "./util.js";
 import { curriculumOf, gopCodes } from "./curriculum.js";
 
 /** Link zu NavigaTUM: mit Raumnummer aus TUMonline (z. B. „5602.EG.001“) direkt zum Raum, sonst Suche. */
@@ -94,8 +94,7 @@ export function parseWatch(v) {
 
 export function fmtWatch(sec) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-  const two = (n) => String(n).padStart(2, "0");
-  return h ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
+  return h ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
 }
 
 /** Stand der Aufzeichnung: null ohne Eintrag, sonst { label, ratio } mit der Termindauer als Länge. */

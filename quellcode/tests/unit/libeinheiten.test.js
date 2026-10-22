@@ -10,11 +10,11 @@ import { dueLabel, isLate, openTodayCount, REVIEW_WITHIN_DAYS, todoItems } from 
 import { inWords, nextUp } from "../../src/lib/next.js";
 import { CAMPUSES, commuteIncomplete, commuteOf, firstSessionOn, hhmm, isOnline, mapsLink, vehicle } from "../../src/lib/transit.js";
 import { fmtWatch, gradeForecast, isGop, parseWatch, roomUrl, watchProgress } from "../../src/lib/tum.js";
-import { HOURS_PER_ECTS, archivedIds, numberOf, openHomework, sessionCoverage, sessionLength, studyDiary, withoutArchived } from "../../src/lib/study.js";
+import { HOURS_PER_ECTS, archivedIds, numberOf, sessionCoverage, sessionLength, studyDiary, withoutArchived } from "../../src/lib/study.js";
 import { CANTEENS, canteenName, dishesOn, menuUrl } from "../../src/lib/mensa.js";
 import { artemisMap, courseOf, dueOf, feedSummary } from "../../src/lib/moodle.js";
 import { readRecent, rememberOpened } from "../../src/lib/recent.js";
-import { DAYPARTS, examDeadlines, learningRhythm, minutesBySemester, semesterOf } from "../../src/lib/stats.js";
+import { DAYPARTS, learningRhythm, minutesBySemester, semesterOf } from "../../src/lib/stats.js";
 import { cardReviews, skyPos, weakByTag, weakCards } from "../../src/lib/progress.js";
 import { CHANGE_DAYS, CHANGE_FIELDS, FEED_VERSION, SOON_DAYS, describeChange, feedChanges, roomChange } from "../../src/lib/feed.js";
 import { FSRS_W, retrievability } from "../../src/lib/cards.js";
@@ -355,7 +355,6 @@ describe("study", () => {
     expect(live.sessions.map((s) => s.id)).toEqual(["s1"]);
     expect(live.modules.map((m) => m.id)).toEqual(["a"]);
     expect(withoutArchived(emptyData()).modules).toEqual([]);
-    expect(openHomework(d, "a").map((h) => h.id)).toEqual(["h1"]);
     const diary = studyDiary([
       { id: "1", moduleId: "a", date: "2026-10-20", at: "09:00", minutes: 30 }, { id: "2", moduleId: "a", date: "2026-10-20", at: "18:00", minutes: "15" },
       { id: "3", moduleId: "a", date: "2026-10-21", minutes: 10 }, { id: "4", moduleId: "b", date: "2026-10-21", minutes: 99 }, { id: "5", moduleId: "a", minutes: 5 },
@@ -427,11 +426,6 @@ describe("stats und progress", () => {
     expect(semesterOf("2027-01-15", 1)).toMatchObject({ from: "2027-04-01", to: "2027-09-30", label: "Sommersemester 2027" });
     const d = { modules: [{ id: "a", semester: 2 }, { id: "b", semester: 1 }, { id: "c" }], logs: [{ moduleId: "a", minutes: 30 }, { moduleId: "b", minutes: "15" }, { moduleId: "c", minutes: 5 }, { moduleId: "x", minutes: 100 }] };
     expect(minutesBySemester(d)).toEqual([{ semester: 0, minutes: 5 }, { semester: 1, minutes: 15 }, { semester: 2, minutes: 30 }]);
-    const ex = { exams: [
-      { id: "1", registerBy: "2026-10-25" }, { id: "2", registerBy: "2026-10-25", registered: true }, { id: "3", registerBy: "2026-12-25" },
-      { id: "4", retakeDate: "2026-10-23", result: "nicht bestanden" }, { id: "5", retakeDate: "2026-10-23", result: "bestanden" },
-    ] };
-    expect(examDeadlines(ex, T).map((x) => [x.exam.id, x.kind])).toEqual([["4", "wiederholung"], ["1", "anmeldung"]]);
   });
   it("Lernrhythmus nach Tageszeit, auch nach Mitternacht", () => {
     const r = learningRhythm([{ date: T, minutes: 30, at: "08:00" }, { date: T, minutes: 20, at: "01:30" }, { date: "2026-10-25", minutes: 10 }, { date: T, minutes: 0, at: "09:00" }]);

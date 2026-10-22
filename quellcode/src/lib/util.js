@@ -30,7 +30,16 @@ export const fmt = (s) => { if (!s) return ""; return dayOf(s).split("-").revers
 
 export const fmtShort = (s) => (s ? `${WD[wdIdx(s)]}, ${s.slice(8)}.${s.slice(5, 7)}.` : "");
 
-export const nowHM = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+/** Zweistellig mit führender Null: 7 → „07“ */
+export const pad2 = (n) => String(n).padStart(2, "0");
+
+/** Uhrzeit HH:MM eines Date-Objekts in Ortszeit */
+export const clockOf = (d) => pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+
+export const nowHM = () => clockOf(new Date());
+
+/** Zeitpunkt (ms) von Datum „JJJJ-MM-TT“ und Uhrzeit „HH:MM“ in der Zeitzone des Geräts */
+export const localMs = (date, hm) => { const [y, m, d] = date.split("-").map(Number); const [h, mi] = hm.split(":").map(Number); return new Date(y, m - 1, d, h, mi).getTime(); };
 
 export const weekStart = (s) => addDays(s, -wdIdx(s));
 

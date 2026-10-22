@@ -1,9 +1,9 @@
 /* Überblick: Wochensumme im Wochenkopf und „als Nächstes fällig“ je Modul für die Modulliste */
 import { DONE_HW, WD, WD_LONG } from "./constants.js";
 import { isActive } from "./data.js";
-import { diffDays, iso, wdIdx } from "./util.js";
+import { toMin } from "./blocks.js";
+import { byTime, clockOf, diffDays, iso, wdIdx } from "./util.js";
 
-const toMin = (hm) => { const [h, m] = String(hm || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 const length = (s) => (s.start ? Math.max(0, toMin(s.end || s.start) - toMin(s.start)) : 0);
 
 /**
@@ -51,7 +51,7 @@ export function weekSummaryText(sum) {
  * @returns {{ kind: "homework" | "exam" | "session", date: string, time: string, text: string, label: string, urgent: boolean, key: string } | null}
  */
 export function nextUp(data, moduleId, now = new Date()) {
-  const t = iso(now), hm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const t = iso(now), hm = clockOf(now);
   const cands = [];
   for (const h of data.homework || []) {
     if (h.moduleId !== moduleId || !h.due || DONE_HW.has(h.status)) continue;
@@ -66,7 +66,7 @@ export function nextUp(data, moduleId, now = new Date()) {
   let x = cands.sort(order)[0];
   if (!x) {
     const s = (data.sessions || []).filter((s) => s.moduleId === moduleId && isActive(s) && s.date && (s.date > t || (s.date === t && (s.start || "23:59") > hm)))
-      .sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")))[0];
+      .sort(byTime)[0];
     if (!s) return null;
     x = { kind: "session", date: s.date, time: s.start || "", item: s };
   }

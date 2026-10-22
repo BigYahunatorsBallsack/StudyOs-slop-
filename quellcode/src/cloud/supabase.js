@@ -11,7 +11,7 @@ export class CloudError extends Error {}
 export const REQUEST_TIMEOUT_MS = 30000;
 const TIMEOUT_MSG = "Supabase antwortet nicht (Zeitüberschreitung). Bist du offline oder ist die Verbindung sehr langsam?";
 /** fetch mit Zeitlimit; ein vom Aufrufer übergebenes Abbruch-Signal gilt weiter. */
-export function fetchWithTimeout(input, init = {}, ms = REQUEST_TIMEOUT_MS, fetchImpl = (...a) => fetch(...a)) {
+export function fetchWithTimeout(input, init = {}, ms = REQUEST_TIMEOUT_MS, fetchImpl = (input, init) => fetch(input, init)) {
   if (typeof AbortController === "undefined") return fetchImpl(input, init);
   const ctl = new AbortController(), outer = init && init.signal;
   let timedOut = false;
@@ -100,6 +100,7 @@ export function createSupabaseCloud() {
 
   /* Aufruf der Edge Function „studyos“ (Erinnerungen, Kalender-Abo) */
   const FN = SUPABASE_URL + "/functions/v1/studyos";
+  /** @param {string} action @param {{ method?: string, body?: any, withUser?: boolean }} [opts] */
   async function callFn(action, { method = "POST", body, withUser = true } = {}) {
     const headers = { apikey: SUPABASE_KEY, "Content-Type": "application/json" };
     if (withUser) {

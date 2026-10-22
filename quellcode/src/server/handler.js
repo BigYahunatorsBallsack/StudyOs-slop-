@@ -98,56 +98,92 @@ export async function authUser(req, env, fetchImpl, now = Date.now()) {
 export async function runReminders({ q, cfg, now = new Date(), fetchImpl, subject, env = {} }) {
   const vapid = { publicKey: cfg.vapid_public, privateJwk: cfg.vapid_private, subject };
   const rows = (await q("studyos_push?select=user_id,subscriptions,deadlines,sent,tz")) || [];
-  const stats = { users: rows.length, sent: 0, failed: 0, removed: 0 };
+  const stats = { users: rows.length, sent: 0, failed: 0, removed: 0, errors: 0 };
   for (const row of rows) {
-    let subs = Array.isArray(row.subscriptions) ? row.subscriptions : [];
-    const sent = pruneSent(row.sent || {}, now);
-    const tz = row.tz || "Europe/Berlin";
-    const due = subs.length ? dueReminders(row.deadlines, sent, now, tz) : [];
-    /* Weg zur Uni: bei Verspätung früher Bescheid (nur Einträge, die die App bei eingeschalteter Option hochlädt) */
-    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "commute")) {
-      const alert = await commuteAlert(x, now, tz, fetchImpl).catch(() => null);
-      if (alert && !sent[alert.key]) due.push(alert);
-    }
-    /* „Jetzt losgehen“ vor dem ersten Termin vor Ort (Öffis mit Echtzeit, Auto mit Verkehrslage) */
-    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "leave")) {
-      if (sent[`leave:${x.id}:${x.date}`]) continue;
-      const alert = await leaveAlert(x, now, tz, fetchImpl, env).catch(() => null);
-      if (alert) due.push(alert);
-    }
-    const gone = new Set();
-    for (const r of due) {
-      let delivered = false, allGone = true;
-      for (const sub of subs) {
-        if (gone.has(sub.endpoint)) continue;
-        try {
-          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...(r.actions && { actions: r.actions }) }, vapid, { fetchImpl, ...(r.ttl && { ttl: r.ttl }) });
-          if (res.ok) { delivered = true; allGone = false; stats.sent++; }
-          else if (res.gone) gone.add(sub.endpoint);
-          else { allGone = false; stats.failed++; }
-        } catch { allGone = false; stats.failed++; }
-      }
-      if (delivered || allGone) sent[r.key] = now.toISOString(); /* sonst beim nächsten Lauf erneut versuchen */
-    }
-    if (gone.size) { subs = subs.filter((s) => !gone.has(s.endpoint)); stats.removed += gone.size; }
-    if (due.length || gone.size || Object.keys(sent).length !== Object.keys(row.sent || {}).length) {
-      await q(`studyos_push?user_id=eq.${row.user_id}`, { method: "PATCH", body: { sent, subscriptions: subs } });
-    }
+    /* Eine kaputte Zeile (z. B. unbekannte Zeitzone) darf die Erinnerungen der anderen nicht verhindern */
+    try { await remindRow(row, { q, vapid, now, fetchImpl, env, stats }); }
+    catch { stats.errors++; }
   }
   return stats;
+}
+
+async function remindRow(row, { q, vapid, now, fetchImpl, env, stats }) {
+  let subs = Array.isArray(row.subscriptions) ? row.subscriptions : [];
+  const sent = pruneSent(row.sent || {}, now);
+  const tz = row.tz || "Europe/Berlin";
+  const list = Array.isArray(row.deadlines) ? row.deadlines : [];
+  const due = subs.length ? dueReminders(list, sent, now, tz) : [];
+  /* Weg zur Uni: bei Verspätung früher Bescheid (nur Einträge, die die App bei eingeschalteter Option hochlädt) */
+  if (subs.length) for (const x of list.filter((d) => d.kind === "commute")) {
+    const alert = await commuteAlert(x, now, tz, fetchImpl).catch(() => null);
+    if (alert && !sent[alert.key]) due.push(alert);
+  }
+  /* „Jetzt losgehen“ vor dem ersten Termin vor Ort (Öffis mit Echtzeit, Auto mit Verkehrslage) */
+  if (subs.length) for (const x of list.filter((d) => d.kind === "leave")) {
+    if (sent[`leave:${x.id}:${x.date}`]) continue;
+    const alert = await leaveAlert(x, now, tz, fetchImpl, env).catch(() => null);
+    if (alert) due.push(alert);
+  }
+  const gone = new Set();
+  for (const r of due) {
+    let delivered = false, allGone = true;
+    for (const sub of subs) {
+      if (gone.has(sub.endpoint)) continue;
+      try {
+        const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...(r.actions && { actions: r.actions }) }, vapid, { fetchImpl, ...(r.ttl && { ttl: r.ttl }) });
+        if (res.ok) { delivered = true; allGone = false; stats.sent++; }
+        else if (res.gone) gone.add(sub.endpoint);
+        else { allGone = false; stats.failed++; }
+      } catch { allGone = false; stats.failed++; }
+    }
+    if (delivered || allGone) sent[r.key] = now.toISOString(); /* sonst beim nächsten Lauf erneut versuchen */
+  }
+  if (gone.size) { subs = subs.filter((s) => !gone.has(s.endpoint)); stats.removed += gone.size; }
+  if (due.length || gone.size || Object.keys(sent).length !== Object.keys(row.sent || {}).length) {
+    /* Abos nur mitschicken, wenn tote entfernt wurden: sonst überschriebe der Lauf ein gerade neu angemeldetes Gerät */
+    await q(`studyos_push?user_id=eq.${row.user_id}`, { method: "PATCH", body: gone.size ? { sent, subscriptions: subs } : { sent } });
+  }
+}
+
+/* Antwort lesen, aber höchstens `max` Bytes (null, wenn größer) */
+async function readCapped(res, max) {
+  if (Number(res.headers.get("content-length")) > max) return null;
+  if (!res.body) return "";
+  const reader = res.body.getReader(), parts = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > max) { reader.cancel().catch(() => {}); return null; }
+    parts.push(value);
+  }
+  const out = new Uint8Array(size);
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return new TextDecoder().decode(out);
 }
 
 export async function fetchIcs(rawUrl, fetchImpl) {
   let url;
   try { url = new URL(String(rawUrl || "").trim().replace(/^webcals?:\/\//i, "https://")); } catch { return { error: "Das ist keine gültige Adresse.", status: 400 }; }
+  const allowed = (u) => u.protocol === "https:" && ICS_HOSTS.some((re) => re.test(u.hostname));
   if (url.protocol !== "https:") return { error: "Nur https-Adressen werden unterstützt.", status: 400 };
-  if (!ICS_HOSTS.some((re) => re.test(url.hostname))) return { error: `Kalender von ${url.hostname} werden nicht abgerufen. Erlaubt sind TUMonline (*.tum.de) und cal.tum.app.`, status: 400 };
+  if (!allowed(url)) return { error: `Kalender von ${url.hostname} werden nicht abgerufen. Erlaubt sind TUMonline (*.tum.de) und cal.tum.app.`, status: 400 };
+  /* Weiterleitungen selbst folgen und jedes Ziel erneut prüfen: sonst führte eine Weiterleitung von *.tum.de zu beliebigen Adressen */
+  const signal = AbortSignal.timeout(15000);
   let res;
-  try { res = await fetchImpl(url.toString(), { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { Accept: "text/calendar, text/plain, */*" } }); }
-  catch { return { error: "Der Kalender-Server hat nicht geantwortet.", status: 502 }; }
+  for (let hop = 0; ; hop++) {
+    try { res = await fetchImpl(url.toString(), { redirect: "manual", signal, headers: { Accept: "text/calendar, text/plain, */*" } }); }
+    catch { return { error: "Der Kalender-Server hat nicht geantwortet.", status: 502 }; }
+    if (res.status < 300 || res.status > 399 || !res.headers.get("location")) break;
+    try { url = new URL(res.headers.get("location"), url); } catch { return { error: "Der Kalender-Server leitet ungültig weiter.", status: 502 }; }
+    if (!allowed(url) || hop >= 4) return { error: "Der Kalender-Server leitet auf eine nicht erlaubte Adresse weiter.", status: 502 };
+  }
   if (!res.ok) return { error: `Der Kalender-Server meldet Fehler ${res.status}. Ist der Link noch gültig?`, status: 502 };
-  const text = await res.text();
-  if (text.length > ICS_MAX_BYTES) return { error: "Der Kalender ist zu groß.", status: 413 };
+  let text;
+  try { text = await readCapped(res, ICS_MAX_BYTES); } catch { return { error: "Der Kalender-Server hat nicht geantwortet.", status: 502 }; }
+  if (text === null) return { error: "Der Kalender ist zu groß.", status: 413 };
   if (!/BEGIN:VCALENDAR/i.test(text)) return { error: "Unter dem Link liegt kein Kalender (iCal).", status: 422 };
   return { text };
 }

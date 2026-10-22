@@ -78,7 +78,7 @@ function pruneSent(sent = {}, now2 = /* @__PURE__ */ new Date()) {
 
 // src/server/calendar.js
 var LABEL = { homework: "Abgabe", exam: "Pr\xFCfung", register: "Anmeldeschluss", retake: "Wiederholungspr\xFCfung" };
-var esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/;/g, ";").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+var esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 var utc = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 var day = (date) => date.replace(/-/g, "");
 var nextDay = (date) => {
@@ -86,14 +86,24 @@ var nextDay = (date) => {
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 };
+var bytes = (ch) => {
+  const c = ch.codePointAt(0);
+  return c < 128 ? 1 : c < 2048 ? 2 : c < 65536 ? 3 : 4;
+};
 var fold = (line) => {
   const out = [];
-  let s = line;
-  while (s.length > 74) {
-    out.push(s.slice(0, 74));
-    s = " " + s.slice(74);
+  let cur = "", size = 0;
+  for (const ch of line) {
+    const n = bytes(ch);
+    if (size + n > 75) {
+      out.push(cur);
+      cur = " ";
+      size = 1;
+    }
+    cur += ch;
+    size += n;
   }
-  out.push(s);
+  out.push(cur);
   return out.join("\r\n");
 };
 function buildDeadlineIcs(deadlines, tz = "Europe/Berlin", now2 = /* @__PURE__ */ new Date()) {
@@ -215,6 +225,7 @@ async function geocode(q, key, fetchImpl) {
   if (m) return `${m[1]},${m[2]}`;
   if (geoCache.has(q)) return geoCache.get(q);
   const r = await getJson(fetchImpl, `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(q)}.json?key=${encodeURIComponent(key)}&limit=1&countrySet=DE&language=de-DE`);
+  if (r.error) return r;
   const pos = r.data?.results?.[0]?.position;
   if (!pos) return null;
   const v = `${pos.lat},${pos.lon}`;
@@ -223,6 +234,8 @@ async function geocode(q, key, fetchImpl) {
 }
 async function tomtom(from, to, key, fetchImpl) {
   const [a, b] = await Promise.all([geocode(from, key, fetchImpl), geocode(to, key, fetchImpl)]);
+  const err = [a, b].find((x) => x && typeof x === "object");
+  if (err) return err;
   if (!a || !b) return { error: `\u201E${!a ? from : to}\u201C wurde nicht gefunden.`, status: 404 };
   const r = await getJson(fetchImpl, `https://api.tomtom.com/routing/1/calculateRoute/${a}:${b}/json?key=${encodeURIComponent(key)}&traffic=true&travelMode=car&routeType=fastest&computeTravelTimeFor=all`);
   if (r.error) return r;
@@ -394,9 +407,9 @@ async function leaveAlert(x, now2, tz, fetchImpl, env2 = {}) {
 // src/server/webpush.js
 var enc = new TextEncoder();
 var b64url = (buf) => {
-  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  const bytes2 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes2.length; i++) s += String.fromCharCode(bytes2[i]);
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 };
 var fromB64url = (str) => {
@@ -426,9 +439,9 @@ async function vapidHeader(endpoint, vapid, now2 = Math.floor(Date.now() / 1e3))
   const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, enc.encode(`${header}.${payload}`));
   return `vapid t=${header}.${payload}.${b64url(sig)}, k=${vapid.publicKey}`;
 }
-async function hkdf(salt, ikm, info, bytes) {
+async function hkdf(salt, ikm, info, bytes2) {
   const key = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
-  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, key, bytes * 8));
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, key, bytes2 * 8));
 }
 async function encryptPayload(subscription, plaintext, { salt = crypto.getRandomValues(new Uint8Array(16)), serverKeys } = {}) {
   const uaPublic = fromB64url(subscription.keys.p256dh);
@@ -457,7 +470,9 @@ async function sendPush(subscription, message, vapid, { ttl = 24 * 3600, urgency
       TTL: String(ttl),
       Urgency: urgency
     },
-    body
+    body,
+    /* ein hängender Push-Dienst darf den Erinnerungslauf für alle anderen nicht aufhalten */
+    signal: AbortSignal.timeout(1e4)
   });
   return { ok: res.status >= 200 && res.status < 300, status: res.status, gone: res.status === 404 || res.status === 410 };
 }
@@ -541,53 +556,85 @@ async function authUser(req, env2, fetchImpl, now2 = Date.now()) {
 async function runReminders({ q, cfg, now: now2 = /* @__PURE__ */ new Date(), fetchImpl, subject, env: env2 = {} }) {
   const vapid = { publicKey: cfg.vapid_public, privateJwk: cfg.vapid_private, subject };
   const rows = await q("studyos_push?select=user_id,subscriptions,deadlines,sent,tz") || [];
-  const stats = { users: rows.length, sent: 0, failed: 0, removed: 0 };
+  const stats = { users: rows.length, sent: 0, failed: 0, removed: 0, errors: 0 };
   for (const row of rows) {
-    let subs = Array.isArray(row.subscriptions) ? row.subscriptions : [];
-    const sent = pruneSent(row.sent || {}, now2);
-    const tz = row.tz || "Europe/Berlin";
-    const due = subs.length ? dueReminders(row.deadlines, sent, now2, tz) : [];
-    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "commute")) {
-      const alert = await commuteAlert(x, now2, tz, fetchImpl).catch(() => null);
-      if (alert && !sent[alert.key]) due.push(alert);
-    }
-    if (subs.length) for (const x of (row.deadlines || []).filter((d) => d.kind === "leave")) {
-      if (sent[`leave:${x.id}:${x.date}`]) continue;
-      const alert = await leaveAlert(x, now2, tz, fetchImpl, env2).catch(() => null);
-      if (alert) due.push(alert);
-    }
-    const gone = /* @__PURE__ */ new Set();
-    for (const r of due) {
-      let delivered = false, allGone = true;
-      for (const sub of subs) {
-        if (gone.has(sub.endpoint)) continue;
-        try {
-          const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...r.actions && { actions: r.actions } }, vapid, { fetchImpl, ...r.ttl && { ttl: r.ttl } });
-          if (res.ok) {
-            delivered = true;
-            allGone = false;
-            stats.sent++;
-          } else if (res.gone) gone.add(sub.endpoint);
-          else {
-            allGone = false;
-            stats.failed++;
-          }
-        } catch {
-          allGone = false;
-          stats.failed++;
-        }
-      }
-      if (delivered || allGone) sent[r.key] = now2.toISOString();
-    }
-    if (gone.size) {
-      subs = subs.filter((s) => !gone.has(s.endpoint));
-      stats.removed += gone.size;
-    }
-    if (due.length || gone.size || Object.keys(sent).length !== Object.keys(row.sent || {}).length) {
-      await q(`studyos_push?user_id=eq.${row.user_id}`, { method: "PATCH", body: { sent, subscriptions: subs } });
+    try {
+      await remindRow(row, { q, vapid, now: now2, fetchImpl, env: env2, stats });
+    } catch {
+      stats.errors++;
     }
   }
   return stats;
+}
+async function remindRow(row, { q, vapid, now: now2, fetchImpl, env: env2, stats }) {
+  let subs = Array.isArray(row.subscriptions) ? row.subscriptions : [];
+  const sent = pruneSent(row.sent || {}, now2);
+  const tz = row.tz || "Europe/Berlin";
+  const list = Array.isArray(row.deadlines) ? row.deadlines : [];
+  const due = subs.length ? dueReminders(list, sent, now2, tz) : [];
+  if (subs.length) for (const x of list.filter((d) => d.kind === "commute")) {
+    const alert = await commuteAlert(x, now2, tz, fetchImpl).catch(() => null);
+    if (alert && !sent[alert.key]) due.push(alert);
+  }
+  if (subs.length) for (const x of list.filter((d) => d.kind === "leave")) {
+    if (sent[`leave:${x.id}:${x.date}`]) continue;
+    const alert = await leaveAlert(x, now2, tz, fetchImpl, env2).catch(() => null);
+    if (alert) due.push(alert);
+  }
+  const gone = /* @__PURE__ */ new Set();
+  for (const r of due) {
+    let delivered = false, allGone = true;
+    for (const sub of subs) {
+      if (gone.has(sub.endpoint)) continue;
+      try {
+        const res = await sendPush(sub, { title: r.title, body: r.body, tag: r.tag, url: r.url, ...r.actions && { actions: r.actions } }, vapid, { fetchImpl, ...r.ttl && { ttl: r.ttl } });
+        if (res.ok) {
+          delivered = true;
+          allGone = false;
+          stats.sent++;
+        } else if (res.gone) gone.add(sub.endpoint);
+        else {
+          allGone = false;
+          stats.failed++;
+        }
+      } catch {
+        allGone = false;
+        stats.failed++;
+      }
+    }
+    if (delivered || allGone) sent[r.key] = now2.toISOString();
+  }
+  if (gone.size) {
+    subs = subs.filter((s) => !gone.has(s.endpoint));
+    stats.removed += gone.size;
+  }
+  if (due.length || gone.size || Object.keys(sent).length !== Object.keys(row.sent || {}).length) {
+    await q(`studyos_push?user_id=eq.${row.user_id}`, { method: "PATCH", body: gone.size ? { sent, subscriptions: subs } : { sent } });
+  }
+}
+async function readCapped(res, max) {
+  if (Number(res.headers.get("content-length")) > max) return null;
+  if (!res.body) return "";
+  const reader = res.body.getReader(), parts = [];
+  let size = 0;
+  for (; ; ) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > max) {
+      reader.cancel().catch(() => {
+      });
+      return null;
+    }
+    parts.push(value);
+  }
+  const out = new Uint8Array(size);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return new TextDecoder().decode(out);
 }
 async function fetchIcs(rawUrl, fetchImpl) {
   let url;
@@ -596,17 +643,33 @@ async function fetchIcs(rawUrl, fetchImpl) {
   } catch {
     return { error: "Das ist keine g\xFCltige Adresse.", status: 400 };
   }
+  const allowed = (u) => u.protocol === "https:" && ICS_HOSTS.some((re) => re.test(u.hostname));
   if (url.protocol !== "https:") return { error: "Nur https-Adressen werden unterst\xFCtzt.", status: 400 };
-  if (!ICS_HOSTS.some((re) => re.test(url.hostname))) return { error: `Kalender von ${url.hostname} werden nicht abgerufen. Erlaubt sind TUMonline (*.tum.de) und cal.tum.app.`, status: 400 };
+  if (!allowed(url)) return { error: `Kalender von ${url.hostname} werden nicht abgerufen. Erlaubt sind TUMonline (*.tum.de) und cal.tum.app.`, status: 400 };
+  const signal = AbortSignal.timeout(15e3);
   let res;
+  for (let hop = 0; ; hop++) {
+    try {
+      res = await fetchImpl(url.toString(), { redirect: "manual", signal, headers: { Accept: "text/calendar, text/plain, */*" } });
+    } catch {
+      return { error: "Der Kalender-Server hat nicht geantwortet.", status: 502 };
+    }
+    if (res.status < 300 || res.status > 399 || !res.headers.get("location")) break;
+    try {
+      url = new URL(res.headers.get("location"), url);
+    } catch {
+      return { error: "Der Kalender-Server leitet ung\xFCltig weiter.", status: 502 };
+    }
+    if (!allowed(url) || hop >= 4) return { error: "Der Kalender-Server leitet auf eine nicht erlaubte Adresse weiter.", status: 502 };
+  }
+  if (!res.ok) return { error: `Der Kalender-Server meldet Fehler ${res.status}. Ist der Link noch g\xFCltig?`, status: 502 };
+  let text;
   try {
-    res = await fetchImpl(url.toString(), { redirect: "follow", signal: AbortSignal.timeout(15e3), headers: { Accept: "text/calendar, text/plain, */*" } });
+    text = await readCapped(res, ICS_MAX_BYTES);
   } catch {
     return { error: "Der Kalender-Server hat nicht geantwortet.", status: 502 };
   }
-  if (!res.ok) return { error: `Der Kalender-Server meldet Fehler ${res.status}. Ist der Link noch g\xFCltig?`, status: 502 };
-  const text = await res.text();
-  if (text.length > ICS_MAX_BYTES) return { error: "Der Kalender ist zu gro\xDF.", status: 413 };
+  if (text === null) return { error: "Der Kalender ist zu gro\xDF.", status: 413 };
   if (!/BEGIN:VCALENDAR/i.test(text)) return { error: "Unter dem Link liegt kein Kalender (iCal).", status: 422 };
   return { text };
 }

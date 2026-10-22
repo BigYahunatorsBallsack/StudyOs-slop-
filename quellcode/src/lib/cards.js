@@ -1,5 +1,5 @@
 /* Karteikarten: Wiederholungs-Algorithmus (vereinfachtes SM-2), Lückentext, Tags, CSV */
-import { addDays, iso, uid } from "./util.js";
+import { addDays, diffDays, iso, uid } from "./util.js";
 
 /* Spaced Repetition mit FSRS-5 (Free Spaced Repetition Scheduler, Standardparameter wie in Anki).
    Jede Karte hat Stabilität S (Tage, nach denen sie mit 90 % Wahrscheinlichkeit noch sitzt) und
@@ -16,7 +16,6 @@ const recallS = (d, s, r, g) => s * (1 + Math.exp(w[8]) * (11 - d) * Math.pow(s,
 const forgetS = (d, s, r) => Math.min(w[11] * Math.pow(d, -w[12]) * (Math.pow(s + 1, w[13]) - 1) * Math.exp((1 - r) * w[14]), s / Math.exp(w[17] * w[18]));
 const shortS = (s, g) => s * Math.exp(w[17] * (g - 3 + w[18]));
 const ivlOf = (s) => Math.min(MAX_IVL, Math.max(1, Math.round((s / FACTOR) * (Math.pow(RETENTION, 1 / DECAY) - 1))));
-const daysBetween = (a, b) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 86400000);
 
 /** Zustand einer Karte für FSRS; Karten aus dem alten Verfahren (SM-2) werden sinnvoll übernommen. */
 function fsrsState(card, today) {
@@ -33,7 +32,7 @@ export function schedule(card, q, today = iso()) {
   let s, d;
   if (!st) { s = initS(g); d = initD(g); }
   else {
-    const t = st.last ? Math.max(0, daysBetween(st.last, today)) : 0;
+    const t = st.last ? Math.max(0, diffDays(st.last, today)) : 0;
     d = nextD(st.d, g);
     if (t === 0) s = shortS(st.s, g); /* am selben Tag noch einmal gesehen */
     else { const r = retrievability(t, st.s); s = g === 1 ? forgetS(st.d, st.s, r) : recallS(st.d, st.s, r, g); }

@@ -23,7 +23,7 @@
   --ink: #05d9e8; --on-ink: #0d0221;
   --accent: #ff2a6d; --accent-strong: #ff4f86; --accent-text: #ff7aa8; --on-accent: #0d0221;
   --accent-2: #05d9e8;
-  --warn: #ffd319; --warn-strong: #ffe066; --warn-text: #ffd319;
+  --warn: #ffd319; --warn-text: #ffd319;
   --danger: #ff5c5c; --danger-strong: #ff7a7a; --danger-text: #ff8f8f;
   --ok: #00f5a0; --ok-strong: #4dffbf; --ok-text: #00f5a0;
   --on-module: #0d0221;
@@ -48,7 +48,7 @@
   --ink: #9bbc0f; --on-ink: #0b2a0b;
   --accent: #9bbc0f; --accent-strong: #b4d42a; --accent-text: #b9da3c; --on-accent: #0b2a0b;
   --accent-2: #6fe0a0;
-  --warn: #e4e85a; --warn-strong: #eef27a; --warn-text: #e4e85a;
+  --warn: #e4e85a; --warn-text: #e4e85a;
   --danger: #ff8a6b; --danger-strong: #ffa58a; --danger-text: #ffb39c;
   --ok: #3fe05f; --ok-strong: #6fef85; --ok-text: #3fe05f;
   --on-module: #0b2a0b; --nav-bg: #123a12;
@@ -65,7 +65,7 @@
   --ink: #ffb000; --on-ink: #140b00;
   --accent: #ffb000; --accent-strong: #ffc23d; --accent-text: #ffc04a; --on-accent: #140b00;
   --accent-2: #ff8a3d;
-  --warn: #ffe45c; --warn-strong: #ffec85; --warn-text: #ffe45c;
+  --warn: #ffe45c; --warn-text: #ffe45c;
   --danger: #ff6b5b; --danger-strong: #ff8a7a; --danger-text: #ff8f80;
   --ok: #b8e65a; --ok-strong: #ccf07e; --ok-text: #b8e65a;
   --on-module: #140b00; --nav-bg: #221405;
@@ -82,7 +82,7 @@
   --ink: #55ffff; --on-ink: #000000;
   --accent: #ff55ff; --accent-strong: #ff80ff; --accent-text: #ff88ff; --on-accent: #000000;
   --accent-2: #55ffff;
-  --warn: #ffff55; --warn-strong: #ffff88; --warn-text: #ffff55;
+  --warn: #ffff55; --warn-text: #ffff55;
   --danger: #ff5555; --danger-strong: #ff7f7f; --danger-text: #ff8888;
   --ok: #55ff55; --ok-strong: #88ff88; --ok-text: #55ff55;
   --on-module: #000000; --nav-bg: #0e0e1e;
@@ -100,7 +100,7 @@
   --ink: #1d1712; --on-ink: #fbf6e9;
   --accent: #b0124f; --accent-strong: #960d42; --accent-text: #9a0f45; --on-accent: #fff7ec;
   --accent-2: #005f66;
-  --warn: #8f5500; --warn-strong: #7f4b00; --warn-text: #7f4b00;
+  --warn: #8f5500; --warn-text: #7f4b00;
   --danger: #b3261e; --danger-strong: #9a1f18; --danger-text: #9a1f18;
   --ok: #256619; --ok-strong: #1f5c14; --ok-text: #1f5c14;
   --on-module: #1d1712; --nav-bg: #fbf6e9;
@@ -133,7 +133,6 @@
 :root[data-theme="retro"][data-palette="papier"] :is(.hero .btn-solid, .hero .room-new) { --pxc: color-mix(in srgb, var(--mod, var(--accent)) 55%, var(--text)); }
 :root[data-theme="retro"][data-palette="papier"] .hero .room-new { color: color-mix(in srgb, var(--mod, var(--accent)) 40%, var(--text)); }
 :root[data-theme="retro"][data-palette="papier"] :is(.tile, .exam-chip, .commute-plan, .exam-countdown, .merge-row.on, .tl-live .tl-body) { --pxc: color-mix(in srgb, var(--mod, var(--accent)) 70%, var(--text)); }
-:root[data-theme="retro"][data-palette="papier"] .allday .ad-exam { color: var(--on-accent); }
 :root[data-theme="retro"][data-palette="papier"] .mod-text { color: color-mix(in srgb, var(--mod) 40%, var(--text)) !important; }
 
 /* Schriftgröße (Einstellungen): alles in rem wächst mit, Pixel-Grafiken behalten ihre Größe */
@@ -338,7 +337,6 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .ev.ev-done { background: var(--surface-3); color: var(--text); box-shadow: inset 3px 0 0 0 var(--mod); filter: none; }
 :root[data-theme="retro"] .ev.ev-block { background: var(--bg); filter: none; }
 :root[data-theme="retro"] .allday .ad-hw { background: var(--surface-3); box-shadow: inset 2px 0 0 0 var(--mod); }
-:root[data-theme="retro"] .allday .ad-exam { background: var(--danger); color: var(--on-module); }
 :root[data-theme="retro"] .allday .ad-uni { background: var(--surface-3); box-shadow: inset 2px 0 0 0 var(--mod); }
 :root[data-theme="retro"] .sembar-week { border-radius: 0; }
 :root[data-theme="retro"] .sembar-vl { font-family: var(--font-num); font-size: 1.15rem; font-weight: 400; line-height: .9; }
@@ -547,21 +545,33 @@ html[data-size="large"] { font-size: 112.5%; }
 .px-burst-star { background-image: var(--px-star); }
 .px-burst-star::after { content: none; }
 
-/* Serie: Flamme wächst mit (aus bei 0, größer ab 7, blau ab 30 Tagen) und flackert ab 3 Tagen */
-@keyframes px-flicker { 50% { background-image: var(--px-flame2); } }
-:root[data-theme="retro"] .minis > .streak[data-tier="0"]::before { filter: grayscale(1) brightness(.55); }
-:root[data-theme="retro"] .minis > .streak[data-tier="3"]::before { width: 30px; height: 25px; vertical-align: -6px; background-size: 30px 25px; }
-:root[data-theme="retro"] .minis > .streak[data-tier="4"]::before { width: 36px; height: 30px; vertical-align: -8px; background-size: 36px 30px; filter: hue-rotate(185deg) saturate(1.6); }
-:root[data-theme="retro"] .minis > .streak:is([data-tier="2"], [data-tier="3"], [data-tier="4"])::before { animation: px-flicker .8s steps(1, end) infinite; }
+/* Serie: Flamme wächst mit (aus bei 0, größer ab 7, blau ab 30 Tagen) und flackert ab 3 Tagen. Die beiden Bilder liegen
+   übereinander in .streak-flame und wechseln per opacity: Das übernimmt die Grafikkarte. Ein Wechsel von background-image
+   ließ den Browser auf „Heute“ 60-mal pro Sekunde Stile neu berechnen. */
+@keyframes px-flicker { 50% { opacity: 0; } }
+@keyframes px-flicker2 { 50% { opacity: 1; } }
+.streak-flame { display: none; }
+:root[data-theme="retro"] .minis > .streak::before { content: none; }
+:root[data-theme="retro"] .streak-flame { display: inline-block; position: relative; width: 24px; height: 20px; margin-right: .4em; vertical-align: -4px; filter: var(--art); }
+:root[data-theme="retro"] .streak-flame::before, :root[data-theme="retro"] .streak-flame::after { content: ""; position: absolute; inset: 0; background: var(--px-flame) center / 100% 100% no-repeat; image-rendering: pixelated; }
+:root[data-theme="retro"] .streak-flame::after { background-image: var(--px-flame2); opacity: 0; }
+:root[data-theme="retro"] .streak[data-tier="0"] .streak-flame { filter: grayscale(1) brightness(.55); }
+:root[data-theme="retro"] .streak[data-tier="3"] .streak-flame { width: 30px; height: 25px; vertical-align: -6px; }
+:root[data-theme="retro"] .streak[data-tier="4"] .streak-flame { width: 36px; height: 30px; vertical-align: -8px; filter: hue-rotate(185deg) saturate(1.6); }
+:root[data-theme="retro"] .streak:is([data-tier="2"], [data-tier="3"], [data-tier="4"]) .streak-flame::before { animation: px-flicker .8s steps(1, end) infinite; }
+:root[data-theme="retro"] .streak:is([data-tier="2"], [data-tier="3"], [data-tier="4"]) .streak-flame::after { animation: px-flicker2 .8s steps(1, end) infinite; }
 
-/* Timer-Begleiter: tippt in der Fokusphase, schläft in der Pause; steht der Timer, bleibt das Bild stehen */
-@keyframes px-type { 0% { background-position: 0 0; } 50% { background-position: 33.333% 0; } }
-@keyframes px-snore { 0% { background-position: 66.667% 0; } 50% { background-position: 100% 0; } }
+/* Timer-Begleiter: tippt in der Fokusphase, schläft in der Pause; steht der Timer, bleibt das Bild stehen.
+   Die Bildfolge (4 Bilder nebeneinander) liegt in ::before und wird per transform verschoben: Das übernimmt die
+   Grafikkarte. Eine background-position-Animation ließ den Browser 60-mal pro Sekunde Stile neu berechnen. */
+@keyframes px-type { 0% { transform: translateX(0); } 50% { transform: translateX(-25%); } }
+@keyframes px-snore { 0% { transform: translateX(-50%); } 50% { transform: translateX(-75%); } }
 .px-buddy { display: none; }
-:root[data-theme="retro"] .px-buddy { display: block; width: 100px; height: 80px; margin-top: -.5rem; background: var(--px-buddy) 0 0 / 400% 100% no-repeat; image-rendering: pixelated; }
-:root[data-theme="retro"] .px-buddy[data-mode="break"] { background-position: 66.667% 0; }
-:root[data-theme="retro"] .px-buddy[data-state="run"] { animation: px-type .5s steps(1, end) infinite; }
-:root[data-theme="retro"] .px-buddy[data-state="run"][data-mode="break"] { animation: px-snore 1.4s steps(1, end) infinite; }
+:root[data-theme="retro"] .px-buddy { display: block; width: 100px; height: 80px; margin-top: -.5rem; overflow: hidden; }
+:root[data-theme="retro"] .px-buddy::before { content: ""; display: block; width: 400%; height: 100%; background: var(--px-buddy) 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
+:root[data-theme="retro"] .px-buddy[data-mode="break"]::before { transform: translateX(-50%); }
+:root[data-theme="retro"] .px-buddy[data-state="run"]::before { animation: px-type .5s steps(1, end) infinite; }
+:root[data-theme="retro"] .px-buddy[data-state="run"][data-mode="break"]::before { animation: px-snore 1.4s steps(1, end) infinite; }
 
 /* „Zu erledigen“ gerade leer geworden: der Space Invader wird abgeschossen (Invader, Treffer, Explosion, Funken, weg) */
 @keyframes px-shot { 0% { background-position: 0 0; } 20% { background-position: 25% 0; } 40% { background-position: 50% 0; } 60% { background-position: 75% 0; } 80%, 100% { background-position: 100% 0; } }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { backupName, backupsToPrune, decodeBackup, encodeBackup, isoYearWeek, parseBackupName } from "../../src/lib/backup.js";
+import { backupName, backupsToPrune, decodeBackup, encodeBackup, parseBackupName } from "../../src/lib/backup.js";
+import { isoYearWeek } from "../../src/lib/util.js";
 import { emptyData } from "../../src/lib/data.js";
 
 describe("Cloud-Sicherung", () => {

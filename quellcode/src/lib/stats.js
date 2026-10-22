@@ -1,5 +1,5 @@
 /* Auswertungen: Aktivitätsraster, Lernzeit je Semester, Notenverlauf */
-import { addDays, iso, sum, wdIdx } from "./util.js";
+import { addDays, diffDays, iso, sum, wdIdx } from "./util.js";
 
 const level = (m) => (m <= 0 ? 0 : m < 30 ? 1 : m < 60 ? 2 : m < 120 ? 3 : 4);
 
@@ -21,11 +21,6 @@ function dayGrid(logs, start, weeks, today) {
   }));
 }
 
-/** Aktivitätsraster der letzten `weeks` Wochen: Spalten = Wochen ab Montag, Zeilen = Mo bis So. */
-export function heatmap(logs, weeks = 26, today = iso()) {
-  return dayGrid(logs, addDays(today, -wdIdx(today) - (weeks - 1) * 7), weeks, today);
-}
-
 /**
  * Semester, in dem `date` liegt (Wintersemester 1.10. bis 31.3., Sommersemester 1.4. bis 30.9.);
  * `offset` springt um ganze Semester zurück (negativ) oder vor.
@@ -44,7 +39,7 @@ export function semesterOf(date = iso(), offset = 0) {
 /** Lernzeit-Kalender eines Semesters: Spalten = Wochen (ab Montag), Zeilen = Mo bis So; Tage außerhalb tragen `outside`. */
 export function semesterCalendar(logs, sem, today = iso()) {
   const start = addDays(sem.from, -wdIdx(sem.from));
-  const weeks = Math.floor((Math.round((new Date(sem.to + "T12:00:00").getTime() - new Date(start + "T12:00:00").getTime()) / 86400000)) / 7) + 1;
+  const weeks = Math.floor(diffDays(start, sem.to) / 7) + 1;
   const inSem = logs.filter((l) => l.date >= sem.from && l.date <= sem.to);
   return dayGrid(inSem, start, weeks, today).map((col) => col.map((c) => (c.date < sem.from || c.date > sem.to ? { ...c, outside: true } : c)));
 }
@@ -72,16 +67,6 @@ export function gradeTimeline(data) {
     const ects = sum(upTo, (m) => m.ects);
     return { semester, ects, avg: sum(upTo, (m) => gradeOf(m) * Number(m.ects)) / ects };
   });
-}
-
-/** Prüfungsfristen: Anmeldeschluss und Wiederholungstermin, die in den nächsten `days` Tagen liegen. */
-export function examDeadlines(data, today = iso(), days = 14) {
-  const until = addDays(today, days), out = [];
-  data.exams.forEach((e) => {
-    if (e.registerBy && !e.registered && e.registerBy >= today && e.registerBy <= until) out.push({ exam: e, kind: "anmeldung", date: e.registerBy });
-    if (e.retakeDate && e.result === "nicht bestanden" && e.retakeDate >= today && e.retakeDate <= until) out.push({ exam: e, kind: "wiederholung", date: e.retakeDate });
-  });
-  return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /* ---------------- Lernstatistik ---------------- */

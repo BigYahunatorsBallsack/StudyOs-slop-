@@ -127,7 +127,7 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
       <div className="minis mt-3" aria-label="Lernzeit">
         <span><b>{fmtMin(minToday)}</b> heute</span>
         <span><b>{fmtMin(minWeek)}</b>{goalMin ? ` von ${fmtMin(goalMin)}` : ""} diese Woche</span>
-        <span className="streak" data-tier={streak >= 30 ? 4 : streak >= 7 ? 3 : streak >= 3 ? 2 : streak >= 1 ? 1 : 0}><b>{streak}</b> {streak === 1 ? "Tag" : "Tage"} Serie</span>
+        <span className="streak" data-tier={streak >= 30 ? 4 : streak >= 7 ? 3 : streak >= 3 ? 2 : streak >= 1 ? 1 : 0}><i className="streak-flame" aria-hidden="true" /><b>{streak}</b> {streak === 1 ? "Tag" : "Tage"} Serie</span>
       </div>
       {goalMin > 0 && <Bar value={minWeek} max={goalMin} label="Wochenziel Lernzeit" className="mt-2" />}
     </>,

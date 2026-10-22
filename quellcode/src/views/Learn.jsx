@@ -17,7 +17,7 @@ import { Markdown } from "../ui/markdown.jsx";
 import { weakByTag, weakCards } from "../lib/progress.js";
 import { Select } from "../ui/select.jsx";
 import { AMBIENT_KINDS, ambientOf, ambientVolumeOf } from "../lib/ambient.js";
-import { ringBlocks } from "../lib/timer.js";
+import { fullLength, ringBlocks } from "../lib/timer.js";
 import { isOcc, occLabel } from "../lib/occlusion.js";
 import { OcclusionImage } from "../ui/Occlusion.jsx";
 import { workload } from "../lib/study.js";
@@ -38,11 +38,12 @@ export function Learn({ db, sub, setSub, timer, cardFilter, setCardFilter }) {
   );
 }
 
-export function TimerView({ db, timer: timerIn }) {
-  const timer = { ...timerIn, remaining: useRemaining(timerIn) };
+/* Die Ansicht selbst rendert nur bei Änderungen am Timer oder an den Daten; was jede Sekunde wechselt
+   (Restzeit, Ring, Knöpfe), steckt in eigenen kleinen Komponenten */
+export function TimerView({ db, timer }) {
   const { data } = db;
   const toggleRef = useRef(null);
-  toggleRef.current = () => (timerIn.running ? timerIn.pause() : timerIn.start());
+  toggleRef.current = () => (timer.running ? timer.pause() : timer.start());
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== " " || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -52,10 +53,7 @@ export function TimerView({ db, timer: timerIn }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
-  const total = (timer.mode === "focus" ? timer.length : timer.brk) * 60;
-  const mm = String(Math.floor(timer.remaining / 60)).padStart(2, "0"), ss = String(timer.remaining % 60).padStart(2, "0");
   const topics = data.topics.filter((x) => x.moduleId === timer.moduleId).sort(byOrder);
-  const prog = total ? (total - timer.remaining) / total : 0;
   const m = db.mod(timer.moduleId);
   const ambient = ambientOf(data.settings);
   return (
@@ -63,15 +61,9 @@ export function TimerView({ db, timer: timerIn }) {
       <Card>
         <div className="flex flex-col items-center gap-4">
           <Tabs items={[["focus", "Fokus"], ["break", "Pause"]]} value={timer.mode} onChange={timer.setMode} label="Timer-Modus" />
-          <div className="relative">
-            <PixelRing prog={prog} color={timer.mode === "focus" ? m?.color || "var(--accent-2)" : "var(--ok)"} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span role="timer" aria-label={`${mm} Minuten ${ss} Sekunden verbleibend`} className="font-num text-5xl font-semibold">{mm}:{ss}</span>
-              <span className="text-xs text-slate-400">{timer.mode === "focus" ? "Fokus" : "Pause"}</span>
-            </div>
-          </div>
+          <TimerClock timer={timer} color={timer.mode === "focus" ? m?.color || "var(--accent-2)" : "var(--ok)"} />
           {/* Pixel-Begleiter (nur Retro): tippt während der Fokusphase, schläft in der Pause */}
-          <span className="px-buddy" data-state={timerIn.running ? "run" : "idle"} data-mode={timer.mode} aria-hidden="true" />
+          <span className="px-buddy" data-state={timer.running ? "run" : "idle"} data-mode={timer.mode} aria-hidden="true" />
           <div className="grid w-full max-w-sm grid-cols-2 gap-2">
             <div className="col-span-2">
               <label htmlFor="tm-mod" className="mb-1 block text-xs text-slate-400">Modul</label>
@@ -110,13 +102,36 @@ export function TimerView({ db, timer: timerIn }) {
               Signalton und Vibration am Ende einer Phase
             </label>
           </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            <button className={btnPrimary} onClick={timer.running ? timer.pause : timer.start}>{timer.running ? "Pausieren" : timer.remaining === total ? "Starten" : "Fortsetzen"}</button>
-            <button className={btnGhost} onClick={timer.reset}>Zurücksetzen</button>
-            {timer.mode === "focus" && timer.remaining < total && <button className={btnGhost} onClick={timer.stopAndLog}>Beenden & eintragen</button>}
-          </div>
+          <TimerButtons timer={timer} />
         </div>
       </Card>
+    </div>
+  );
+}
+
+/* Restzeit und Pixel-Ring: aktualisiert sich jede Sekunde */
+function TimerClock({ timer, color }) {
+  const remaining = useRemaining(timer), total = fullLength(timer);
+  const mm = String(Math.floor(remaining / 60)).padStart(2, "0"), ss = String(remaining % 60).padStart(2, "0");
+  return (
+    <div className="relative">
+      <PixelRing prog={total ? (total - remaining) / total : 0} color={color} />
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span role="timer" aria-label={`${mm} Minuten ${ss} Sekunden verbleibend`} className="font-num text-5xl font-semibold">{mm}:{ss}</span>
+        <span className="text-xs text-slate-400">{timer.mode === "focus" ? "Fokus" : "Pause"}</span>
+      </div>
+    </div>
+  );
+}
+
+/* „Starten“/„Fortsetzen“ und „Beenden & eintragen“ hängen an der Restzeit */
+function TimerButtons({ timer }) {
+  const remaining = useRemaining(timer), total = fullLength(timer);
+  return (
+    <div className="flex flex-wrap justify-center gap-2">
+      <button className={btnPrimary} onClick={timer.running ? timer.pause : timer.start}>{timer.running ? "Pausieren" : remaining === total ? "Starten" : "Fortsetzen"}</button>
+      <button className={btnGhost} onClick={timer.reset}>Zurücksetzen</button>
+      {timer.mode === "focus" && remaining < total && <button className={btnGhost} onClick={timer.stopAndLog}>Beenden & eintragen</button>}
     </div>
   );
 }
@@ -161,16 +176,20 @@ function WeakSpots({ db, cards, onPractice }) {
   );
 }
 
-/* Fortschritt als Ring aus Pixel-Blöcken: jeder Block steht für einen gleich langen Teil der Phase, der jüngste blinkt kurz auf */
+/* Fortschritt als Ring aus Pixel-Blöcken: jeder Block steht für einen gleich langen Teil der Phase, der jüngste blinkt kurz auf.
+   Die Blöcke rendern nur neu, wenn ein weiterer voll wird (alle paar Dutzend Sekunden), nicht bei jeder Sekunde. */
+const RING = ringBlocks(40, 84, 100);
 function PixelRing({ prog, color }) {
-  const blocks = ringBlocks(40, 84, 100);
-  const filled = Math.min(blocks.length, Math.floor(prog * blocks.length + 1e-9));
+  return <PixelBlocks filled={Math.min(RING.length, Math.floor(prog * RING.length + 1e-9))} color={color} />;
+}
+const PixelBlocks = React.memo(function PixelBlocks({ filled, color }) {
+  const blocks = RING;
   return (
     <svg width="200" height="200" viewBox="0 0 200 200" shapeRendering="crispEdges" aria-hidden="true" className="px-ring">
       {blocks.map((b, i) => <rect key={i} x={b.x - 5} y={b.y - 5} width="10" height="10" style={{ fill: i < filled ? color : "var(--hm0)" }} className={i === filled - 1 ? "px-ring-new" : undefined} />)}
     </svg>
   );
-}
+});
 
 export function LogsView({ db }) {
   const { data } = db;

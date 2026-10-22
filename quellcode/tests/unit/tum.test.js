@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { fmtWatch, gopStatus, gradeForecast, parseWatch, roomUrl, watchProgress } from "../../src/lib/tum.js";
-import { dishesOn, isoWeek, menuDay, menuDays, menuUrl, mensaOf } from "../../src/lib/mensa.js";
+import { dishesOn, menuDay, menuDays, menuUrl, mensaOf } from "../../src/lib/mensa.js";
+import { isoYearWeek } from "../../src/lib/util.js";
 import { applyMoodle, cleanTitle, dueOf, isMoodleDeadline, unmappedCourses } from "../../src/lib/moodle.js";
 import { parseICS } from "../../src/lib/ics.js";
 import { emptyData } from "../../src/lib/data.js";
@@ -36,8 +37,8 @@ describe("GOP und Prognose", () => {
 
 describe("Mensa", () => {
   it("ISO-Woche und URL", () => {
-    expect(isoWeek("2026-10-19")).toEqual({ year: 2026, week: 43 });
-    expect(isoWeek("2027-01-01")).toEqual({ year: 2026, week: 53 });
+    expect(isoYearWeek("2026-10-19")).toEqual({ year: 2026, week: 43 });
+    expect(isoYearWeek("2027-01-01")).toEqual({ year: 2026, week: 53 });
     expect(menuUrl("mensa-garching", "2026-10-19")).toBe("https://tum-dev.github.io/eat-api/mensa-garching/2026/43.json");
   });
   it("Gerichte mit Preis und Kennzeichnung", () => {

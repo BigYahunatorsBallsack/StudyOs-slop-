@@ -88,11 +88,21 @@ export function RingLegend() {
 }
 
 /* swipe: am Handy wechselt seitliches Wischen über die Seite diese Reiter (siehe App.jsx) */
+/* Reiterleiste; mit der Tastatur wie jede Tab-Liste: Pfeil links/rechts, Pos1 und Ende wählen den Nachbarn */
 export function Tabs({ items, value, onChange, label, swipe = false }) {
+  const onKey = (e) => {
+    const i = items.findIndex(([k]) => String(k) === e.target.dataset?.tab);
+    if (i < 0 || e.altKey || e.ctrlKey || e.metaKey) return;
+    const j = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: items.length - 1 }[e.key];
+    if (j === undefined || j < 0 || j >= items.length) return;
+    e.preventDefault();
+    onChange(items[j][0]);
+    e.currentTarget.querySelectorAll('[role="tab"]')[j]?.focus();
+  };
   return (
-    <div role="tablist" aria-label={label} className="seg" data-swipe-tabs={swipe ? "" : undefined}>
+    <div role="tablist" aria-label={label} className="seg" data-swipe-tabs={swipe ? "" : undefined} onKeyDown={onKey}>
       {items.map(([k, l]) => (
-        <button key={k} role="tab" aria-selected={value === k} onClick={() => onChange(k)} className="seg-item">{l}</button>
+        <button key={k} role="tab" data-tab={k} aria-selected={value === k} onClick={() => onChange(k)} className="seg-item">{l}</button>
       ))}
     </div>
   );

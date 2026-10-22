@@ -36,7 +36,7 @@ export function FocusView({ db, kind, item }) {
     check = () => db.patch("blocks", item.id, blockDone(true));
   }
   return (
-    <section className="hero focus-hero" style={{ "--mod": m?.color }} aria-label="Fokus">
+    <section className="hero" style={{ "--mod": m?.color }} aria-label="Fokus">
       <p className="hero-when">Fokus</p>
       <p className="hero-title">{title}</p>
       <p className="hero-meta">{meta}</p>
@@ -65,10 +65,10 @@ export function TimeStrip({ db, strip, data }) {
   const gap = strip.now !== null ? nextGap(data, iso(), nowHM()) : null;
   const hh = (min) => String(Math.floor(min / 60)).padStart(2, "0");
   return (
-    <section className="daystrip-wrap mt-1 mb-3" aria-label="Zeitstrahl">
+    <section className="mt-1 mb-3" aria-label="Zeitstrahl">
       <ol className="daystrip">
         {strip.items.map((x) => { const m = db.mod(x.moduleId); return (
-          <li key={x.kind + x.id} className={`daystrip-item ${x.kind === "block" ? "daystrip-block" : ""} ${x.past || x.done ? "daystrip-past" : ""} ${x.live ? "daystrip-live" : ""}`}
+          <li key={x.kind + x.id} className={`daystrip-item ${x.kind === "block" ? "daystrip-block" : ""} ${x.past || x.done ? "daystrip-past" : ""}`}
             style={{ "--mod": m?.color || "var(--accent)", left: pos(x.start), width: `calc(${pos(x.end)} - ${pos(x.start)})` }}
             title={`${x.start}–${x.end} ${m?.name || x.title}`}>
             <span className="sr-only">{x.start} bis {x.end}: {m?.name || x.title}{x.kind === "block" ? ` (Lernblock ${x.title})` : `, ${x.title}`}{x.live ? ", läuft gerade" : ""}</span>

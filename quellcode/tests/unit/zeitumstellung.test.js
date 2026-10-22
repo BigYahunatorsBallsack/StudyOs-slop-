@@ -1,13 +1,12 @@
 /* Zeitumstellung: 25.10.2026 (03:00 MESZ → 02:00 MEZ, 25-Stunden-Tag) und 28.03.2027 (02:00 MEZ → 03:00 MESZ, 23 Stunden).
    Läuft mit TZ=Europe/Berlin (npm test). */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addDays, dayOf, diffDays, isoWeek, iso, weekStart, wdIdx, nowHM, isHeld } from "../../src/lib/util.js";
-import { isoYearWeek } from "../../src/lib/backup.js";
-import { isoWeek as mensaWeek, menuDay, menuDays } from "../../src/lib/mensa.js";
+import { addDays, dayOf, diffDays, isoWeek, isoYearWeek, iso, weekStart, wdIdx, nowHM, isHeld } from "../../src/lib/util.js";
+import { menuDay, menuDays } from "../../src/lib/mensa.js";
 import { dueInfo, examCountdown } from "../../src/lib/data.js";
 import { dayStrip, nextGap, tomorrowPreview } from "../../src/lib/dayview.js";
 import { remainingOf, fromLive, toLive } from "../../src/lib/timer.js";
-import { heatmap, semesterCalendar, semesterOf, learningRhythm } from "../../src/lib/stats.js";
+import { semesterCalendar, semesterOf, learningRhythm } from "../../src/lib/stats.js";
 import { bestStreak, weekCard } from "../../src/lib/progress.js";
 import { buildHomeworkSeries } from "../../src/lib/study.js";
 import { followingSimilar } from "../../src/lib/series.js";
@@ -56,7 +55,7 @@ describe("Datumsstrings über die Umstellung", () => {
     expect(isoWeek(SPRING)).toBe(12);
     expect(isoWeek("2027-03-29")).toBe(13);
     expect(isoYearWeek(FALL)).toEqual({ year: 2026, week: 43 });
-    expect(mensaWeek("2027-03-29")).toEqual({ year: 2027, week: 13 });
+    expect(isoYearWeek("2027-03-29")).toEqual({ year: 2027, week: 13 });
   });
 
   it("iso und dayOf liefern das lokale Datum, auch zur doppelten Stunde und kurz vor Mitternacht", () => {
@@ -149,12 +148,8 @@ describe("Lernzeit", () => {
     expect(r.weekdays[6]).toBe(80); /* So */
     expect(r.weekdays[0]).toBe(55); /* Mo */
   });
-  it("Aktivitätsraster und Semester-Kalender ohne doppelte oder fehlende Tage", () => {
-    const grid = heatmap(logs, 4, "2026-11-01");
-    const days = grid.flat().map((c) => c.date);
-    expect(new Set(days).size).toBe(28);
-    expect(days).toContain(FALL);
-    expect(grid.flat().find((c) => c.date === FALL).minutes).toBe(60);
+  it("Semester-Kalender ohne doppelte oder fehlende Tage", () => {
+    expect(semesterCalendar(logs, semesterOf(FALL), "2026-11-01").flat().find((c) => c.date === FALL).minutes).toBe(60);
     for (const sem of [semesterOf(FALL), semesterOf(SPRING)]) {
       const cal = semesterCalendar(logs, sem, "2027-04-15").flat();
       const inside = cal.filter((c) => !c.outside).map((c) => c.date);

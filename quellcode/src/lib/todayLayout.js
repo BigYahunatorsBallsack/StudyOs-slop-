@@ -42,5 +42,3 @@ export function moveBlock(layout, from, to) {
   ids.splice(to, 0, x);
   return ids;
 }
-
-export const isDefaultLayout = (settings = {}) => todayLayout(settings).every((b, i) => b.id === IDS[i] && !b.hidden);
