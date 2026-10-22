@@ -1375,6 +1375,17 @@ test('Breiter Bildschirm: Heute und Woche nebeneinander, abschaltbar', async ({ 
   const [a, b] = await Promise.all([page.locator('.split-main').boundingBox(), side.boundingBox()]);
   expect(b.x).toBeGreaterThan(a.x + a.width - 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  /* Termin-Karte bleibt in der Wochenspalte, auch am Termin ganz rechts (vorher ragte sie über deren Rand) */
+  const evs = side.locator('.ev');
+  let right = null;
+  for (const ev of await evs.all()) { const r = await ev.boundingBox(); if (r && (!right || r.x > right.r.x)) right = { ev, r }; }
+  await right.ev.hover();
+  const card = page.locator('.popover');
+  await expect(card).toBeVisible();
+  const [c, s] = await Promise.all([card.boundingBox(), side.boundingBox()]);
+  expect(c.x).toBeGreaterThanOrEqual(s.x);
+  expect(c.x + c.width).toBeLessThanOrEqual(s.x + s.width);
+  await page.mouse.move(5, 5);
   await openData(page, 'Darstellung');
   await page.getByLabel('Am breiten Bildschirm „Heute“ und die Woche nebeneinander zeigen').uncheck();
   await nav(page, 'Heute').click();

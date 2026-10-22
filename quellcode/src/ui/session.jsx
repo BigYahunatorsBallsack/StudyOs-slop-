@@ -35,7 +35,7 @@ export function SessionTri({ s, db, compact = false, color }) {
 }
 
 /** Schwebende Karte an einem Termin (Position aus dem Rechteck des Auslösers). */
-export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note = "" }) {
+export function SessionPopover({ s, db, anchor, area, onClose, onEnter, onLeave, note = "" }) {
   const ref = useRef(null);
   const opener = useRef(typeof document !== "undefined" ? document.activeElement : null); /* Esc gibt den Fokus dorthin zurück */
   const [pos, setPos] = useState({ left: -9999, top: -9999 });
@@ -45,14 +45,19 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !anchor) return;
-    const w = el.offsetWidth, h = el.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    /* Grenzen: das Fenster, in der PC-Doppelansicht nur die eigene Spalte (sonst ragt die Karte in „Heute“ bzw. über die Bildlaufleiste) */
+    let L = 8, R = window.innerWidth - 8, T = 8, B = window.innerHeight - 8;
+    if (area && area.right - area.left >= w + 16) { L = Math.max(L, area.left + 8); R = Math.min(R, area.right - 8); }
+    if (area && area.bottom - area.top >= h + 16) { T = Math.max(T, area.top + 8); B = Math.min(B, area.bottom - 8); }
+    const beside = (x) => x === anchor.right + 8 || x === anchor.left - w - 8;
     let left = anchor.right + 8;
-    if (left + w > vw - 8) left = anchor.left - w - 8; /* rechts kein Platz: links daneben */
-    if (left < 8) left = Math.min(Math.max(8, anchor.left + anchor.width / 2 - w / 2), vw - w - 8); /* sonst darunter/darüber */
-    let top = left === anchor.right + 8 || left === anchor.left - w - 8 ? anchor.top : anchor.bottom + 8;
-    if (top + h > vh - 8) top = Math.max(8, (left === anchor.right + 8 || left === anchor.left - w - 8 ? vh - h - 8 : anchor.top - h - 8));
+    if (left + w > R) left = anchor.left - w - 8; /* rechts kein Platz: links daneben */
+    if (left < L) left = Math.min(Math.max(L, anchor.left + anchor.width / 2 - w / 2), R - w); /* sonst darunter/darüber */
+    let top = beside(left) ? anchor.top : anchor.bottom + 8;
+    if (top + h > B) top = Math.max(T, beside(left) ? B - h : anchor.top - h - 8);
     setPos({ left, top });
-  }, [anchor, s]);
+  }, [anchor, area, s]);
 
   /* Listener nur einmal anmelden; onClose kommt bei jedem Rendern neu (useHoverCard), darum über eine Ref */
   const closeRef = useRef(onClose);
@@ -63,8 +68,10 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note 
     const onDown = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.(".ev")) close(); };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onDown);
+    const side = ref.current?.closest(".split-side"); /* PC-Doppelansicht: die Wochenspalte scrollt für sich */
     window.addEventListener("scroll", close, { passive: true });
-    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onDown); window.removeEventListener("scroll", close); };
+    side?.addEventListener("scroll", close, { passive: true });
+    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onDown); window.removeEventListener("scroll", close); side?.removeEventListener("scroll", close); };
   }, []);
 
   return (
@@ -91,12 +98,20 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note 
  * Maus: nach kurzem Verweilen öffnen, beim Verlassen (mit Gnadenfrist für den Weg zur Karte) schließen.
  * Touch: Antippen öffnet die Karte statt des Formulars.
  */
+/* Sichtbarer Innenbereich einer Spalte, ohne ihre Bildlaufleiste */
+const areaOf = (box) => {
+  if (!box) return null;
+  const r = box.getBoundingClientRect(), left = r.left + box.clientLeft, top = r.top + box.clientTop;
+  return { left, top, right: left + box.clientWidth, bottom: top + box.clientHeight };
+};
 export function useHoverCard({ openDelay = 350, closeDelay = 220 } = {}) {
-  const [card, setCard] = useState(null); /* { id, anchor } */
+  const [card, setCard] = useState(null); /* { id, anchor, area } */
+  /* area: die Spalte der PC-Doppelansicht, in der der Termin steht; die Karte bleibt darin */
+  const place = (id, el) => setCard({ id, anchor: el.getBoundingClientRect(), area: areaOf(el.closest(".split-side")) });
   const timers = useRef({});
   const clear = (k) => { clearTimeout(timers.current[k]); timers.current[k] = null; };
   useEffect(() => () => { clear("open"); clear("close"); }, []);
-  const open = (id, el) => { clear("open"); clear("close"); setCard({ id, anchor: el.getBoundingClientRect() }); };
+  const open = (id, el) => { clear("open"); clear("close"); place(id, el); };
   const close = () => { clear("open"); clear("close"); setCard(null); };
   return {
     card, open, close,
@@ -109,7 +124,7 @@ export function useHoverCard({ openDelay = 350, closeDelay = 220 } = {}) {
         clear("close");
         const el = e.currentTarget;
         clear("open");
-        timers.current.open = setTimeout(() => setCard({ id, anchor: el.getBoundingClientRect() }), card ? 0 : openDelay);
+        timers.current.open = setTimeout(() => place(id, el), card ? 0 : openDelay);
       },
       onPointerLeave: (e) => { if (isMouse(e)) { clear("open"); clear("close"); timers.current.close = setTimeout(() => setCard(null), closeDelay); } },
       onFocus: (e) => { if (e.currentTarget.matches(":focus-visible")) open(id, e.currentTarget); },
