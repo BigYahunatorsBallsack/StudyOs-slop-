@@ -2,12 +2,23 @@
 import { zonedInstant } from "./reminders.js";
 
 const LABEL = { homework: "Abgabe", exam: "Prüfung", register: "Anmeldeschluss", retake: "Wiederholungsprüfung" };
-const esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+const esc = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 const utc = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 const day = (date) => date.replace(/-/g, "");
 const nextDay = (date) => { const d = new Date(date + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
-/* Zeilen über 75 Zeichen falten (RFC 5545) */
-const fold = (line) => { const out = []; let s = line; while (s.length > 74) { out.push(s.slice(0, 74)); s = " " + s.slice(74); } out.push(s); return out.join("\r\n"); };
+/* Zeilen über 75 Byte falten (RFC 5545), ohne Umlaute oder Emoji mitten im Zeichen zu trennen */
+const bytes = (ch) => { const c = ch.codePointAt(0); return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4; };
+const fold = (line) => {
+  const out = [];
+  let cur = "", size = 0;
+  for (const ch of line) {
+    const n = bytes(ch);
+    if (size + n > 75) { out.push(cur); cur = " "; size = 1; }
+    cur += ch; size += n;
+  }
+  out.push(cur);
+  return out.join("\r\n");
+};
 
 export function buildDeadlineIcs(deadlines, tz = "Europe/Berlin", now = new Date()) {
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//StudyOS//Fristen//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:StudyOS Fristen", "X-PUBLISHED-TTL:PT3H", "REFRESH-INTERVAL;VALUE=DURATION:PT3H"];

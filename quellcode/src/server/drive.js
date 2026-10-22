@@ -42,6 +42,7 @@ async function geocode(q, key, fetchImpl) {
   if (m) return `${m[1]},${m[2]}`;
   if (geoCache.has(q)) return geoCache.get(q);
   const r = await getJson(fetchImpl, `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(q)}.json?key=${encodeURIComponent(key)}&limit=1&countrySet=DE&language=de-DE`);
+  if (r.error) return r; /* Schlüssel abgelehnt oder Dienst weg: nicht als „Adresse nicht gefunden“ melden */
   const pos = r.data?.results?.[0]?.position;
   if (!pos) return null;
   const v = `${pos.lat},${pos.lon}`;
@@ -51,6 +52,8 @@ async function geocode(q, key, fetchImpl) {
 
 async function tomtom(from, to, key, fetchImpl) {
   const [a, b] = await Promise.all([geocode(from, key, fetchImpl), geocode(to, key, fetchImpl)]);
+  const err = [a, b].find((x) => x && typeof x === "object");
+  if (err) return err;
   if (!a || !b) return { error: `„${!a ? from : to}“ wurde nicht gefunden.`, status: 404 };
   const r = await getJson(fetchImpl, `https://api.tomtom.com/routing/1/calculateRoute/${a}:${b}/json?key=${encodeURIComponent(key)}&traffic=true&travelMode=car&routeType=fastest&computeTravelTimeFor=all`);
   if (r.error) return r;

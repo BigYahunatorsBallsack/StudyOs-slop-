@@ -33,7 +33,10 @@ const fake = createServer(async (req, res) => {
 await new Promise((r) => fake.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${fake.address().port}`;
 state.push = [{ user_id: "u1", tz: "Europe/Berlin", sent: {}, subscriptions: [{ endpoint: `${base}/push/device`, keys: { p256dh: b64url(pub), auth: b64url(auth) } }],
-  deadlines: [{ id: "h1", kind: "homework", title: "Blatt 4", module: "Analysis", date: "2026-10-23" }] }];
+  deadlines: [{ id: "h1", kind: "homework", title: "Blatt 4", module: "Analysis", date: "2026-10-23" }] },
+  /* kaputte Zeile (unbekannte Zeitzone): darf den Lauf nicht abbrechen */
+  { user_id: "u2", tz: "Mars/Olympus", sent: {}, subscriptions: [{ endpoint: `${base}/push/device`, keys: { p256dh: b64url(pub), auth: b64url(auth) } }],
+    deadlines: [{ id: "h2", kind: "homework", title: "Blatt 5", date: "2026-10-23" }] }];
 
 const port = 18000 + Math.floor(Math.random() * 1000);
 const child = spawn(DENO, ["run", "--allow-net", "--allow-env", "supabase/functions/studyos/index.ts"], {
@@ -52,6 +55,7 @@ try {
   assert.equal((await fetch(`${fn}/?action=remind`, { method: "POST" })).status, 401, "ohne Cron-Geheimnis");
   const stats = await (await fetch(`${fn}/?action=remind`, { method: "POST", headers: { "x-cron-secret": "cron-123" } })).json();
   assert.equal(stats.sent, 1, "eine Erinnerung verschickt: " + JSON.stringify(stats));
+  assert.equal(stats.errors, 1, "kaputte Zeile übersprungen: " + JSON.stringify(stats));
   assert.equal(state.received.length, stats.sent);
 
   if (state.received.length) {
