@@ -517,10 +517,14 @@ export function IcsImport({ db, readFile }) {
       const d = { ...d0, modules: [...d0.modules], sessions: [...d0.sessions] };
       let added = 0, skipped = 0;
       for (const g of Object.keys(created)) d.modules.push({ id: created[g], name: g, code: "", ects: 6, semester: 1, status: "belegt", grade: null, color: pickColor(d.modules) });
+      /* vorhandene Termine einmal als Schlüssel ablegen statt je importiertem Termin alle Termine zu durchsuchen */
+      const key = (mid, date, start) => `${mid}|${date}|${start}`;
+      const have = new Set(d.sessions.map((s) => key(s.moduleId, s.date, s.start)));
       events.forEach((e) => {
         const mid = map[e.summary] === "__new" ? created[e.summary] : map[e.summary];
         if (!mid || mid === "__skip") return;
-        if (d.sessions.some((s) => s.moduleId === mid && s.date === e.date && s.start === e.start)) { skipped++; return; }
+        if (have.has(key(mid, e.date, e.start))) { skipped++; return; }
+        have.add(key(mid, e.date, e.start));
         d.sessions.push({ id: uid(), moduleId: mid, type: guessType(e.summary), date: e.date, start: e.start, end: e.end, room: e.room, prepared: false, attended: false, reviewed: false, reviewedAt: null });
         added++;
       });

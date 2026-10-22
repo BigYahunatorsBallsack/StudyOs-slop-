@@ -17,8 +17,10 @@ export const cardReviews = (cards) => sum(cards, (c) => Number(c.reviews) || Num
 /** Wochen (ab Montag), in denen die Lernzeit das Wochenziel erreicht hat. */
 function goalWeeks(logs, goalMin) {
   if (!goalMin) return 0;
-  const byWeek = new Map();
-  logs.forEach((l) => { if (l.date) byWeek.set(weekStart(l.date), (byWeek.get(weekStart(l.date)) || 0) + (Number(l.minutes) || 0)); });
+  /* Wochenanfang je Datum nur einmal berechnen: viele Lerneinheiten teilen sich einen Tag */
+  const byWeek = new Map(), monOf = new Map();
+  const mon = (d) => { let m = monOf.get(d); if (m === undefined) monOf.set(d, (m = weekStart(d))); return m; };
+  logs.forEach((l) => { if (l.date) { const w = mon(l.date); byWeek.set(w, (byWeek.get(w) || 0) + (Number(l.minutes) || 0)); } });
   return [...byWeek.values()].filter((m) => m >= goalMin).length;
 }
 

@@ -181,21 +181,30 @@ async function maybeDailySnapshot(db, previous) {
   await snapshot(`Automatische Sicherung ${oldDate}`, previous.payload, id);
 }
 
+/* Zeitstempel des zuletzt von hier gespeicherten Stands: Liegt er schon auf dem heutigen Tag, ist auch der gespeicherte
+   Stand von heute (ein anderer Tab speichert nur später) und die Tagessicherung steht nicht an. Dann muss der alte Stand
+   nicht erst ganz aus der Datenbank gelesen werden, bei großen Daten der teuerste Teil des Speicherns. */
+let lastSaved = '';
 async function save(payload) {
   const row = { id: 'current', updated: new Date().toISOString(), payload };
   const mirrorOk = localWrite(row);
   try {
     const db = await openDb();
-    let previous = null;
-    try { previous = await txRequest(db, 'app', 'readonly', (s) => s.get('current')); } catch {}
-    if (previous && localDay(previous.updated) !== localDay(row.updated)) {
-      try { await maybeDailySnapshot(db, previous); } catch { /* snapshots must not block saves */ }
+    if (!lastSaved || localDay(lastSaved) !== localDay(row.updated)) {
+      let previous = null;
+      try { previous = await txRequest(db, 'app', 'readonly', (s) => s.get('current')); } catch {}
+      if (previous && localDay(previous.updated) !== localDay(row.updated)) {
+        try { await maybeDailySnapshot(db, previous); } catch { /* snapshots must not block saves */ }
+      }
     }
     await txRequest(db, 'app', 'readwrite', (s) => s.put(row));
     storageMode = 'idb';
-    /* Nicht über einen jüngeren Spiegel schreiben (z. B. von saveSync beim Verlassen, während dieser Vorgang noch lief) */
-    const stamp = localStamp();
-    if (!stamp || stamp <= row.updated) localWrite(row);
+    if (row.updated > lastSaved) lastSaved = row.updated;
+    /* Spiegel erneuern, falls ein älterer Speichervorgang ihn inzwischen überschrieben hat, aber nicht über einen jüngeren
+       (z. B. von saveSync beim Verlassen, während dieser Vorgang noch lief). Steht dieser Stand schon drin, nicht noch einmal
+       umwandeln; passte er eben nicht hinein (zu groß), passt er auch jetzt nicht. */
+    const stamp = mirrorOk ? localStamp() : null;
+    if (mirrorOk && (!stamp || stamp < row.updated)) localWrite(row);
     if (channel) channel.postMessage({ type: 'saved', updated: row.updated });
     return true;
   } catch (err) {

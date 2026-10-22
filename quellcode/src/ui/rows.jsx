@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { DONE_HW, HW_STATUS, TOPIC_STATES, WD } from "../lib/constants.js";
 import { dueInfo, examCountdown } from "../lib/data.js";
 import { blockDone } from "../lib/blocks.js";
@@ -196,14 +196,24 @@ export function LogRow({ l, db }) {
   );
 }
 
+/* Lange Listen (nach Jahren tausende Lerneinheiten oder Karten) abschnittsweise zeigen: Alle Zeilen auf einmal brauchen
+   auf dem Handy viele Sekunden zum Aufbauen. Auswählen („Alle“) und Summen gelten weiter für die ganze Liste. */
+export const LIST_STEP = 100;
+export function useListLimit() { return useState(LIST_STEP); }
+export function MoreRows({ shown, total, onMore }) {
+  if (shown >= total) return null;
+  return <button className="link-btn mt-2" onClick={() => onMore(shown + LIST_STEP)}>Weitere {Math.min(LIST_STEP, total - shown)} anzeigen <span className="font-normal">(noch {total - shown})</span></button>;
+}
+
 export function CardList({ cards, db }) {
   const t = iso();
+  const [limit, setLimit] = useListLimit();
   if (!cards.length) return <Empty art="card">Noch keine Karteikarten. Der Stapel wartet auf seine erste Karte.</Empty>;
   return (
     <>
     <div className="mb-1 flex justify-end"><SelectToggle db={db} kind="card" ids={cards.map((c) => c.id)} /></div>
     <ul className="rows">
-      {[...cards].sort((a, b) => a.due.localeCompare(b.due)).map((c) => { const m = db.mod(c.moduleId); if (db.sel?.kind === "card") return <SelectRow key={c.id} db={db} kind="card" id={c.id} color={m?.color} title={isOcc(c) ? occLabel(c) : String(hasCloze(c.front) ? renderCloze(c.front, true) : c.front || "").replace(/\*\*/g, "")} meta={m?.name || ""} />; return (
+      {[...cards].sort((a, b) => a.due.localeCompare(b.due)).slice(0, limit).map((c) => { const m = db.mod(c.moduleId); if (db.sel?.kind === "card") return <SelectRow key={c.id} db={db} kind="card" id={c.id} color={m?.color} title={isOcc(c) ? occLabel(c) : String(hasCloze(c.front) ? renderCloze(c.front, true) : c.front || "").replace(/\*\*/g, "")} meta={m?.name || ""} />; return (
         <li key={c.id} className="row" style={{ "--mod": m?.color }}>
           <button onClick={() => db.openForm("card", c)} className="row-main flex items-start gap-3">
             <p className="min-w-0 flex-1 truncate text-sm">{isOcc(c) ? <><span className="occ-tag">Bild</span>{occLabel(c)}</> : hasCloze(c.front) ? renderCloze(c.front, true).replace(/\*\*/g, "") : c.front}{c.tags ? <span className="ml-2 text-[11px] text-slate-500">{parseTags(c.tags).map((t) => "#" + t).join(" ")}</span> : null}</p>
@@ -213,6 +223,7 @@ export function CardList({ cards, db }) {
         </li>
       ); })}
     </ul>
+    <MoreRows shown={limit} total={cards.length} onMore={setLimit} />
     </>
   );
 }

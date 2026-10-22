@@ -35,6 +35,10 @@ const SETTLE_MS = 8000; /* so lange wartet der Timer höchstens auf den ersten S
 const LAST_KEY = "studyos-cloud-last";
 const BACKUP_KEY = "studyos-cloud-backup"; /* Name der letzten Cloud-Sicherung dieses Geräts */
 const STAMPS_KEY = "studyos-cloud-stamps"; /* Zeitstempel nach dem letzten Sync, übersteht das Neuladen */
+/* Konto, mit dem die Daten auf diesem Gerät zuletzt abgeglichen wurden ({ id, email }); bleibt beim Abmelden stehen,
+   damit eine Anmeldung mit einem anderen Konto dessen Daten nicht mit denen des alten Kontos vermischt */
+const OWNER_KEY = "studyos-cloud-owner";
+const loadOwner = () => { try { const o = JSON.parse(localStorage.getItem(OWNER_KEY) || "null"); return o && typeof o.id === "string" ? o : null; } catch { return null; } };
 
 const loadStamps = (uid) => { try { return decodeStamps(localStorage.getItem(STAMPS_KEY), uid); } catch { return null; } };
 /* Passt der Text nicht mehr in den Speicher, den alten entfernen: veraltete Zeitstempel meldeten sonst nach dem Neuladen
@@ -42,7 +46,7 @@ const loadStamps = (uid) => { try { return decodeStamps(localStorage.getItem(STA
 const saveStamps = (map, uid) => { try { localStorage.setItem(STAMPS_KEY, encodeStamps(map, uid)); } catch { try { localStorage.removeItem(STAMPS_KEY); } catch {} } };
 const dropStamps = () => { try { localStorage.removeItem(STAMPS_KEY); } catch {} };
 
-export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict, fastPoll = false }) {
+export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPushEnabled, onConflict, onSwitchAccount, fastPoll = false }) {
   const cloud = getCloud();
   const batchRef = useRef(null); /* kann die Funktion Sammelabfragen? null = noch unbekannt */
   const [phase, setPhase] = useState(cloud ? "loading" : "off");
@@ -58,7 +62,8 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
   const enabledRef = useRef(enabled); enabledRef.current = enabled;
   const syncedRef = useRef(null); /* Zeitstempel nach dem letzten erfolgreichen Sync, für den Konflikthinweis */
   const onConflictRef = useRef(onConflict); onConflictRef.current = onConflict;
-  const uidRef = useRef(null);
+  const uidRef = useRef(null), mailRef = useRef("");
+  const [foreign, setForeign] = useState(null); /* E-Mail des Kontos, dem die Daten hier gehören, wenn es ein anderes ist */
   /* Kennung des Cloud-Stands nach dem letzten Lauf (für den schnellen Vergleich ohne Herunterladen) und eine Generation,
      die bei Abmelden, Löschen, neuer Passphrase oder anderem Nutzer weiterzählt: ein laufender Sync schreibt dann nicht mehr */
   const tagRef = useRef(null), genRef = useRef(0);
@@ -70,6 +75,9 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     setUser(u);
     if ((u ? u.id : null) !== uidRef.current) reset();
     uidRef.current = u ? u.id : null;
+    mailRef.current = u ? u.email || "" : "";
+    const owner = u ? loadOwner() : null;
+    setForeign(owner && owner.id !== u.id ? owner.email || "einem anderen Konto" : null);
     syncedRef.current = u ? loadStamps(u.id) : null;
     if (!u) { keyRef.current = null; setPhase((p) => (p === "code-sent" ? p : "signed-out")); return; }
     const k = await loadKey(u.id);
@@ -128,6 +136,7 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       if (genRef.current !== gen) { setStatus("idle"); return; } /* inzwischen abgemeldet, gelöscht oder neue Passphrase */
       lastFp.current = res.fingerprint; syncedRef.current = res.stamps; tagRef.current = res.tag || null;
       if (uidRef.current && !res.skipped) saveStamps(res.stamps, uidRef.current);
+      if (uidRef.current) { try { localStorage.setItem(OWNER_KEY, JSON.stringify({ id: uidRef.current, email: mailRef.current })); } catch {} }
       if (res.conflicts.length && onConflictRef.current) onConflictRef.current(res.conflicts);
       const at = new Date().toISOString();
       setLastSync(at); try { localStorage.setItem(LAST_KEY, at); } catch {}
@@ -228,7 +237,9 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
       return true;
     }),
     backToEmail: () => { setPhase("signed-out"); setError(""); },
-    setPassphrase: wrap(async (pass, repeat) => {
+    foreign,
+    /* keepLocal: bei Daten eines anderen Kontos auf diesem Gerät trotzdem zusammenführen statt sie zu ersetzen */
+    setPassphrase: wrap(async (pass, repeat, keepLocal = false) => {
       const row = await cloud.remote.get();
       let k;
       if (row) {
@@ -240,6 +251,9 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
         k = await deriveSyncKey(pass, newSalt());
       }
       await saveKey(user.id, k);
+      /* Daten eines anderen Kontos: vor dem ersten Abgleich durch einen leeren Stand ersetzen (die App legt einen Wiederherstellungspunkt an) */
+      if (foreign && !keepLocal && onSwitchAccount) onSwitchAccount(foreign);
+      setForeign(null);
       reset(); keyRef.current = k;
       setPhase("ready");
       return true;
@@ -352,9 +366,17 @@ export function useCloudSync({ ready, enabled, data, getLocal, applyLocal, onPus
     calUrl: (token) => cloud.calUrl(token),
     signOut: wrap(async () => {
       reset(); keyRef.current = null;
+      /* Erinnerungen dieses Kontos nicht mehr auf dieses Gerät schicken (sonst kämen sie auch nach einem Kontowechsel noch) */
+      try {
+        const reg = typeof navigator !== "undefined" && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+        const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
+        if (sub) { await withTimeout(cloud.push.removeSubscription(sub.endpoint), 10000, "").catch(() => {}); await sub.unsubscribe().catch(() => {}); }
+      } catch { /* Abmelden klappt trotzdem */ }
+      setPushDevice("off"); setPushMsg("");
       await clearKeys(); await cloud.signOut();
       setUser(null); setPhase("signed-out"); setStatus("idle");
-      try { localStorage.removeItem(LAST_KEY); } catch {}
+      try { localStorage.removeItem(LAST_KEY); localStorage.removeItem(BACKUP_KEY); localStorage.removeItem("studyos-push-deadlines"); } catch {}
+      setBackupInfo(null);
       syncedRef.current = null; dropStamps();
       setLastSync(null);
       return true;

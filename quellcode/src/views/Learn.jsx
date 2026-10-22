@@ -7,7 +7,7 @@ import { modOpts } from "../lib/forms.js";
 import { buildPlan } from "../lib/plan.js";
 import { byOrder, diffDays, fmt, fmtH, fmtMin, fmtShort, iso, saveFile, sum, uid, wdIdx } from "../lib/util.js";
 import { Bar, Card, Dot, Empty, Icon, Stat, Tabs } from "../ui/primitives.jsx";
-import { CardList, LogRow } from "../ui/rows.jsx";
+import { CardList, LogRow, MoreRows, useListLimit } from "../ui/rows.jsx";
 import { btnGhost, btnPrimary, focusRing, inputCls, inputFlex } from "../ui/styles.js";
 import { useRemaining } from "../ui/timer.jsx";
 import { ShareDeck } from "./Share.jsx";
@@ -194,6 +194,7 @@ const PixelBlocks = React.memo(function PixelBlocks({ filled, color }) {
 export function LogsView({ db }) {
   const { data } = db;
   const [mod, setMod] = useState("all");
+  const [limit, setLimit] = useListLimit();
   const logs = data.logs.filter((l) => mod === "all" || l.moduleId === mod).sort((a, b) => b.date.localeCompare(a.date) || (b.created || "").localeCompare(a.created || ""));
   return (
     <div className="space-y-3">
@@ -206,7 +207,7 @@ export function LogsView({ db }) {
         <button className={btnPrimary} onClick={() => db.openForm("log", { date: iso(), moduleId: mod === "all" ? "" : mod }, true)}>+ Lerneinheit</button>
       </div>
       <p className="text-sm text-slate-300">Summe: <span className="font-num">{fmtMin(sum(logs, (l) => l.minutes))}</span> in {logs.length} Einheiten</p>
-      {logs.length ? <ul className="rows">{logs.map((l) => <LogRow key={l.id} l={l} db={db} />)}</ul> : <Empty art="hourglass">Noch keine Lerneinheiten. Trage sie manuell ein oder nutze den Timer.</Empty>}
+      {logs.length ? <><ul className="rows">{logs.slice(0, limit).map((l) => <LogRow key={l.id} l={l} db={db} />)}</ul><MoreRows shown={limit} total={logs.length} onMore={setLimit} /></> : <Empty art="hourglass">Noch keine Lerneinheiten. Trage sie manuell ein oder nutze den Timer.</Empty>}
     </div>
   );
 }

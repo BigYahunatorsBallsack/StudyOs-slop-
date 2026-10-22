@@ -28,8 +28,13 @@ export function Group({ id, title, count, action, className = "", closedByDefaul
   // ohne Animation (anderes Farbschema, „Bewegung reduzieren“) gibt es kein animationend: dann sofort fertig
   useLayoutEffect(() => {
     if (phase !== "closing" && phase !== "opening") return;
-    const name = body.current ? getComputedStyle(body.current).animationName : "none";
-    if (!name || name === "none") settle();
+    const still = () => { const name = body.current ? getComputedStyle(body.current).animationName : "none"; return !!name && name !== "none"; };
+    if (!still()) { settle(); return undefined; }
+    /* Wird mittendrin „Bewegung aus“ oder ein anderes Farbschema gewählt, endet die Animation ohne animationend;
+       animationcancel kommt nicht in jedem Fall zuverlässig an, darum zusätzlich auf den Wechsel achten */
+    const obs = new MutationObserver(() => { if (!still()) settle(); });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion", "data-theme"] });
+    return () => obs.disconnect();
   }, [phase]);
   const onEnd = (e) => { if (e.target === e.currentTarget) settle(); };
   /* Abgebrochene Animation (z. B. „Bewegung aus“ mittendrin): React kennt kein onAnimationCancel, darum direkt am Element */

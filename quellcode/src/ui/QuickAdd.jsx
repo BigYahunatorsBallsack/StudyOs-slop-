@@ -29,6 +29,7 @@ export function QuickAdd({ db, onClose }) {
   const focusAt = (value, span) => requestAnimationFrame(() => {
     const el = inputRef.current; if (!el) return;
     el.focus();
+    if (el.value !== value) return; /* schon weitergetippt: Cursor nicht zurücksetzen, sonst landen die Zeichen mitten im Text */
     const [a, b] = span || [value.length, value.length];
     el.setSelectionRange(a, b);
   });
