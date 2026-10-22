@@ -1,10 +1,11 @@
 /* Gruppenabgabe im Formular: Partner als Namen, bisherige Partner des Moduls zum Antippen. */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { cleanPartners, MAX_PARTNERS, splitNames } from "../lib/partners.js";
 
-export function PartnerInput({ id, value, onChange, suggestions = [] }) {
+export function PartnerInput({ id, value, onChange, suggestions = [], onDraft }) {
   const list = cleanPartners(value);
   const [draft, setDraft] = useState("");
+  useEffect(() => onDraft?.(draft), [draft]); /* noch nicht übernommener Name zählt beim Speichern mit */
   const add = (names) => { const n = cleanPartners([...list, ...names]); if (n.length !== list.length) onChange(n); setDraft(""); };
   const open = suggestions.filter((s) => !list.some((x) => x.toLowerCase() === s.toLowerCase()));
   return (

@@ -1128,6 +1128,28 @@ test('Farbpalette und Schriftgröße: wählen, bleibt nach Neuladen, Normal setz
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0221');
 });
 
+test('Neon: Leer-Bild behält den Paletten-Farbfilter, das Flackern blinkt nur per opacity', async ({ page }) => {
+  await page.goto('./');
+  await openData(page, 'Darstellung');
+  await page.getByRole('tablist', { name: 'Farbpalette' }).getByRole('tab', { name: 'Gameboy' }).click();
+  await page.getByRole('tablist', { name: 'Retro-Animationen' }).getByRole('tab', { name: 'Neon' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'neon');
+  await nav(page, 'Module').click();
+  const empty = page.locator('.empty:not([data-art])').first();
+  await expect(empty).toBeVisible();
+  // vorher überschrieb die Flacker-Animation filter: var(--art), das Bild blieb ungefärbt pink
+  expect(await empty.evaluate((el) => getComputedStyle(el, '::before').filter)).toContain('grayscale');
+  const buzz = await page.evaluate(() => document.getAnimations().filter((a) => a.animationName === 'px-n-buzz').map((a) => ({
+    on: a.effect.pseudoElement, props: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !['offset', 'computedOffset', 'easing', 'composite'].includes(p))))],
+  })));
+  expect(buzz.length).toBeGreaterThan(0);
+  for (const b of buzz) expect(b).toEqual({ on: '::after', props: ['opacity'] });
+  // die Leuchtebene liegt genau über dem Bild und fängt keine Klicks ab
+  const [img, glow] = await empty.evaluate((el) => ['::before', '::after'].map((ps) => { const c = getComputedStyle(el, ps); return { pe: c.pointerEvents, h: c.height }; }));
+  expect(glow.pe).toBe('none');
+  expect(glow.h).toBe(img.h);
+});
+
 /* Testbild aus dem Browser (PNG, 400 × 300) */
 const testImage = async (page) => Buffer.from((await page.evaluate(() => {
   const c = document.createElement('canvas'); c.width = 400; c.height = 300;

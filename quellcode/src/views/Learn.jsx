@@ -481,8 +481,8 @@ export function ExamsView({ db }) {
             <div className="flex items-start gap-3">
               <Dot color={m?.color} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{m?.name}</p>
-                <p className="text-xs text-slate-400">{[`${WD_LONG[wdIdx(e.date)]}, ${fmt(e.date)}`, e.time, e.room].filter(Boolean).join(" · ")}</p>
+                <p className="break-words text-sm font-semibold">{m?.name}</p>
+                <p className="break-words text-xs text-slate-400">{[`${WD_LONG[wdIdx(e.date)]}, ${fmt(e.date)}`, e.time, e.room].filter(Boolean).join(" · ")}</p>
                 <PlaceLinks room={e.room} className="mt-0.5" />
                 <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
                   {Number(e.attempt) > 1 && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">{e.attempt}. Versuch</span>}
@@ -502,7 +502,7 @@ export function ExamsView({ db }) {
               <Stat label="Heute" value={fmtMin(todayMin)} sub={e.dailyMinutes ? `Ziel ${fmtMin(e.dailyMinutes)}` : ""} />
             </div>
             {e.dailyMinutes > 0 && <Bar value={todayMin} max={e.dailyMinutes} color={m?.color} className="mt-2" label="Tagesziel" />}
-            {e.notes && <p className="mt-2 whitespace-pre-wrap text-xs text-slate-400">{e.notes}</p>}
+            {e.notes && <p className="break-words mt-2 whitespace-pre-wrap text-xs text-slate-400">{e.notes}</p>}
             <OldExams exam={e} db={db} />
             <div className="mt-3 flex flex-wrap gap-2">
               <button className={btnGhost} onClick={() => setOpen(open === e.id ? null : e.id)} aria-expanded={open === e.id}>{open === e.id ? "Lernplan ausblenden" : "Lernplan anzeigen"}</button>

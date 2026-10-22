@@ -329,6 +329,7 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"] .grid-head { background: var(--bg); }
 :root[data-theme="retro"] .grid-day { font-size: .62rem; }
 :root[data-theme="retro"] .grid-day.today { background: var(--ink); color: var(--on-ink); }
+:root[data-theme="retro"][data-palette="gameboy"] .grid-day.today .grid-sum { opacity: .85; } /* auf dem hellen Grün reicht .75 nicht für 4,5:1 */
 :root[data-theme="retro"] .grid-col { background: var(--surface); }
 :root[data-theme="retro"] .grid-col.today { background: var(--surface-2); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-2) 50%, transparent); }
 :root[data-theme="retro"] .grid-line { background: color-mix(in srgb, var(--text) 8%, transparent); }
@@ -471,7 +472,7 @@ html[data-size="large"] { font-size: 112.5%; }
 @keyframes px-n-rise { from { transform: translateY(10px) scale(.98); } to { transform: none; } }
 @keyframes px-n-drop { from { transform: translateY(-4px); } to { transform: none; } }
 @keyframes px-n-out { to { transform: translateY(-4px); clip-path: inset(-8px -8px 100% -8px); } }
-@keyframes px-n-buzz { 0%, 90% { filter: none; } 92% { filter: brightness(1.6) drop-shadow(0 0 6px var(--accent)); } 94% { filter: none; } 96% { filter: brightness(1.4) drop-shadow(0 0 4px var(--accent)); } }
+@keyframes px-n-buzz { 0%, 90% { opacity: 0; } 92% { opacity: 1; } 94% { opacity: 0; } 96% { opacity: .75; } }
 
 :root[data-theme="retro"][data-motion="neon"] :is(.btn, .chip, .seg-item, .tile, .exam-chip, .whatnow, .quick, .todo-check, .tri-btn, .field) { transition: filter .18s ease; }
 @media (hover: hover) {
@@ -487,7 +488,14 @@ html[data-size="large"] { font-size: 112.5%; }
 :root[data-theme="retro"][data-motion="neon"] .popover { animation: px-n-rise .12s cubic-bezier(.2, .8, .2, 1), px-n-glow .5s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .group-opening { animation: px-n-drop .16s ease-out, px-n-glow .5s ease-out; }
 :root[data-theme="retro"][data-motion="neon"] .group-closing { animation: px-n-out .14s ease-in forwards; }
-:root[data-theme="retro"][data-motion="neon"] .empty:not([data-art])::before { animation: px-n-buzz 5s steps(1, end) infinite; }
+/* Leer-Bild flackert wie eine Leuchtröhre: eine leuchtende Kopie liegt als eigene Ebene darüber und blinkt nur per
+   opacity (läuft auf der Grafikkarte, keine Stil-Neuberechnung je Bild); das Bild darunter behält den Paletten-Farbfilter */
+:root[data-theme="retro"][data-motion="neon"] .empty:not([data-art]) { position: relative; }
+:root[data-theme="retro"][data-motion="neon"] .empty:not([data-art])::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; box-sizing: content-box; height: 32px; padding: inherit; padding-bottom: 0;
+  background: var(--px-invader) center top / 44px 32px no-repeat content-box; image-rendering: pixelated;
+  filter: var(--art) brightness(1.6) drop-shadow(0 0 6px var(--accent)); opacity: 0; pointer-events: none; animation: px-n-buzz 5s steps(1, end) infinite;
+}
 
 /* ---- 3) Scan: Röhrenmonitor. Beim Bereichswechsel zieht eine Scanlinie über den (schon fertigen) Bildschirm,
    Knöpfe schimmern beim Darüberfahren, die Auswahl wird unterstrichen, Abschnitte wischen auf und zu ---- */

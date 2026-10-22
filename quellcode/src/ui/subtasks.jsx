@@ -1,5 +1,5 @@
 /* Teilaufgaben einer Abgabe: Fortschrittsbalken, Abhaken in der Liste und Bearbeiten im Formular. */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MAX_SUBTASKS, newSubtasks, subProgress } from "../lib/subtasks.js";
 import { cleanPartners } from "../lib/partners.js";
 import { Select } from "./select.jsx";
@@ -47,9 +47,10 @@ export function SubtaskChecklist({ h, db, color }) {
 }
 
 /** Formularfeld: Teilaufgaben anlegen, umbenennen, abhaken und entfernen. */
-export function SubtaskEditor({ id, value, onChange, partners }) {
+export function SubtaskEditor({ id, value, onChange, partners, onDraft }) {
   const list = Array.isArray(value) ? value : [], team = cleanPartners(partners);
   const [draft, setDraft] = useState("");
+  useEffect(() => onDraft?.(draft), [draft]); /* noch nicht übernommener Text zählt beim Speichern mit */
   const add = () => { if (!draft.trim()) return; onChange(newSubtasks(draft, list)); setDraft(""); };
   const set = (sid, p) => onChange(list.map((s) => (s.id === sid ? { ...s, ...p } : s)));
   return (
