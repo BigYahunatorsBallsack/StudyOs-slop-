@@ -4,13 +4,15 @@ import React, { useState, useEffect } from "react";
 import { fullLength, mmss, remainingOf } from "../lib/timer.js";
 import { focusRing } from "./styles.js";
 
+/* Halbsekündlich nachsehen, aber nur neu rendern, wenn sich die angezeigte Sekunde ändert
+   (gleicher Wert im State: React lässt das Rendern aus) */
 export function useRemaining(timer) {
-  const [, setTick] = useState(0);
+  const [, setShown] = useState(0);
   useEffect(() => {
     if (!timer.running) return;
-    const id = setInterval(() => setTick((x) => x + 1), 500);
+    const id = setInterval(() => setShown(remainingOf(timer)), 500);
     return () => clearInterval(id);
-  }, [timer.running]);
+  }, [timer.running, timer.endAt]);
   return remainingOf(timer);
 }
 
