@@ -2,7 +2,7 @@
 import { DONE_HW } from "./constants.js";
 import { isOpenHw } from "./data.js";
 import { uniDatesOn } from "./tumdates.js";
-import { addDays, fmtMin, fmtShort, iso, sum, wdIdx } from "./util.js";
+import { addDays, clockOf, fmtMin, fmtShort, iso, sum, wdIdx } from "./util.js";
 import { describeChange } from "./feed.js";
 import { withoutArchived } from "./study.js";
 import { blockReminders } from "./blocks.js";
@@ -78,8 +78,7 @@ export function deadlinesFromData(all, today = iso()) {
       if (!s.change?.at || s.date < today) return;
       const at = new Date(s.change.at);
       if (Number.isNaN(at.getTime()) || Date.now() - at.getTime() > 12 * 3600 * 1000) return;
-      const hm = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
-      out.push({ id: `${s.id}-${s.change.at}`, kind: "change", title: `${mod(s.moduleId) || s.type || "Termin"}, ${fmtShort(s.date)} ${s.start || ""}`.trim(), date: iso(at), time: hm, body: describeChange(s) });
+      out.push({ id: `${s.id}-${s.change.at}`, kind: "change", title: `${mod(s.moduleId) || s.type || "Termin"}, ${fmtShort(s.date)} ${s.start || ""}`.trim(), date: iso(at), time: clockOf(at), body: describeChange(s) });
     });
   }
   /* Weg zur Uni: erste Veranstaltung der nächsten 7 Tage mit Haltestellen und Zeiten, damit der Server vor

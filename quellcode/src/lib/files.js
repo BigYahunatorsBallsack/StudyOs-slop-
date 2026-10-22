@@ -1,6 +1,6 @@
 /* Anhänge: Dateien liegen lokal in IndexedDB; mit Cloud-Sync zusätzlich verschlüsselt (AES-GCM mit dem
    Sync-Schlüssel) im privaten Supabase-Speicher. In den Daten steht nur { id, name, type, size }. */
-import { iso, uid } from "./util.js";
+import { iso, pad2, uid } from "./util.js";
 
 const DB = "studyos-files-v1";
 export const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -77,8 +77,7 @@ export const imageFiles = (dt) => [...(dt?.files || [])].filter((f) => f.type.st
 export const pastedName = (f, now = new Date()) => {
   if (f.name && !/^image\.\w+$/i.test(f.name)) return f.name;
   const ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg").replace(/\+.*/, "");
-  const p = (n) => String(n).padStart(2, "0");
-  return `Bild ${p(now.getDate())}.${p(now.getMonth() + 1)}. ${p(now.getHours())}-${p(now.getMinutes())}.${ext}`;
+  return `Bild ${pad2(now.getDate())}.${pad2(now.getMonth() + 1)}. ${pad2(now.getHours())}-${pad2(now.getMinutes())}.${ext}`;
 };
 /** Markdown für ein Bild aus den Anhängen */
 export const imageMd = (meta) => `![${meta.name.replace(/[[\]]/g, "")}](att:${meta.id})`;

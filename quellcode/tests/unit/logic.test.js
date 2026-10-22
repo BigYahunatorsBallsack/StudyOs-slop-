@@ -5,7 +5,7 @@ import { parseICS, buildICS } from "../../src/lib/ics.js";
 import { migrate, emptyData, normalizeImport, moduleStats, streakOf } from "../../src/lib/data.js";
 import { stampChanges, mergeData } from "../../src/lib/sync.js";
 import { encryptBackup, decryptBackup, isEncryptedBackup } from "../../src/lib/crypto.js";
-import { heatmap, minutesBySemester, gradeTimeline, examDeadlines } from "../../src/lib/stats.js";
+import { semesterCalendar, minutesBySemester, gradeTimeline } from "../../src/lib/stats.js";
 import { addDays, iso, wdIdx } from "../../src/lib/util.js";
 import { DATA_VERSION } from "../../src/lib/constants.js";
 
@@ -213,8 +213,9 @@ describe("Verschlüsselung", () => {
 
 describe("Statistik", () => {
   it("baut ein Aktivitätsraster bis heute", () => {
-    const h = heatmap([{ date: T, minutes: 45 }, { date: addDays(T, -1), minutes: 150 }], 4, T);
-    expect(h).toHaveLength(4);
+    /* Wintersemester ab Montag, 28.09.: T (19.10.) liegt in der vierten Woche */
+    const h = semesterCalendar([{ date: T, minutes: 45 }, { date: addDays(T, -1), minutes: 150 }], { from: "2026-10-01", to: "2027-03-31" }, T);
+    expect(h[0][0]).toMatchObject({ date: "2026-09-28", outside: true });
     expect(h[3][0]).toMatchObject({ date: T, minutes: 45, level: 2 });
     expect(h[2][6]).toMatchObject({ minutes: 150, level: 4 });
     expect(h[3][1].future).toBe(true);
@@ -227,15 +228,6 @@ describe("Statistik", () => {
     ], logs: [{ moduleId: "a", minutes: 30 }, { moduleId: "c", minutes: 20 }, { moduleId: "", minutes: 99 }] };
     expect(minutesBySemester(d)).toEqual([{ semester: 1, minutes: 30 }, { semester: 2, minutes: 20 }]);
     expect(gradeTimeline(d)).toEqual([{ semester: 1, ects: 6, avg: 1 }, { semester: 2, ects: 12, avg: 2 }]);
-  });
-  it("meldet anstehende Prüfungsfristen", () => {
-    const d = { exams: [
-      { id: "1", registerBy: addDays(T, 3) },
-      { id: "2", registerBy: addDays(T, 3), registered: true },
-      { id: "3", retakeDate: addDays(T, 10), result: "nicht bestanden" },
-      { id: "4", registerBy: addDays(T, 30) },
-    ] };
-    expect(examDeadlines(d, T).map((x) => [x.exam.id, x.kind])).toEqual([["1", "anmeldung"], ["3", "wiederholung"]]);
   });
 });
 

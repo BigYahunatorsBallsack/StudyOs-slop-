@@ -18,7 +18,6 @@ import { addTrash, mergeTrash, pruneTrash, purgeTrash, restoreTrash, trashEntry,
 import { uniDates, uniDatesOn, upcomingUniDates } from "../../src/lib/tumdates.js";
 import { describeChange } from "../../src/lib/feed.js";
 import { fmtMin, isoWeek, isoYearWeek } from "../../src/lib/util.js";
-import { isoWeek as mensaWeek } from "../../src/lib/mensa.js";
 import { todoItems } from "../../src/lib/todo.js";
 import { PALETTE } from "../../src/lib/constants.js";
 
@@ -188,7 +187,7 @@ describe("Gemeinsame Hilfen", () => {
     expect(isoYearWeek("2027-01-04")).toEqual({ year: 2027, week: 1 });
     expect(isoYearWeek("2024-12-30")).toEqual({ year: 2025, week: 1 });
     expect(isoWeek("2026-10-21")).toBe(43);
-    expect(mensaWeek("2026-10-25")).toEqual({ year: 2026, week: 43 });
+    expect(isoYearWeek("2026-10-25")).toEqual({ year: 2026, week: 43 });
   });
 
   it("Dauer und Datum gleich formatiert", () => {

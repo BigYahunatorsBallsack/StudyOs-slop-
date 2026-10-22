@@ -1,5 +1,5 @@
 {
-  // Nur Typprüfung (kein Build): reine Logik in lib/ und die Edge Function in server/, über JSDoc-Kommentare
+  // Nur Typprüfung (kein Build): reine Logik in lib/, die Hooks in app/, der Cloud-Zugriff in cloud/ und die Edge Function in server/, über JSDoc-Kommentare
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["src/lib/**/*.js", "src/server/**/*.js", "src/types.d.ts"]
+  "include": ["src/lib/**/*.js", "src/app/**/*.js", "src/cloud/**/*.js", "src/server/**/*.js", "src/types.d.ts"]
 }

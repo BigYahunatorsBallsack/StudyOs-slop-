@@ -372,6 +372,3 @@ export function withoutArchived(data) {
   const keep = (x) => !arch.has(x.moduleId);
   return { ...data, modules: data.modules.filter((m) => !m.archived), sessions: data.sessions.filter(keep), homework: data.homework.filter(keep), exams: data.exams.filter(keep), cards: data.cards.filter(keep), blocks: (data.blocks || []).filter(keep) };
 }
-
-/** Offene Hausaufgaben eines Moduls (für die Anzeige). */
-export const openHomework = (data, moduleId) => data.homework.filter((h) => h.moduleId === moduleId && !DONE_HW.has(h.status));

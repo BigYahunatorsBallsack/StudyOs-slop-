@@ -3,7 +3,7 @@
    wiedererkannt wird. Eigene Häkchen (vorbereitet, besucht, nachbereitet) bleiben dabei erhalten. */
 import { guessType } from "./ics.js";
 import { pickColor } from "./colors.js";
-import { addDays, fmt, iso, uid as newId } from "./util.js";
+import { addDays, byTime, fmt, iso, uid as newId } from "./util.js";
 import { baseName } from "./modules.js";
 
 export const SKIP = "__skip";
@@ -68,7 +68,7 @@ function noteChange(cur, apply, today) {
 }
 
 /** Gemeldete, noch nicht bestätigte Änderungen ab heute, nach Datum. */
-export const feedChanges = (sessions, today = iso()) => sessions.filter((s) => s.change && s.date >= today).sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
+export const feedChanges = (sessions, today = iso()) => sessions.filter((s) => s.change && s.date >= today).sort(byTime);
 
 /** Lesbare Beschreibung einer Änderung, z. B. „Raum: MI HS 1 → Interims 1“ oder „fällt aus“. */
 export function describeChange(s) {

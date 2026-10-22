@@ -1,12 +1,14 @@
 import { TIMER_KEY } from "./constants.js";
 import { canonical } from "./sync.js";
 
+/* Zahl in [lo, hi]; nicht lesbar: Standardwert d */
+const num = (v, d, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d);
+
 export function loadTimer() {
   const base = { mode: "focus", length: 25, brk: 5, running: false, endAt: 0, remaining: 25 * 60, moduleId: "", topicId: "" };
   try {
     const t = JSON.parse(localStorage.getItem(TIMER_KEY) || "null");
     if (!t || typeof t !== "object") return base;
-    const num = (v, d, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d);
     const out = { ...base, mode: t.mode === "break" ? "break" : "focus", length: num(t.length, 25, 1, 180), brk: num(t.brk, 5, 1, 60), moduleId: String(t.moduleId || ""), topicId: String(t.topicId || ""), ...(t.kind && { kind: String(t.kind) }), ...(t.note && { note: String(t.note).slice(0, 200) }),
       ...(t.homeworkId && { homeworkId: String(t.homeworkId) }), ...(t.runId && { runId: String(t.runId).slice(0, 24) }), ...(t.blockId && { blockId: String(t.blockId) }) };
     out.remaining = num(t.remaining, (out.mode === "focus" ? out.length : out.brk) * 60, 0, 180 * 60);
@@ -47,7 +49,6 @@ export function toLive(t, offset = 0) {
 
 /** Gegenstück zu toLive: übernimmt den Eintrag eines anderen Geräts in den lokalen Zustand `base`. */
 export function fromLive(live, base, offset = 0, now = Date.now()) {
-  const num = (v, d, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d);
   const mode = live.mode === "break" ? "break" : "focus";
   const length = num(live.length, base.length, 1, 180), brk = num(live.brk, base.brk, 1, 60);
   const out = { ...base, mode, length, brk, moduleId: String(live.moduleId || ""), topicId: String(live.topicId || "") };

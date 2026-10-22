@@ -37,7 +37,7 @@ export function useTimer({ sound, onFocusDone, onBreakDone, onLog, live, onLive,
   }, [timer, syncOn]);
 
   const unlockAudio = () => {
-    try { const AC = window.AudioContext || window.webkitAudioContext; if (AC && !audioRef.current) audioRef.current = new AC(); audioRef.current && audioRef.current.state === "suspended" && audioRef.current.resume(); } catch {}
+    try { const AC = window.AudioContext || /** @type {any} */ (window).webkitAudioContext; if (AC && !audioRef.current) audioRef.current = new AC(); audioRef.current && audioRef.current.state === "suspended" && audioRef.current.resume(); } catch {}
   };
   const signal = () => {
     if (!sound) return;

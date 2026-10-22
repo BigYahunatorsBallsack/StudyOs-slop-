@@ -6,8 +6,6 @@ import { isoYearWeek } from "./util.js";
 export const KEEP_WEEKS = 8;
 const PREFIX = "sicherung-";
 
-export { isoYearWeek };
-
 /** Dateiname der Sicherung für die Woche eines Datums, z. B. "sicherung-2026-43" */
 export function backupName(dateStr) {
   const { year, week } = isoYearWeek(dateStr);

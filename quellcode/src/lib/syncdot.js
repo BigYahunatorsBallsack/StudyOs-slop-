@@ -1,11 +1,11 @@
 /* Zustand des Sync-Punkts in der Kopfzeile (ui/syncdot.jsx) aus dem Cloud-Sync-Zustand */
-import { dayOf, fmt, iso } from "./util.js";
+import { clockOf, dayOf, fmt, iso } from "./util.js";
 
 /** Uhrzeit HH:MM eines Zeitstempels in Ortszeit, leer ohne gültigen Zeitstempel */
 export const hmOf = (s) => {
   const d = new Date(s || "");
   if (!s || Number.isNaN(d.getTime())) return "";
-  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  return clockOf(d);
 };
 
 /** { tone: ok | busy | error | offline, label } oder null, wenn kein Cloud-Sync eingerichtet ist. */

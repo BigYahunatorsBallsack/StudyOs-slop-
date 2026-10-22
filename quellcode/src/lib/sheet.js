@@ -1,12 +1,11 @@
 /* Geteiltes Übungsblatt (PDF) → Abgabe: Modul, Blattnummer, Frist und Aufgaben aus Dateiname und Text erkennen.
    Der Text kommt aus pdfText(); beides ist eine Schätzung, die Abgabe öffnet sich danach zum Prüfen. */
 import { matchModule, norm } from "./quickadd.js";
-import { addDays, iso, uid, validDate } from "./util.js";
+import { addDays, iso, pad2 as pad, uid, validDate } from "./util.js";
 import { withNumber } from "./study.js";
 
 const MONTHS = ["januar", "februar", "marz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"];
 const MONTHS_EN = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
-const pad = (n) => String(n).padStart(2, "0");
 
 const SHEET_RE = /(?:übungs|uebungs|hausaufgaben|aufgaben)?blatt\s*(?:nr\.?\s*)?0*(\d{1,2})\b|(?:exercise|problem|homework|assignment|tutorial)\s*sheet\s*(?:no\.?\s*)?0*(\d{1,2})\b|\bsheet\s*0*(\d{1,2})\b|\b(?:hausaufgabe|assignment|homework)\s*0*(\d{1,2})\b/i;
 const FILE_RE = /(?:blatt|sheet|uebung|ubung|übung|ueb|ub|ex|hw|ha|assignment|homework|tut)[\s_\-.]*0*(\d{1,2})(?!\d)/i;

@@ -1,6 +1,7 @@
 /* Wetter auf „Weg zur Uni“: Vorhersage von Open-Meteo (frei, ohne Schlüssel) für Start und Ziel,
    zusammengefasst in einer Zeile wie „Regen ab 8 Uhr, Schirm mitnehmen · 9 °C“. */
 import { CAMPUSES, HOME, isOnline } from "./transit.js";
+import { localMs } from "./util.js";
 
 const BASE = "https://api.open-meteo.com/v1/forecast";
 const HOUR = 3600000;
@@ -57,13 +58,12 @@ export function summarize(hours, from, to = from + HOUR) {
 
 export const weatherLine = (s) => `${s.text} · ${s.temp} °C`;
 
-const at = (date, hm) => { const [y, m, d] = date.split("-").map(Number); const [h, mi] = hm.split(":").map(Number); return new Date(y, m - 1, d, h, mi).getTime(); };
 const HM = /^\d{2}:\d{2}$/;
 
 /** Rückfahrt: Ende des letzten Termins vor Ort an diesem Tag (ohne Ende: 90 Minuten nach Beginn) */
 export function returnAt(sessions, day) {
   const ends = (sessions || []).filter((s) => s.date === day && !s.cancelled && HM.test(s.start || "") && !isOnline(s))
-    .map((s) => (HM.test(s.end || "") && s.end > s.start ? at(day, s.end) : at(day, s.start) + 90 * 60000));
+    .map((s) => (HM.test(s.end || "") && s.end > s.start ? localMs(day, s.end) : localMs(day, s.start) + 90 * 60000));
   return ends.length ? Math.max(...ends) : null;
 }
 
@@ -71,5 +71,5 @@ export function returnAt(sessions, day) {
 export function estimateLeave(session, c) {
   const min = c.mode === "car" ? c.buffer + (Number(c.car.park) || 0) + 40
     : c.buffer + c.travel + c.walk + (c.feeder ? c.feeder.travel + c.feeder.transfer : 0);
-  return at(session.date, session.start) - min * 60000;
+  return localMs(session.date, session.start) - min * 60000;
 }

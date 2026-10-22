@@ -21,7 +21,7 @@ export function useFeeds({ ready, loadError, cloud, data, dataRef, change }) {
   };
   /* Stundenplan-Abo abrufen und abgleichen; automatisch, wenn der letzte Abruf über 6 Stunden her ist.
      Fehler landen in `lastError`; ist es derselbe wie zuletzt, bleibt der Stand unverändert (kein Speichern, kein Sync). */
-  syncFeedRef.current = async ({ manual } = {}) => {
+  syncFeedRef.current = async (/** @type {{ manual?: boolean }} */ { manual } = {}) => {
     const feed = dataRef.current.settings.icsFeed;
     if (!feed || !feed.url || cloud.phase !== "ready") return null;
     try {
@@ -39,7 +39,7 @@ export function useFeeds({ ready, loadError, cloud, data, dataRef, change }) {
   };
   /* Moodle-Fristen: gleiches Muster wie das Stundenplan-Abo */
   const syncMoodleRef = useRef(null);
-  syncMoodleRef.current = async ({ manual } = {}) => {
+  syncMoodleRef.current = async (/** @type {{ manual?: boolean }} */ { manual } = {}) => {
     const feed = dataRef.current.settings.moodleFeed;
     if (!feed || !feed.url || cloud.phase !== "ready") return null;
     try {
@@ -58,7 +58,7 @@ export function useFeeds({ ready, loadError, cloud, data, dataRef, change }) {
   };
   /* Artemis: ein Abo je Kurs */
   const syncArtemisRef = useRef(null);
-  syncArtemisRef.current = async ({ manual } = {}) => {
+  syncArtemisRef.current = async (/** @type {{ manual?: boolean }} */ { manual } = {}) => {
     const feeds = dataRef.current.settings.artemisFeeds || [];
     if (!feeds.length || cloud.phase !== "ready") return null;
     const total = { added: 0, updated: 0, exams: 0 };

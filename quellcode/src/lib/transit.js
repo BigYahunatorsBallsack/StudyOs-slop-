@@ -89,14 +89,10 @@ export function upcomingSessions(sessions, now = new Date()) {
   return out;
 }
 
-/** Nächste Veranstaltung: die nächste heute, die noch nicht begonnen hat, sonst die erste der nächsten Tage */
-export function nextFirstSession(sessions, now = new Date()) {
-  return upcomingSessions(sessions, now)[0] || null;
-}
-
 /** „heute“, „morgen“ oder „Mo, 26.10.“ (nach Kalendertagen, auch an den 23- und 25-Stunden-Tagen der Zeitumstellung) */
 export const dayWord = (date, today = iso()) => (date === today ? "heute" : date === addDays(today, 1) ? "morgen" : fmtShort(date));
 
+/* wie localMs in util.js; eigene Kopie, damit das Bündel der Edge Function gleich bleibt */
 const at = (date, hm) => { const [y, m, d] = date.split("-").map(Number); const [h, mi] = hm.split(":").map(Number); return new Date(y, m - 1, d, h, mi).getTime(); };
 
 /** Abfragefenster in Minuten ab jetzt: eine Stunde vor der spätesten passenden Abfahrt der Hauptlinie bzw. des Zubringers */

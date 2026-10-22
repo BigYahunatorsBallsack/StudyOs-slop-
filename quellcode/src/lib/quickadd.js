@@ -4,7 +4,7 @@
    Alles Erkannte wird aus dem Titel entfernt; der Rest ist der Titel.
    Lerneinheiten („1h DS gestern“) liegen in der Vergangenheit: ein Wochentag meint dann den letzten. */
 import { expandRange } from "./subtasks.js";
-import { addDays, iso, uid, validDate, wdIdx, weekStart } from "./util.js";
+import { addDays, iso, pad2 as pad, uid, validDate, wdIdx, weekStart } from "./util.js";
 
 const WEEKDAYS = [
   ["mo", "montag"], ["di", "dienstag"], ["mi", "mittwoch"], ["do", "donnerstag"], ["fr", "freitag"], ["sa", "samstag"], ["so", "sonntag"],
@@ -27,7 +27,6 @@ const STOP = new Set(["fur", "in", "die", "der", "das", "und", "of", "the", "and
 const SESSION_TYPE = (w) => (/^(zü|zentralübung)$/i.test(w) ? "Zentralübung" : /^(tut|tutorium|tutorübung)$/i.test(w) ? "Tutorium" : /^(übung|uebung|ü|ue)$/i.test(w) ? "Übung" : /^praktikum$/i.test(w) ? "Praktikum" : "Vorlesung");
 
 export const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss");
-const pad = (n) => String(n).padStart(2, "0");
 
 /* Modulsuche: Modulnummer, Wortanfang (ab 3 Zeichen) oder Initialen (z. B. „DS“, „EIDI“) */
 export function matchModule(token, modules) {
