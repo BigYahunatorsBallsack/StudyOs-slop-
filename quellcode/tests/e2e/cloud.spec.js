@@ -410,6 +410,8 @@ test('Heimweg nach Zorneding nach dem letzten Termin: Bus 230 nach Haar, S6 nach
   await expect(card.getByText(/Jetzt losfahren am Campus Garching, 10 Min\. Fußweg zum Auto/)).toBeVisible();
   expect(drives.at(-1)).toEqual({ from: 'Boltzmannstraße 15, 85748 Garching bei München', to: 'Zorneding' });
   await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', /origin=Boltzmannstra.*&destination=Zorneding/);
+  await expect(card.getByLabel('Ab meinem Standort')).toHaveCount(0); /* Heimweg immer ab dem Campus */
+  await expect(card.getByLabel('Start')).toHaveCount(0);
 
   // Von Hand zurück zum Hinweg
   await card.getByRole('tab', { name: 'Hinweg' }).click();
@@ -454,6 +456,8 @@ test('Abfahrt in der Kopfzeile: aus dem Zwischenspeicher, antippen öffnet „We
   const chip = A.page.locator('header .dep-chip');
   await expect(chip).toHaveText('S6 07:55 (+3)');
   await expect(chip).toHaveAccessibleName('Weg zur Uni: um 07:50 losgehen, S6 um 07:55 ab Zorneding (3 Min. später), für 09:15 Uhr');
+  // Den Heimweg lädt die Karte im Hintergrund schon vor
+  await expect.poll(() => asked.some((b) => b.station === 'de:09184:460')).toBe(true);
 
   // Ohne die Karte: solange der Stand frisch ist, keine weitere Abfrage; danach holt die Kopfzeile selbst
   await A.page.getByRole('button', { name: 'Weg zur Uni', exact: true }).click(); /* Gruppe zuklappen */
@@ -560,11 +564,9 @@ test('Bus 230: Empfehlung für die erste Vorlesung; Anhänge verschlüsselt in d
   await expect.poll(() => asked.at(-1)).toEqual({ from: '48.1372,11.5761', to: 'Boltzmannstraße 15, 85748 Garching bei München' });
   await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', 'https://www.google.com/maps/dir/?api=1&destination=Boltzmannstra%C3%9Fe%2015%2C%2085748%20Garching%20bei%20M%C3%BCnchen&travelmode=driving');
   await card.getByLabel('Ab meinem Standort').uncheck();
-  // Anderer Campus als Ziel
-  await choose(card.getByLabel('Ziel'), { label: 'Campus Weihenstephan (Freising)' });
-  await expect.poll(() => asked.at(-1)).toEqual({ from: 'Zorneding', to: 'Alte Akademie 8, 85354 Freising' });
-  await expect(card.getByRole('link', { name: /Route in Google Maps öffnen/ })).toHaveAttribute('href', /origin=Zorneding&destination=Alte%20Akademie/);
-  await choose(card.getByLabel('Ziel'), { label: 'Campus Garching' });
+  // Den Campus gibt es nur in den Einstellungen
+  await expect(card.getByLabel('Ziel')).toHaveCount(0);
+  await expect(card.getByLabel('Campus')).toHaveCount(0);
   await card.getByRole('tab', { name: 'Öffis' }).click();
   await expect(card.locator('.px-ride.px-bus')).toHaveCount(1); // Pixel-Bus fährt einmal durch die Karte
   await expect(card.getByText(/morgen um 09:15: um 07:47 losgehen/)).toBeVisible();

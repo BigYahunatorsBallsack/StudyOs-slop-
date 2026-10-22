@@ -3,8 +3,8 @@
    Alternativ mit dem Auto: Fahrzeit bei aktueller Verkehrslage und wann man losfahren sollte. */
 import React, { useEffect, useRef, useState } from "react";
 import { CAMPUSES, carPlan, commuteIncomplete, commuteOf, dayWord, DEFAULT_COMMUTE, hhmm, mapsLink, matches, recommend, upcomingSessions, vehicle } from "../lib/transit.js";
-import { carKey, loadDrive, loadTransit, readCache, transitKey, TYPES, writeCache } from "../lib/wegcache.js";
-import { homeArrival, homeCar, homeLines, homeQueries, homeTrips, homewardNow, HOMEWARD } from "../lib/homeward.js";
+import { carKey, HOME_CACHE, loadDrive, loadHome, loadTransit, readCache, SHOW_AGE, transitKey, warm, writeCache } from "../lib/wegcache.js";
+import { homeArrival, homeCar, homeLines, homeTrips, homewardNow, HOMEWARD } from "../lib/homeward.js";
 import { estimateLeave, forecastUrl, parseForecast, returnAt, summarize, weatherLine, weatherPlaces } from "../lib/weather.js";
 import { Card, PxIcon, Tabs } from "../ui/primitives.jsx";
 import { useGroupOpens } from "../ui/collapse.jsx";
@@ -87,15 +87,16 @@ function Weather({ c, session, sessions, leaveAt, pos, tick }) {
   );
 }
 
-/* Mit dem Auto: Fahrzeit mit Verkehr alle 5 Minuten neu, solange die Seite offen ist. home: Heimweg vom Campus nach Zorneding */
+/* Mit dem Auto: Fahrzeit mit Verkehr alle 5 Minuten neu, solange die Seite offen ist. home: Heimweg vom Campus nach Zorneding
+   (immer ab dem Campus, ohne Standort). Den Campus gibt es nur in den Einstellungen. */
 function CarView({ db, c, session, sessions, ready, tick, home }) {
-  const fromHere = !!c.car.fromHere;
+  const fromHere = !home && !!c.car.fromHere;
   const way = home ? homeCar(c.car) : c.car;
   const campus = CAMPUSES.find((k) => k.id === c.car.campus) || CAMPUSES[0];
   /* zuletzt bekannter Standort und letzte Route sofort zeigen */
   const [here, setHere] = useState(() => ({ pos: (fromHere && readCache("pos")?.pos) || "", err: "" })); /* aktueller Standort als „Breite,Länge“ (auf ca. 10 m gerundet) */
   const [state, setState] = useState(() => {
-    const hit = readCache(carKey(fromHere && here.pos ? here.pos : way.from, way.to));
+    const hit = readCache(carKey(fromHere && here.pos ? here.pos : way.from, way.to), SHOW_AGE);
     return hit ? { route: hit.route, err: "", here: hit.here, at: hit.at } : { route: null, err: "", here: false };
   }); /* here: Route wurde ab dem Standort gerechnet */
   const slot = Math.floor(tick / 5);
@@ -148,15 +149,12 @@ function CarView({ db, c, session, sessions, ready, tick, home }) {
         )}
       <Stand at={r && state.at} />
       {!home && <Weather c={c} session={session} sessions={sessions} leaveAt={p?.leaveAt} pos={useHere ? here.pos : ""} tick={tick} />}
-      <label className="mt-3 block text-xs text-slate-400">{home ? "Start" : "Ziel"}
-        <Select className="field mt-1 w-full text-sm" value={c.car.campus} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, campus: e.target.value } } })}>
-          {CAMPUSES.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
-        </Select>
-      </label>
-      <label className="mt-3 flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={fromHere} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, fromHere: e.target.checked } } })} /> Ab meinem Standort
-      </label>
-      {fromHere && here.err && <p className="mt-1 text-xs text-slate-400">{here.err}, gerechnet ab {home ? campus.name : way.from}.</p>}
+      {!home && (
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={fromHere} onChange={(e) => db.patchSettings({ commute: { ...c, car: { ...c.car, fromHere: e.target.checked } } })} /> Ab meinem Standort
+        </label>
+      )}
+      {fromHere && here.err && <p className="mt-1 text-xs text-slate-400">{here.err}, gerechnet ab {way.from}.</p>}
       <p className="mt-3 text-sm"><a className="ext-link" href={mapsLink(way, fromHere)} target="_blank" rel="noopener noreferrer">Route in Google Maps öffnen ↗</a></p>
       {r && <p className="mt-1 text-[11px] text-slate-500">Verkehrslage laut {r.provider === "tomtom" ? "TomTom" : "Google"}, wird alle 5 Minuten aktualisiert{state.here ? ", dein Standort geht dafür gerundet an den Kartendienst" : ""}. Die Abfahrtszeit gilt für jetzt losfahren, später kann es anders aussehen.</p>}
     </>
@@ -181,8 +179,7 @@ function Notes({ notes }) {
 }
 
 /* Heimweg mit den Öffis: Bus 230 ab Garching-Forschungszentrum, in Haar die S-Bahn nach Zorneding.
-   Letzter Stand sofort, dann beide Abfragen in einem Aufruf (wie beim Hinweg) */
-const HOME_CACHE = `home:${HOMEWARD.station.id}>${HOMEWARD.conn.station.id}`;
+   Letzter Stand sofort, dann beide Abfragen in einem Aufruf (wie beim Hinweg, lib/wegcache.js) */
 function homeState(raw) {
   const now = Date.now(), h = HOMEWARD;
   const ahead = (l) => (l || []).filter((d) => d.time >= now - 60000);
@@ -190,13 +187,12 @@ function homeState(raw) {
 }
 function HomeTransit({ db, c, ready, tick, notes }) {
   const h = HOMEWARD;
-  const [state, setState] = useState(() => { const hit = readCache(HOME_CACHE); return hit ? homeState(hit) : { buses: null, trips: [], err: "" }; });
+  const [state, setState] = useState(() => { const hit = readCache(HOME_CACHE, SHOW_AGE); return hit ? homeState(hit) : { buses: null, trips: [], err: "" }; });
   useEffect(() => {
     if (!ready) return;
     let live = true;
-    const list = homeQueries(TYPES);
-    (db.cloud.mvgMany ? db.cloud.mvgMany(list) : Promise.all(list.map((b) => db.cloud.mvg(b))))
-      .then(([buses, trains]) => { const raw = { buses, trains }; writeCache(HOME_CACHE, raw); if (live) setState(homeState(raw)); })
+    loadHome(db.cloud)
+      .then((raw) => { if (live) setState(homeState(raw)); })
       .catch((e) => { if (live) setState((s) => (s.buses ? s : { ...s, err: e.message || "Abfahrten gerade nicht verfügbar." })); });
     return () => { live = false; };
   }, [ready, tick]);
@@ -246,7 +242,7 @@ export function CommuteCard({ db, sessions }) {
   const ready = db.cloud?.phase === "ready";
   const car = c?.mode === "car";
   const [state, setState] = useState({ main: null, feeder: null, plan: null, err: "" });
-  const [notes, setNotes] = useState(() => readCache(`notes:${c ? [c.line, c.feeder?.line].join(",") : ""}`)?.notes || []); /* Störungsmeldungen der MVG zu den eigenen Linien */
+  const [notes, setNotes] = useState(() => readCache(`notes:${c ? [c.line, c.feeder?.line].join(",") : ""}`, SHOW_AGE)?.notes || []); /* Störungsmeldungen der MVG zu den eigenen Linien */
   const [tick, setTick] = useState(0);
   const options = c ? upcomingSessions(sessions) : [];
   const [pick, setPick] = useState("");
@@ -270,7 +266,7 @@ export function CommuteCard({ db, sessions }) {
   /* letzter Stand sofort (auch vor der Anmeldung beim Cloud-Sync), dann alle Abfragen in einem Aufruf */
   useEffect(() => {
     if (!c || car || incomplete || home) return;
-    const hit = readCache(cacheKey);
+    const hit = readCache(cacheKey, SHOW_AGE);
     /* ohne Zwischenstand nicht die Verbindung zur vorher gewählten Veranstaltung stehen lassen */
     setState(hit ? transitState(hit, c, session) : { main: null, feeder: null, plan: null, err: "" });
   }, [cacheKey, car, incomplete, home]);
@@ -282,6 +278,18 @@ export function CommuteCard({ db, sessions }) {
       .catch((e) => { if (live) setState((s) => (s.main ? s : { ...s, err: e.message || "Abfahrten gerade nicht verfügbar." })); });
     return () => { live = false; };
   }, [ready, tick, cacheKey, home]);
+  /* Vorladen im Hintergrund, damit der Wechsel zwischen Hin- und Heimweg und zu einer anderen Veranstaltung sofort steht:
+     kurz nach der eigentlichen Abfrage, höchstens alle 5 Minuten je Ziel */
+  const others = options.slice(0, 4).filter((s) => home || s.id !== session?.id);
+  const othersKey = others.map((s) => s.id).join(",");
+  useEffect(() => {
+    if (!c || !ready || car || incomplete) return;
+    const id = setTimeout(() => {
+      if (!home) warm(HOME_CACHE, () => loadHome(db.cloud));
+      for (const s of others) warm(transitKey(c, s), () => loadTransit(db.cloud, c, s));
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [ready, car, incomplete, home, othersKey, Math.floor(tick / 5)]);
   /* Meldungen höchstens alle 15 Minuten abfragen; ältere Funktionen kennen die Abfrage nicht: dann einfach keine */
   const lines = c && !car && !incomplete ? (home ? homeLines() : [c.line, c.feeder?.line].filter(Boolean)) : [];
   useEffect(() => {
@@ -294,7 +302,7 @@ export function CommuteCard({ db, sessions }) {
     }).catch(() => { if (live) setNotes([]); });
     return () => { live = false; };
   }, [ready, lines.join(","), Math.floor(tick / 15)]);
-  useEffect(() => { if (lines.length) setNotes(readCache(`notes:${lines.join(",")}`)?.notes || []); }, [lines.join(",")]);
+  useEffect(() => { if (lines.length) setNotes(readCache(`notes:${lines.join(",")}`, SHOW_AGE)?.notes || []); }, [lines.join(",")]);
 
   if (!c) return null;
   const m = session ? db.mod(session.moduleId) : null;
@@ -377,9 +385,9 @@ export function CommuteSettings({ db }) {
           </div>
           <div className="commute-leg mt-3">
             <p className="text-xs font-semibold text-slate-400">Mit dem Auto</p>
-            <p className="mt-1 text-sm">Ab {c.car.from}, auf „Heute“ auch ab deinem Standort</p>
+            <p className="mt-1 text-sm">Ab {c.car.from}, auf dem Hinweg auch ab deinem Standort. Der Heimweg geht immer vom gewählten Campus aus.</p>
             <div className="mt-2 grid grid-cols-2 gap-3">
-              <label className="block text-xs text-slate-400">Ziel
+              <label className="block text-xs text-slate-400">Campus
                 <Select className="field mt-1 w-full text-sm" value={c.car.campus} onChange={(e) => setCar({ campus: e.target.value })}>
                   {CAMPUSES.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
                 </Select>

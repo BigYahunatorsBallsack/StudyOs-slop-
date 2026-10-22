@@ -1,6 +1,9 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Weg zur Uni: Heimweg ohne Standort:** Mit dem Auto geht der Heimweg immer vom gewählten Campus aus, „Ab meinem Standort“ gibt es nur noch auf dem Hinweg.
+- **Weg zur Uni: Campus nur in den Einstellungen:** Die Campus-Auswahl steht nicht mehr auf der Karte, sondern unter „Daten & Einstellungen“ → „Weg zur Uni“.
+- **Weg zur Uni: Öffis schneller:** Heimweg und die anderen Veranstaltungen zur Auswahl werden im Hintergrund vorgeladen, der Wechsel steht sofort da. Der letzte Stand wird bis zu 3 Stunden lang sofort gezeigt (mit „Stand hh:mm“) und dann erneuert, statt nur 30 Minuten lang.
 - **Behoben: Kopfzeile am Handy:** Mit Cloud-Sync steht dort nicht mehr der Text „Synchronisiert“, der die Kopfzeile zuschob, sodass die Suche aus dem Bild rutschte. Den Stand zeigt der farbige Punkt (antippen gleicht ab), am PC bleibt der Text.
 - **Nach Jahren voller Daten schnell:** Lerneinheiten und Karteikarten öffnen sofort statt nach bis zu 30 Sekunden. Lange Listen zeigen 100 Einträge, „Weitere anzeigen“ lädt nach, Summen und „Alle auswählen“ gelten weiter für alle. Speichern, Start, Heute, Wochenrückblick, jede Änderung mit Sync und das Herunterladen aus der Cloud sind bei großen Datenständen spürbar schneller.
 - **Behoben: Kontowechsel:** Meldest du dich auf einem Gerät mit einem anderen Konto an, werden die Daten nicht mehr vermischt. Die Daten des alten Kontos werden ersetzt (mit Wiederherstellungspunkt), Zusammenführen gibt es nur auf Wunsch. Abmelden schaltet die Erinnerungen dieses Kontos auf dem Gerät ab.
