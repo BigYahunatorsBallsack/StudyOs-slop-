@@ -407,7 +407,7 @@ function WeekGrid({ db, days, weekSes, single = false, wsum = null }) {
           );
         })}
       </div>
-      {cardSession && <SessionPopover s={cardSession} note={cardClash ? `Überschneidet sich mit ${cardClash.map(evName).join(", ")}` : ""} db={db} anchor={hover.card.anchor} onClose={hover.close} onEnter={hover.keep} onLeave={hover.leave} />}
+      {cardSession && <SessionPopover s={cardSession} note={cardClash ? `Überschneidet sich mit ${cardClash.map(evName).join(", ")}` : ""} db={db} anchor={hover.card.anchor} area={hover.card.area} onClose={hover.close} onEnter={hover.keep} onLeave={hover.leave} />}
     </div>
   );
 }
