@@ -1,6 +1,12 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Erinnerungen zuverlässiger (Supabase-Funktion neu einspielen):** Ein fehlerhafter Datensatz oder ein hängender Push-Dienst hält den Versand für alle anderen nicht mehr auf, ein gerade eingeschaltetes Gerät geht nicht mehr verloren. Im Fristen-Kalender-Abo erscheinen Titel mit Semikolon, Umlauten oder Emoji korrekt. Ein abgelehnter TomTom-Schlüssel wird als solcher gemeldet statt als „Adresse nicht gefunden“. Sicherheit: Kalender-Abos werden auch bei Weiterleitungen nur von TUM-Adressen geladen.
+- **Akku sparen im Retro-Look:** Timer-Begleiter und flackernde Serien-Flamme sehen genau gleich aus, brauchen aber rund ein Drittel der Rechenzeit. Bei laufendem Timer aktualisiert Lernen nur noch Restzeit und Ring.
+- **Behoben: Probeklausur:** Die Felder für Kartenzahl und Minuten lassen sich leeren und neu tippen, Enter startet die Runde. Nach Abgabe und bei „Noch eine Runde“ bleibt die Tastatur im Fenster.
+- **Behoben: abgeschaltete Knöpfe:** „CSV importieren“ und „Anhang hinzufügen“ sehen jetzt abgeschaltet aus, solange sie nicht nutzbar sind.
+- **Reiterleisten mit Pfeiltasten:** Pfeil links/rechts, Pos1 und Ende wechseln den Reiter.
+- **Technik:** ungenutzte Stilregeln und Funktionen entfernt, doppelte Datums- und Zeithilfen zusammengeführt, Typprüfung auch für Cloud-Sync und App-Logik; neue Tests für Probeklausur, Zielschnitt, Wochenrückblick, Erfolge, Timer und die Supabase-Funktion.
 - **Behoben: Daten zwischen zwei Tabs und beim Speichern:** Zwei offene StudyOS-Tabs verlieren keine Änderungen mehr, wenn beide kurz nacheinander speichern. Ein langsamer älterer Speichervorgang überschreibt keinen neueren Stand mehr.
 - **Cloud-Sync robuster und sparsamer:** Hängt die Verbindung, gibt der Sync nach 30 Sekunden mit einer Meldung auf, statt bis zum Neuladen festzustecken. Beim Öffnen der App wird nichts heruntergeladen, wenn sich nichts geändert hat (bei großen Datenständen ca. 430 → 30 ms). Wer die Cloud-Daten löscht, während gerade synchronisiert wird, bekommt sie nicht wieder hochgeladen; beschädigte Cloud-Daten verlangen nicht mehr die Passphrase neu. Teilen an StudyOS behält den Text, auch wenn eine Datei nicht gespeichert werden kann.
 - **Behoben: Schnelleingabe:** Unmögliche Daten (31.02., 29.02. außerhalb von Schaltjahren, „25 Uhr“) werden nicht mehr als Frist übernommen, „nächsten Montag“ meint den Montag der kommenden Woche, „1,5 min“ ergibt keine ungültige Dauer mehr.
