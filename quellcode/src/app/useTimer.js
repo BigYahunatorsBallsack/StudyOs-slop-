@@ -41,7 +41,8 @@ export function useTimer({ sound, onFocusDone, onBreakDone, onLog, live, onLive,
   };
   const signal = () => {
     if (!sound) return;
-    try { navigator.vibrate && navigator.vibrate([180, 90, 180]); } catch {}
+    /* ohne vorheriges Antippen (Phase lief bei geschlossener App ab) blockiert der Browser das Vibrieren mit Konsolenfehler */
+    try { if (navigator.vibrate && navigator.userActivation?.hasBeenActive !== false) navigator.vibrate([180, 90, 180]); } catch {}
     const ctx = audioRef.current; if (!ctx) return;
     try {
       [0, 0.28, 0.56].forEach((t, i) => {

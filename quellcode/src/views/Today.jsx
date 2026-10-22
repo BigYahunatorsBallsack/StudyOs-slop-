@@ -40,7 +40,8 @@ import { focusItem } from "../ui/actions.jsx";
 export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen = () => {} }) {
   const data = withoutArchived(db.data), t = iso();
   /* Wird „Zu erledigen“ gerade leer, gibt es den Abschuss (nicht beim Öffnen der Seite) */
-  const openCount = data.modules.length ? todoItems(data, t).length : 0;
+  const todo = data.modules.length ? todoItems(data, t) : [];
+  const openCount = todo.length;
   const prevOpen = useRef(openCount);
   const [cleared, setCleared] = useState(0);
   const [customize, setCustomize] = useState(false);
@@ -78,7 +79,6 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const [nowOpen, setNowOpen] = [whatNowOpen, setWhatNowOpen];
   const blocksToday = (data.blocks || []).filter((b) => b.date === t);
   const plan = [...todays.map((s) => ({ s })), ...blocksToday.map((b) => ({ b, start: b.start }))].sort((a, b) => (a.s || a.b).start.localeCompare((b.s || b.b).start));
-  const todo = todoItems(data, t);
   /* Prüfungen und Wiederholungsprüfungen als Countdown */
   const exams = [
     ...data.exams.filter((e) => e.date >= t && e.result !== "bestanden").map((e) => ({ e, date: e.date, retake: false })),
@@ -105,13 +105,14 @@ export function Today({ db, onQuick, notice, whatNowOpen = false, setWhatNowOpen
   const tomorrow = tomorrowPreview(data, t, now);
   /* Wochenende, Feiertag, vorlesungsfrei ohne Termin: leere Termin-Bereiche weg, Abgaben, Karten und Lernzeit bleiben */
   const quiet = quietDay(t, data.settings, data.sessions);
-  const quietHide = new Set(quiet ? [...QUIET_HIDE.filter((id) => !(id === "plan" && blocksToday.length)), ...(["calm", "session"].includes(nextUp(data, t, now).type) ? ["next"] : [])] : []);
+  const next = nextUp(data, t, now);
+  const quietHide = new Set(quiet ? [...QUIET_HIDE.filter((id) => !(id === "plan" && blocksToday.length)), ...(["calm", "session"].includes(next.type) ? ["next"] : [])] : []);
 
   /* Bereiche der Seite; Reihenfolge und Sichtbarkeit wählt man unter „Heute anpassen“ */
   const blocks = {
     timeline: strip && <TimeStrip db={db} strip={strip} data={data} />,
     morgen: tomorrow && <TomorrowCard db={db} p={tomorrow} />,
-    next: <NextUp db={db} openReviews={openReviews} cardsDue={cardsDue} />,
+    next: <NextUp db={db} n={next} openReviews={openReviews} cardsDue={cardsDue} />,
     changes: changes.length > 0 && <FeedChanges db={db} list={changes} />,
     quick: (
       <div className="mt-3 flex gap-2">
@@ -402,9 +403,7 @@ function DoneList({ db, done }) {
 }
 
 /* Die große Karte oben: färbt sich in der Modulfarbe des wichtigsten nächsten Eintrags */
-function NextUp({ db, openReviews, cardsDue }) {
-  const data = withoutArchived(db.data);
-  const n = nextUp(data);
+function NextUp({ db, n, openReviews, cardsDue }) {
   if (n.type === "calm") {
     const hint = openReviews ? `${openReviews} ${openReviews === 1 ? "Termin wartet" : "Termine warten"} auf Nachbereitung.` : cardsDue ? `${cardsDue} Karteikarten sind fällig.` : "Gute Gelegenheit für eine Wiederholung oder eine Pause.";
     return (
@@ -470,9 +469,10 @@ function AllDone({ shot }) {
 /* Sonntags die laufende, montags die vergangene Woche auf einen Blick; ausblenden gilt pro Woche und Gerät */
 const WEEK_KEY = "studyos-woche-gesehen";
 function WeekCard({ db, w }) {
-  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(WEEK_KEY) === w.from; } catch { return false; } });
-  if (hidden) return null;
-  const hide = () => { try { localStorage.setItem(WEEK_KEY, w.from); } catch { /* egal */ } setHidden(true); };
+  /* gemerkt wird die ausgeblendete Woche, nicht nur „ausgeblendet“: bleibt die App bis zur nächsten Woche offen, kommt die Karte wieder */
+  const [hiddenWeek, setHiddenWeek] = useState(() => { try { return localStorage.getItem(WEEK_KEY); } catch { return null; } });
+  if (hiddenWeek === w.from) return null;
+  const hide = () => { try { localStorage.setItem(WEEK_KEY, w.from); } catch { /* egal */ } setHiddenWeek(w.from); };
   const diff = w.minutes - w.prevMinutes;
   const facts = [
     w.hwDone ? `${w.hwDone} ${w.hwDone === 1 ? "Abgabe" : "Abgaben"} erledigt` : "",

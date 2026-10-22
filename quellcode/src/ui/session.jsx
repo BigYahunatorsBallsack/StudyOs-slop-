@@ -54,15 +54,18 @@ export function SessionPopover({ s, db, anchor, onClose, onEnter, onLeave, note 
     setPos({ left, top });
   }, [anchor, s]);
 
+  /* Listener nur einmal anmelden; onClose kommt bei jedem Rendern neu (useHoverCard), darum über eine Ref */
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") { onClose(); opener.current?.focus?.(); } };
-    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.(".ev")) onClose(); };
-    const onScroll = () => onClose();
+    const close = () => closeRef.current();
+    const onKey = (e) => { if (e.key === "Escape") { close(); opener.current?.focus?.(); } };
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.(".ev")) close(); };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onDown);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onDown); window.removeEventListener("scroll", onScroll); };
-  }, [onClose]);
+    window.addEventListener("scroll", close, { passive: true });
+    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onDown); window.removeEventListener("scroll", close); };
+  }, []);
 
   return (
     <div ref={ref} className="popover" role="dialog" aria-label={`${m?.name || "Termin"}, ${s.type}`} style={{ left: pos.left, top: pos.top, "--mod": m?.color }}
