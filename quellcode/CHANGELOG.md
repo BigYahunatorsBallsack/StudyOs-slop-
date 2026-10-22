@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Behoben: Kopfzeile am Handy:** Mit Cloud-Sync steht dort nicht mehr der Text „Synchronisiert“, der die Kopfzeile zuschob, sodass die Suche aus dem Bild rutschte. Den Stand zeigt der farbige Punkt (antippen gleicht ab), am PC bleibt der Text.
 - **Behoben: „Speichern“ am PC:** Ein Klick speichert sofort, auch wenn eine Teilaufgabe oder ein Partner noch nicht mit Enter übernommen war (vorher brauchte es einen zweiten Klick).
 - **Behoben: Seite seitlich verschiebbar:** Auf schmalen Handys rutschen bei langen Wochentiteln („vorlesungsfrei“, „Donnerstag“) die Knöpfe in die nächste Zeile. Lange Links als Raum, in Prüfungsnotizen oder Notiztiteln brechen um, Fristen im Wochenraster machen die Seite nicht mehr breiter.
 - **Behoben: kleinere Darstellungsfehler:** Ein Abschnitt auf „Heute“ bleibt nicht mehr halb zugeklappt hängen, wenn man mittendrin „Bewegung aus“ wählt. „Als Tabelle“ in der Modulübersicht lässt sich am Handy leichter antippen. In der Gameboy-Palette ist die Stundensumme des heutigen Tags besser lesbar.
