@@ -1,6 +1,6 @@
 /* Weg zur Uni: letzter Stand von Abfahrten und Fahrzeit auf dem Gerät (localStorage), gemeinsam für die Karte auf „Heute“
    und die Abfahrt in der Kopfzeile. Gleichzeitige Abfragen für denselben Schlüssel laufen nur einmal. */
-import { carPlan, firstSessionOn, hhmm, isOnline, queryOffset, recommend } from "./transit.js";
+import { carPlan, firstSessionOn, hhmm, isOnline, queryOffset, recommend, typesFor } from "./transit.js";
 import { homeQueries, HOMEWARD } from "./homeward.js";
 import { iso } from "./util.js";
 
@@ -38,13 +38,13 @@ const once = (k, run) => {
 export function loadTransit(cloud, c, session) {
   const key = transitKey(c, session);
   return once(key, async () => {
-    const q = (station, offset, limit) => ({ kind: "departures", station: station.id, types: TYPES, offset, limit });
+    const q = (leg, offset, limit) => ({ kind: "departures", station: leg.station.id, types: typesFor(leg.line, TYPES), offset, limit });
     const f = c.feeder;
-    const list = [q(c.station, 0, 40)];
-    if (f) list.push(q(f.station, 0, 40));
+    const list = [q(c, 0, 40)];
+    if (f) list.push(q(f, 0, 40));
     const off = session ? queryOffset(session, c) : 0, fo = session && f ? queryOffset(session, c, new Date(), true) : 0;
-    if (off > 30) list.push(q(c.station, off, 60));
-    if (fo > 30) list.push(q(f.station, fo, 60));
+    if (off > 30) list.push(q(c, off, 60));
+    if (fo > 30) list.push(q(f, fo, 60));
     const res = await (cloud.mvgMany ? cloud.mvgMany(list) : Promise.all(list.map((b) => cloud.mvg(b))));
     let i = 0;
     const mainNow = res[i++], feederNow = f ? res[i++] : null;
@@ -60,7 +60,7 @@ export const HOME_CACHE = `home:${HOMEWARD.station.id}>${HOMEWARD.conn.station.i
 /** Heimweg: Bus ab Garching und S-Bahn in Haar in einem Aufruf holen und ablegen; liefert die Rohdaten */
 export function loadHome(cloud) {
   return once(HOME_CACHE, async () => {
-    const list = homeQueries(TYPES);
+    const list = homeQueries(typesFor(HOMEWARD.line, TYPES));
     const [buses, trains] = await (cloud.mvgMany ? cloud.mvgMany(list) : Promise.all(list.map((b) => cloud.mvg(b))));
     const raw = { buses, trains };
     writeCache(HOME_CACHE, raw);

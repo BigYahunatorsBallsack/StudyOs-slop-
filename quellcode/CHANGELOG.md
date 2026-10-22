@@ -1,6 +1,7 @@
 # Änderungen
 
 ## Unveröffentlicht
+- **Behoben: Weg zur Uni empfahl zu frühe Verbindungen:** Die MVG liefert je Abfrage höchstens 30 Abfahrten. In Haar waren das mit allen S-Bahnen und Bussen nur gut 40 Minuten, sodass der späteste passende Bus 230 fehlte und StudyOS einen früheren vorschlug (z. B. Ankunft 09:14 statt 09:34 für 10:00). Jetzt werden nur die Busse bzw. nur die S-Bahnen der eigenen Linie abgefragt, ab 40 Minuten vor der spätesten Abfahrt. Gilt auch für den Heimweg und die Pushes zum Losgehen.
 - **Weg zur Uni: Heimweg ohne Standort:** Mit dem Auto geht der Heimweg immer vom gewählten Campus aus, „Ab meinem Standort“ gibt es nur noch auf dem Hinweg.
 - **Weg zur Uni: Campus nur in den Einstellungen:** Die Campus-Auswahl steht nicht mehr auf der Karte, sondern unter „Daten & Einstellungen“ → „Weg zur Uni“.
 - **Weg zur Uni: Öffis schneller:** Heimweg und die anderen Veranstaltungen zur Auswahl werden im Hintergrund vorgeladen, der Wechsel steht sofort da. Der letzte Stand wird bis zu 3 Stunden lang sofort gezeigt (mit „Stand hh:mm“) und dann erneuert, statt nur 30 Minuten lang.

@@ -296,6 +296,13 @@ function recommend(departures2, session, c, feederDeps = null, startMs = null) {
   }
   return null;
 }
+function typesFor(line, all = "BUS,REGIONAL_BUS,SBAHN,UBAHN,TRAM,BAHN") {
+  const l = String(line || "").trim();
+  if (/^S\d/i.test(l)) return "SBAHN";
+  if (/^U\d/i.test(l)) return "UBAHN";
+  if (/^\d/.test(l)) return "BUS,REGIONAL_BUS";
+  return all;
+}
 function vehicle(d) {
   const line = String(d?.line || "");
   const type = String(d?.type || "");
@@ -330,11 +337,11 @@ function reason(plan, main, feeder, tz) {
 async function departures(c, startMs, t, fetchImpl) {
   const offset = (ms) => Math.max(0, Math.round((ms - t) / MIN) - 45);
   const mainLatest = startMs - (c.buffer + c.travel) * MIN;
-  const main = await mvg({ kind: "departures", station: c.station.id, types: TYPES2, offset: offset(mainLatest), limit: 60 }, fetchImpl);
+  const main = await mvg({ kind: "departures", station: c.station.id, types: typesFor(c.line, TYPES2), offset: offset(mainLatest), limit: 60 }, fetchImpl);
   if (main.error) return null;
   let feeder = null;
   if (c.feeder && c.feeder.station && c.feeder.station.id) {
-    const r = await mvg({ kind: "departures", station: c.feeder.station.id, types: TYPES2, offset: offset(mainLatest - (c.feeder.transfer + c.feeder.travel) * MIN), limit: 60 }, fetchImpl);
+    const r = await mvg({ kind: "departures", station: c.feeder.station.id, types: typesFor(c.feeder.line, TYPES2), offset: offset(mainLatest - (c.feeder.transfer + c.feeder.travel) * MIN), limit: 60 }, fetchImpl);
     if (r.error) return null;
     feeder = r.data;
   }

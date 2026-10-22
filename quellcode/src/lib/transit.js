@@ -95,11 +95,12 @@ export const dayWord = (date, today = iso()) => (date === today ? "heute" : date
 /* wie localMs in util.js; eigene Kopie, damit das Bündel der Edge Function gleich bleibt */
 const at = (date, hm) => { const [y, m, d] = date.split("-").map(Number); const [h, mi] = hm.split(":").map(Number); return new Date(y, m - 1, d, h, mi).getTime(); };
 
-/** Abfragefenster in Minuten ab jetzt: eine Stunde vor der spätesten passenden Abfahrt der Hauptlinie bzw. des Zubringers */
+/** Abfragefenster in Minuten ab jetzt: 40 Minuten vor der spätesten passenden Abfahrt der Hauptlinie bzw. des Zubringers.
+    Die MVG liefert höchstens 30 Abfahrten je Abfrage; mit einer Stunde Vorlauf fehlten so die späten Busse. */
 export function queryOffset(session, c, now = new Date(), feeder = false) {
   let latest = at(session.date, session.start) - (c.buffer + c.travel) * 60000;
   if (feeder && c.feeder) latest -= (c.feeder.transfer + c.feeder.travel) * 60000;
-  return Math.max(0, Math.round((latest - now.getTime()) / 60000) - 60);
+  return Math.max(0, Math.round((latest - now.getTime()) / 60000) - 40);
 }
 
 /**
@@ -120,6 +121,16 @@ export function recommend(departures, session, c, feederDeps = null, startMs = n
     if (fd) return { dep, feederDep: fd, session, leaveAt: fd.time - c.walk * 60000, changeAt: fd.time + f.travel * 60000, arriveAt: dep.time + c.travel * 60000 };
   }
   return null;
+}
+
+/** Verkehrsmittel für die Abfrage einer Linie: nur Busse für „230“, nur S-Bahnen für „S6“. An großen Haltestellen wie Haar
+    reichen die abgefragten Abfahrten sonst nur für eine halbe Stunde, spätere passende Busse fehlen dann. */
+export function typesFor(line, all = "BUS,REGIONAL_BUS,SBAHN,UBAHN,TRAM,BAHN") {
+  const l = String(line || "").trim();
+  if (/^S\d/i.test(l)) return "SBAHN";
+  if (/^U\d/i.test(l)) return "UBAHN";
+  if (/^\d/.test(l)) return "BUS,REGIONAL_BUS";
+  return all;
 }
 
 /** Verkehrsmittel einer Abfahrt: Icon und Satzteil („mit der S6“, „mit dem Bus 230“) */

@@ -48,7 +48,7 @@ describe("Bus zur Uni", () => {
     const chain2 = recommend(deps, ses[0], c, s6.map((d) => (d.time === at("2026-10-19", "08:52") ? { ...d, cancelled: true } : d)));
     expect(new Date(chain2.dep.time).toTimeString().slice(0, 5)).toBe("09:13");
     expect(new Date(chain2.feederDep.time).toTimeString().slice(0, 5)).toBe("08:32");
-    expect(queryOffset(ses[0], c, new Date("2026-10-19T06:00:00"))).toBe(135);
+    expect(queryOffset(ses[0], c, new Date("2026-10-19T06:00:00"))).toBe(155);
   });
 });
 
